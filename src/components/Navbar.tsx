@@ -11,18 +11,11 @@ const navItems = [
     children: [
       { label: "Trading Hub", path: "/trading" },
       { label: "AI Signals", path: "/signals" },
+      { label: "Partners Program", path: "/partners" },
     ],
   },
   { label: "Education", path: "/education" },
-  { label: "Market Tracker", path: "/market-tracker" },
-  { label: "Charts", path: "/charts" },
-  {
-    label: "Account",
-    children: [
-      { label: "Profile", path: "/profile" },
-      { label: "Settings", path: "/settings" },
-    ],
-  },
+  { label: "Help Center", path: "/help" },
 ];
 
 const Navbar = () => {
