@@ -1,10 +1,12 @@
 import { motion } from "framer-motion";
-import { TrendingUp, BarChart3, Users, Globe, Shield, Zap, Brain, ChevronDown, Lock, CreditCard, Star, Activity } from "lucide-react";
+import { TrendingUp, BarChart3, Users, Globe, Shield, Zap, Brain, ChevronDown, Lock, CreditCard, Star, Activity, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import excitedTrader from "@/assets/excited-trader.png";
 import marketGrowth from "@/assets/market-growth.png";
+
+const DERIV_AFFILIATE_LINK = "https://deriv.com/?t=xA1buvJrGeASmsCwn5r1F2Nd7ZgqdRLk&utm_source=affiliate_187242&utm_medium=affiliate&utm_campaign=MyAffiliates&utm_content=&referrer=";
 
 const fadeUp = {
   initial: { opacity: 0, y: 30 },
@@ -57,10 +59,16 @@ const whatYouGet = [
 ];
 
 const faqs = [
-  { q: "What is trading?", a: "Trading involves buying and selling financial instruments to profit from price movements." },
-  { q: "How does Dnexus work?", a: "Dnexus connects to the Deriv API to provide real-time trading, signals, and analytics in one platform." },
-  { q: "Is my money safe?", a: "We use official Deriv OAuth for authentication. Funds are held in your Deriv account, not ours." },
-  { q: "Can I use a demo account?", a: "Yes! Log in with your Deriv demo account (VRTC) to practice risk-free." },
+  { q: "What is DTNexus?", a: "DTNexus is an advanced third-party trading platform built on the official Deriv API. It provides AI-powered trading tools, premium signals, educational resources, and an affiliate partners program — all in one unified dashboard." },
+  { q: "How does DTNexus work?", a: "DTNexus connects securely to your Deriv account via OAuth2 authentication. Once connected, you can use our AI-powered digit analysis tools, premium signals with real-time technical indicators, and automated trading strategies to enhance your trading performance." },
+  { q: "Is my money safe?", a: "Absolutely. DTNexus never holds your funds — all money stays in your personal Deriv account. We use Deriv's official OAuth2 authentication, so we never see your password. Your session tokens are encrypted and stored temporarily in your browser." },
+  { q: "Can I use a demo account?", a: "Yes! When you log in with your Deriv account, you can switch between your real (CR) and demo (VRTC) accounts. Demo accounts come with $10,000 in virtual funds, perfect for practicing strategies risk-free before trading with real money." },
+  { q: "What markets can I trade?", a: "DTNexus supports all Deriv Volatility Indices — Volatility 10, 25, 50, 75, 100, 150, 200, and 250, both standard and 1-second variants. We specialize in digit trading contracts including Over/Under, Even/Odd, and Matches/Differs." },
+  { q: "What is the commission structure?", a: "DTNexus applies a transparent 3% commission on trades executed through our platform. There are no hidden fees, subscription costs, or minimum deposits. All educational content, signals, and analytics tools are included at no additional charge." },
+  { q: "How does the AI trading bot work?", a: "Our Quantum Digit Intelligence AI analyzes the last 100+ market ticks to identify statistical patterns, frequency imbalances, and streak behaviors. It uses mean reversion logic, probability-based recovery strategies, and smart staking to find high-probability trade setups." },
+  { q: "What are Premium Signals?", a: "Premium Signals provide real-time technical analysis including RSI, MACD, Stochastic, CCI, and multiple Moving Averages. These indicators are calculated from live tick data and displayed as intuitive gauge charts showing overall market sentiment." },
+  { q: "How do I become a partner?", a: "Visit our Partners Program page and sign up for free. You'll receive a unique referral link that tracks anyone who signs up through it. You earn lifetime commissions on every trade your referrals make — starting at 25% and going up to 40% based on volume." },
+  { q: "Is DTNexus affiliated with Deriv?", a: "No. DTNexus is an independent third-party platform built using Deriv's official public API. We are not affiliated with, endorsed by, or sponsored by Deriv Group or any of its subsidiaries." },
 ];
 
 const LandingPage = () => {
@@ -91,7 +99,7 @@ const LandingPage = () => {
             <Link to="/trading" className="flex items-center gap-2 px-8 py-3.5 bg-gradient-brand text-primary-foreground font-semibold rounded-lg hover:opacity-90 transition-opacity glow-red">
               Start Trading Now <TrendingUp className="w-5 h-5" />
             </Link>
-            <a href="https://deriv.com/signup/" target="_blank" rel="noopener" className="px-8 py-3.5 border border-border text-foreground font-semibold rounded-lg hover:bg-secondary transition-colors">
+            <a href={DERIV_AFFILIATE_LINK} target="_blank" rel="noopener" className="px-8 py-3.5 border border-border text-foreground font-semibold rounded-lg hover:bg-secondary transition-colors">
               Create Free Deriv Account
             </a>
           </motion.div>
@@ -333,10 +341,10 @@ const LandingPage = () => {
           </motion.div>
           <div className="space-y-3">
             {faqs.map((faq, i) => (
-              <motion.details key={i} className="group p-4 rounded-lg bg-card border border-border" {...fadeUp} transition={{ delay: i * 0.05 }}>
+              <motion.details key={i} className="group p-4 rounded-lg bg-card border border-border" {...fadeUp} transition={{ delay: i * 0.03 }}>
                 <summary className="flex items-center justify-between cursor-pointer text-sm font-medium text-foreground">
                   {faq.q}
-                  <ChevronDown className="w-4 h-4 text-muted-foreground group-open:rotate-180 transition-transform" />
+                  <ChevronDown className="w-4 h-4 text-muted-foreground group-open:rotate-180 transition-transform shrink-0 ml-2" />
                 </summary>
                 <p className="mt-3 text-sm text-muted-foreground leading-relaxed">{faq.a}</p>
               </motion.details>
@@ -345,7 +353,65 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* CTA */}
+      {/* Create Deriv Account CTA */}
+      <section className="py-20">
+        <div className="container">
+          <motion.div className="rounded-2xl overflow-hidden" {...fadeUp}>
+            <div className="bg-gradient-brand p-8 md:p-12">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <div className="space-y-6">
+                  <h2 className="text-3xl md:text-4xl font-bold text-primary-foreground">
+                    Create Your Free Deriv Account
+                  </h2>
+                  <p className="text-primary-foreground/80 leading-relaxed">
+                    Don't have a Deriv account yet? Sign up in minutes and get access to $10,000 in virtual funds to practice with. Trade Volatility Indices, Forex, Crypto, and more on one of the world's leading trading platforms.
+                  </p>
+                  <ul className="space-y-2">
+                    {[
+                      "Free $10,000 demo account",
+                      "Trade 24/7 on synthetic indices",
+                      "Instant deposits & withdrawals",
+                      "Regulated & secure platform",
+                      "No minimum deposit required",
+                    ].map((item) => (
+                      <li key={item} className="flex items-center gap-2 text-sm text-primary-foreground/90">
+                        <span className="text-primary-foreground">✓</span> {item}
+                      </li>
+                    ))}
+                  </ul>
+                  <a
+                    href={DERIV_AFFILIATE_LINK}
+                    target="_blank"
+                    rel="noopener"
+                    className="inline-flex items-center gap-2 px-8 py-3.5 bg-background text-foreground font-semibold rounded-lg hover:bg-secondary transition-colors"
+                  >
+                    Create Account Now <ExternalLink className="w-4 h-4" />
+                  </a>
+                </div>
+                <div className="space-y-4">
+                  {[
+                    { step: "1", title: "Sign Up", desc: "Create your free Deriv account in under 2 minutes" },
+                    { step: "2", title: "Fund Your Account", desc: "Deposit using crypto, bank transfer, or e-wallets" },
+                    { step: "3", title: "Connect to DTNexus", desc: "Link your Deriv account and start trading with AI" },
+                  ].map((s) => (
+                    <div key={s.step} className="flex gap-4 items-start p-4 rounded-xl bg-background/10 backdrop-blur-sm">
+                      <div className="w-8 h-8 rounded-full bg-background/20 flex items-center justify-center shrink-0">
+                        <span className="text-sm font-bold text-primary-foreground">{s.step}</span>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-primary-foreground">{s.title}</h4>
+                        <p className="text-xs text-primary-foreground/70 mt-1">{s.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Final CTA */}
       <section className="py-20 bg-card/50">
         <div className="container text-center">
           <motion.h2 className="text-3xl md:text-4xl font-bold" {...fadeUp}>
@@ -358,7 +424,7 @@ const LandingPage = () => {
             <Link to="/trading" className="px-8 py-3.5 bg-gradient-brand text-primary-foreground font-semibold rounded-lg glow-red">
               Start Trading Now
             </Link>
-            <a href="https://deriv.com/signup/" target="_blank" rel="noopener" className="px-8 py-3.5 border border-border text-foreground font-semibold rounded-lg hover:bg-secondary transition-colors">
+            <a href={DERIV_AFFILIATE_LINK} target="_blank" rel="noopener" className="px-8 py-3.5 border border-border text-foreground font-semibold rounded-lg hover:bg-secondary transition-colors">
               Create Deriv Account
             </a>
           </motion.div>

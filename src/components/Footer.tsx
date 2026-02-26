@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import logo from "@/assets/logo.png";
 
 const Footer = () => (
@@ -20,28 +21,28 @@ const Footer = () => (
         <div>
           <h4 className="font-semibold text-foreground mb-4 text-sm uppercase tracking-wider">Platforms</h4>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li><a href="/trading" className="hover:text-primary transition-colors">Trading Hub</a></li>
-            <li><a href="/signals" className="hover:text-primary transition-colors">AI Signals</a></li>
-            <li><a href="/market-tracker" className="hover:text-primary transition-colors">Market Tracker</a></li>
-            <li><a href="/charts" className="hover:text-primary transition-colors">Charts</a></li>
+            <li><Link to="/trading" className="hover:text-primary transition-colors">Trading Hub</Link></li>
+            <li><Link to="/signals" className="hover:text-primary transition-colors">AI Signals</Link></li>
+            <li><Link to="/partners" className="hover:text-primary transition-colors">Partners Program</Link></li>
+            <li><Link to="/education" className="hover:text-primary transition-colors">eLearning Academy</Link></li>
           </ul>
         </div>
 
         <div>
           <h4 className="font-semibold text-foreground mb-4 text-sm uppercase tracking-wider">Resources</h4>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li><a href="/education" className="hover:text-primary transition-colors">Education</a></li>
+            <li><Link to="/education" className="hover:text-primary transition-colors">Education</Link></li>
+            <li><Link to="/help" className="hover:text-primary transition-colors">Help Center</Link></li>
             <li><a href="https://developers.deriv.com" target="_blank" rel="noopener" className="hover:text-primary transition-colors">API Docs</a></li>
-            <li><a href="/help" className="hover:text-primary transition-colors">Help Center</a></li>
           </ul>
         </div>
 
         <div>
           <h4 className="font-semibold text-foreground mb-4 text-sm uppercase tracking-wider">Legal</h4>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li><a href="/terms" className="hover:text-primary transition-colors">Terms of Service</a></li>
-            <li><a href="/privacy" className="hover:text-primary transition-colors">Privacy Policy</a></li>
-            <li><a href="/risk" className="hover:text-primary transition-colors">Risk Disclosure</a></li>
+            <li><Link to="/terms" className="hover:text-primary transition-colors">Terms of Service</Link></li>
+            <li><Link to="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
+            <li><Link to="/risk" className="hover:text-primary transition-colors">Risk Disclosure</Link></li>
           </ul>
         </div>
       </div>

@@ -8,6 +8,11 @@ import TradingHub from "./pages/TradingHub";
 import Callback from "./pages/Callback";
 import Signals from "./pages/Signals";
 import Education from "./pages/Education";
+import Partners from "./pages/Partners";
+import Help from "./pages/Help";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
+import Risk from "./pages/Risk";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +29,16 @@ const App = () => (
           <Route path="/callback" element={<Callback />} />
           <Route path="/signals" element={<Signals />} />
           <Route path="/education" element={<Education />} />
+          <Route path="/partners" element={<Partners />} />
+          <Route path="/help" element={<Help />} />
+          <Route path="/terms" element={<Terms />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/risk" element={<Risk />} />
+          <Route path="/market-tracker" element={<Signals />} />
+          <Route path="/charts" element={<Signals />} />
+          <Route path="/profile" element={<TradingHub />} />
+          <Route path="/settings" element={<TradingHub />} />
+          <Route path="/signals-beta" element={<Signals />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
