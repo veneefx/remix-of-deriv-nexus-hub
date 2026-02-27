@@ -1,17 +1,16 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
 import {
   Home, BarChart3, Users, TrendingUp, BookOpen, HelpCircle,
-  LogOut, ChevronDown, Wallet, Menu, X, Settings
+  Menu, X, Wallet
 } from "lucide-react";
 import logo from "@/assets/logo.png";
-import { getActiveAccount, getStoredAccounts, setActiveAccount, clearAuth, type DerivAccount } from "@/services/deriv-auth";
+import { getActiveAccount, getStoredAccounts, clearAuth, type DerivAccount } from "@/services/deriv-auth";
 import { getOAuthUrl } from "@/services/deriv-auth";
 import TradingPanel from "@/components/trading/TradingPanel";
 import DerivWebSocket from "@/services/deriv-websocket";
 
-const DERIV_APP_ID = "68014"; // Will be overridden by env if available
+const DERIV_APP_ID = "68014";
 
 const sidebarItems = [
   { icon: Home, label: "Home", path: "/trading" },
@@ -24,7 +23,7 @@ const sidebarItems = [
 
 const TradingHub = () => {
   const [account, setAccount] = useState<DerivAccount | null>(getActiveAccount());
-  const [accounts, setAccounts] = useState<DerivAccount[]>(getStoredAccounts());
+  const [accounts] = useState<DerivAccount[]>(getStoredAccounts());
   const [balance, setBalance] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [ws, setWs] = useState<DerivWebSocket | null>(null);
@@ -32,30 +31,21 @@ const TradingHub = () => {
 
   useEffect(() => {
     if (!account) return;
-
     const wsInstance = new DerivWebSocket(DERIV_APP_ID);
     setWs(wsInstance);
-
     wsInstance.connect().then(() => {
       wsInstance.authorize(account.token);
     });
-
     wsInstance.on("authorize", (data) => {
       if (data.authorize) {
         setBalance(data.authorize.balance);
         wsInstance.getBalance();
       }
     });
-
     wsInstance.on("balance", (data) => {
-      if (data.balance) {
-        setBalance(data.balance.balance);
-      }
+      if (data.balance) setBalance(data.balance.balance);
     });
-
-    return () => {
-      wsInstance.disconnect();
-    };
+    return () => { wsInstance.disconnect(); };
   }, [account]);
 
   const handleLogin = () => {
@@ -66,7 +56,6 @@ const TradingHub = () => {
   const handleLogout = () => {
     clearAuth();
     setAccount(null);
-    setAccounts([]);
     setBalance(null);
     ws?.disconnect();
     navigate("/");
@@ -76,58 +65,57 @@ const TradingHub = () => {
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Sidebar */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-sidebar border-r border-sidebar-border flex flex-col transition-transform lg:translate-x-0 ${
+        className={`fixed lg:static inset-y-0 left-0 z-50 w-60 bg-card border-r border-border flex flex-col transition-transform lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
+        <div className="h-14 px-4 flex items-center gap-2 border-b border-border">
+          <img src={logo} alt="Dnexus" className="h-6" />
+          <span className="font-display text-sm font-bold">
+            <span className="text-foreground">DN</span>
+            <span className="text-primary">EXUS</span>
+          </span>
+        </div>
+
         {/* User area */}
-        <div className="p-4 border-b border-sidebar-border">
+        <div className="p-3 border-b border-border">
           {account ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center">
-                  <span className="text-sm font-bold text-primary">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                  <span className="text-xs font-bold text-primary">
                     {account.loginid.charAt(0)}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-sidebar-foreground truncate">
-                    {account.loginid}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs font-medium text-foreground truncate">{account.loginid}</p>
+                  <p className="text-[10px] text-muted-foreground">
                     {account.is_virtual ? "Demo" : "Real"} • {account.currency}
                   </p>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleLogout}
-                  className="flex-1 px-3 py-1.5 text-xs font-medium bg-destructive/10 text-destructive rounded hover:bg-destructive/20 transition-colors"
-                >
+              <div className="flex gap-1.5">
+                <button onClick={handleLogout} className="flex-1 px-2 py-1 text-[10px] font-medium bg-destructive/10 text-destructive rounded hover:bg-destructive/20 transition-colors">
                   Logout
                 </button>
-                <button className="flex-1 px-3 py-1.5 text-xs font-medium bg-primary/10 text-primary rounded hover:bg-primary/20 transition-colors">
+                <button className="flex-1 px-2 py-1 text-[10px] font-medium bg-primary/10 text-primary rounded hover:bg-primary/20 transition-colors">
                   Upgrade
                 </button>
               </div>
             </div>
           ) : (
-            <button
-              onClick={handleLogin}
-              className="w-full px-4 py-2.5 bg-gradient-brand text-primary-foreground font-semibold text-sm rounded-lg"
-            >
+            <button onClick={handleLogin} className="w-full px-3 py-2 bg-gradient-brand text-primary-foreground font-semibold text-xs rounded-lg">
               Connect Account
             </button>
           )}
         </div>
 
-        {/* Nav items */}
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
           {sidebarItems.map((item) => (
             <Link
               key={item.path}
               to={item.path}
-              className="flex items-center gap-3 px-3 py-2.5 text-sm text-sidebar-foreground rounded-lg hover:bg-sidebar-accent transition-colors"
+              className="flex items-center gap-2.5 px-3 py-2 text-xs text-secondary-foreground rounded-lg hover:bg-secondary transition-colors"
               onClick={() => setSidebarOpen(false)}
             >
               <item.icon className="w-4 h-4" />
@@ -136,62 +124,44 @@ const TradingHub = () => {
           ))}
         </nav>
 
-        {/* Dark mode toggle area */}
-        <div className="p-4 border-t border-sidebar-border">
-          <Link
-            to="/"
-            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
+        <div className="p-3 border-t border-border">
+          <Link to="/" className="flex items-center gap-2 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
             ← Back to Home
           </Link>
         </div>
       </aside>
 
-      {/* Overlay for mobile sidebar */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar */}
-        <header className="h-14 border-b border-border flex items-center justify-between px-4">
-          <button
-            className="lg:hidden text-foreground"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-
-          <div className="flex items-center gap-2">
-            <img src={logo} alt="Dnexus" className="h-6 lg:hidden" />
+        <header className="h-12 border-b border-border flex items-center justify-between px-4 bg-card/50">
+          <div className="flex items-center gap-3">
+            <button className="lg:hidden text-foreground" onClick={() => setSidebarOpen(true)}>
+              <Menu className="w-5 h-5" />
+            </button>
+            <img src={logo} alt="Dnexus" className="h-5 lg:hidden" />
           </div>
-
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {balance !== null && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-card rounded-lg border border-border">
-                <Wallet className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-semibold text-foreground">
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-card rounded-lg border border-border">
+                <Wallet className="w-3.5 h-3.5 text-muted-foreground" />
+                <span className="text-xs font-semibold text-foreground">
                   {balance.toFixed(2)} {account?.currency || "USD"}
                 </span>
               </div>
             )}
             {!account && (
-              <button
-                onClick={handleLogin}
-                className="px-4 py-1.5 bg-gradient-brand text-primary-foreground text-sm font-medium rounded-lg"
-              >
+              <button onClick={handleLogin} className="px-4 py-1.5 bg-gradient-brand text-primary-foreground text-xs font-medium rounded-lg">
                 Connect Account
               </button>
             )}
           </div>
         </header>
 
-        {/* Trading area */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+        <main className="flex-1 overflow-y-auto">
           {!account ? (
             <NotLoggedIn onLogin={handleLogin} />
           ) : (
@@ -204,8 +174,8 @@ const TradingHub = () => {
 };
 
 const NotLoggedIn = ({ onLogin }: { onLogin: () => void }) => (
-  <div className="max-w-lg mx-auto mt-12 space-y-8">
-    <div className="p-6 rounded-xl bg-card border border-border text-center space-y-4">
+  <div className="max-w-lg mx-auto mt-12 p-4 space-y-8">
+    <div className="p-6 rounded-xl bg-primary/10 border border-primary/20 text-center space-y-4">
       <div className="inline-block px-3 py-1 rounded-full bg-accent/10 text-accent text-xs font-medium">
         ⭐ Premium Feature
       </div>
@@ -213,10 +183,7 @@ const NotLoggedIn = ({ onLogin }: { onLogin: () => void }) => (
       <p className="text-sm text-muted-foreground">
         Unlock the power of Digit Edge, our advanced trading tools. Sign in to your account to get started with premium features.
       </p>
-      <button
-        onClick={onLogin}
-        className="px-6 py-2.5 bg-gradient-brand text-primary-foreground font-semibold rounded-lg glow-red"
-      >
+      <button onClick={onLogin} className="px-6 py-2.5 bg-gradient-brand text-primary-foreground font-semibold rounded-lg glow-red">
         🔑 Sign in Now
       </button>
     </div>
@@ -243,11 +210,11 @@ const NotLoggedIn = ({ onLogin }: { onLogin: () => void }) => (
         {[
           { icon: BarChart3, title: "Advanced Analytics", desc: "Detailed insights and analysis" },
           { icon: TrendingUp, title: "AI-Powered Signals", desc: "Accurate market predictions" },
-          { icon: Settings, title: "Real-Time Updates", desc: "Instant notifications" },
-          { icon: Home, title: "Risk Management", desc: "Protect your investments" },
+          { icon: Home, title: "Real-Time Updates", desc: "Instant notifications" },
+          { icon: Users, title: "Risk Management", desc: "Protect your investments" },
         ].map((item) => (
           <div key={item.title} className="p-4 rounded-lg bg-card border border-border">
-            <item.icon className="w-5 h-5 text-accent mb-2" />
+            <item.icon className="w-5 h-5 text-primary mb-2" />
             <h4 className="text-sm font-semibold text-foreground">{item.title}</h4>
             <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
           </div>

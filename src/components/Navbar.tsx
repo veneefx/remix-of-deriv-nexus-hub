@@ -15,7 +15,15 @@ const navItems = [
     ],
   },
   { label: "Education", path: "/education" },
-  { label: "Help Center", path: "/help" },
+  { label: "Market Tracker", path: "/signals" },
+  { label: "Charts", path: "/signals" },
+  {
+    label: "Account",
+    children: [
+      { label: "Profile", path: "/trading" },
+      { label: "Settings", path: "/trading" },
+    ],
+  },
 ];
 
 const Navbar = () => {
@@ -24,86 +32,88 @@ const Navbar = () => {
   const location = useLocation();
 
   return (
-    <nav className="sticky top-0 z-40 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-      <div className="container flex h-16 items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
-          <img src={logo} alt="Dnexus" className="h-8" />
-          <span className="font-display text-lg font-bold">
-            <span className="text-foreground">DN</span>
-            <span className="text-primary">EXUS</span>
-          </span>
-        </Link>
-
-        {/* Desktop Nav */}
-        <div className="hidden lg:flex items-center gap-1">
-          {navItems.map((item) => (
-            <div key={item.label} className="relative">
-              {item.children ? (
-                <button
-                  className={`flex items-center gap-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors hover:text-primary ${
-                    item.children.some((c) => c.path === location.pathname)
-                      ? "text-primary"
-                      : "text-muted-foreground"
-                  }`}
-                  onMouseEnter={() => setOpenDropdown(item.label)}
-                  onMouseLeave={() => setOpenDropdown(null)}
-                >
-                  {item.label}
-                  <ChevronDown className="w-3 h-3" />
-                  <AnimatePresence>
-                    {openDropdown === item.label && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 5 }}
-                        className="absolute top-full left-0 mt-1 w-48 bg-card border border-border rounded-lg shadow-xl overflow-hidden"
-                      >
-                        {item.children.map((child) => (
-                          <Link
-                            key={child.path}
-                            to={child.path}
-                            className="block px-4 py-2.5 text-sm text-secondary-foreground hover:bg-secondary hover:text-primary transition-colors"
-                          >
-                            {child.label}
-                          </Link>
-                        ))}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </button>
-              ) : (
-                <Link
-                  to={item.path}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors hover:text-primary ${
-                    location.pathname === item.path
-                      ? "text-primary"
-                      : "text-muted-foreground"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div className="hidden lg:flex items-center gap-3">
-          <Link
-            to="/trading"
-            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-brand text-primary-foreground font-semibold text-sm rounded-lg hover:opacity-90 transition-opacity glow-red"
-          >
-            Trading Hub
-            <TrendingUp className="w-4 h-4" />
+    <nav className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl">
+      <div className="container">
+        <div className="mx-auto flex h-[72px] items-center justify-between px-8 bg-card/60 backdrop-blur-sm border border-border/30 rounded-xl mt-3">
+          <Link to="/" className="flex items-center gap-2.5">
+            <img src={logo} alt="Dnexus" className="h-8" />
+            <span className="font-display text-lg font-bold">
+              <span className="text-foreground">DN</span>
+              <span className="text-primary">EXUS</span>
+            </span>
           </Link>
-        </div>
 
-        {/* Mobile toggle */}
-        <button
-          className="lg:hidden text-foreground"
-          onClick={() => setMobileOpen(!mobileOpen)}
-        >
-          {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
+          {/* Desktop Nav */}
+          <div className="hidden lg:flex items-center gap-1">
+            {navItems.map((item) => (
+              <div key={item.label} className="relative">
+                {item.children ? (
+                  <button
+                    className={`flex items-center gap-1 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground ${
+                      item.children.some((c) => c.path === location.pathname)
+                        ? "text-primary"
+                        : "text-secondary-foreground"
+                    }`}
+                    onMouseEnter={() => setOpenDropdown(item.label)}
+                    onMouseLeave={() => setOpenDropdown(null)}
+                  >
+                    {item.label}
+                    <ChevronDown className="w-3 h-3" />
+                    <AnimatePresence>
+                      {openDropdown === item.label && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 5 }}
+                          className="absolute top-full left-0 mt-1 w-48 bg-card border border-border rounded-lg shadow-xl overflow-hidden z-50"
+                        >
+                          {item.children.map((child) => (
+                            <Link
+                              key={child.path}
+                              to={child.path}
+                              className="block px-4 py-2.5 text-sm text-secondary-foreground hover:bg-secondary hover:text-primary transition-colors"
+                            >
+                              {child.label}
+                            </Link>
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </button>
+                ) : (
+                  <Link
+                    to={item.path}
+                    className={`px-4 py-2 text-sm font-medium transition-colors hover:text-foreground ${
+                      location.pathname === item.path
+                        ? "text-primary"
+                        : "text-secondary-foreground"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden lg:flex items-center gap-3">
+            <Link
+              to="/trading"
+              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-brand text-primary-foreground font-semibold text-sm rounded-lg hover-lift glow-red"
+            >
+              Trading Hub
+              <TrendingUp className="w-4 h-4" />
+            </Link>
+          </div>
+
+          {/* Mobile toggle */}
+          <button
+            className="lg:hidden text-foreground"
+            onClick={() => setMobileOpen(!mobileOpen)}
+          >
+            {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile menu */}
