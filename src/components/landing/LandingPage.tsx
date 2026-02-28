@@ -1,10 +1,12 @@
 import { motion } from "framer-motion";
-import { TrendingUp, BarChart3, Users, Globe, Shield, Zap, Brain, ChevronDown, Lock, CreditCard, Star, Activity, ExternalLink } from "lucide-react";
+import { TrendingUp, BarChart3, Users, Globe, Shield, Zap, Brain, ChevronDown, Lock, CreditCard, Star, Activity, ExternalLink, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import excitedTrader from "@/assets/excited-trader.png";
-import marketGrowth from "@/assets/market-growth.png";
+import traderBidAsk from "@/assets/trader-bid-ask.webp";
+import traderMobile from "@/assets/trader-mobile.webp";
+import traderNight from "@/assets/trader-night.webp";
+import partnerNetwork from "@/assets/partner-network.png";
 
 const DERIV_AFFILIATE_LINK = "https://deriv.com/?t=xA1buvJrGeASmsCwn5r1F2Nd7ZgqdRLk&utm_source=affiliate_187242&utm_medium=affiliate&utm_campaign=MyAffiliates&utm_content=&referrer=";
 
@@ -27,8 +29,8 @@ const platformCards = [
     badge: "Popular",
     badgeColor: "bg-buy/20 text-buy",
     desc: "Join our affiliate network and earn commissions",
-    details: "Partner with DTNexus and earn competitive commissions while helping traders succeed. Access advanced tracking, real-time analytics, and dedicated support.",
-    features: ["Competitive commission rates", "Real-time tracking dashboard", "Advanced analytics & reporting", "Dedicated partner support", "Marketing materials & tools"],
+    details: "Partner with DTNexus and earn competitive commissions while helping traders succeed.",
+    features: ["Competitive commission rates", "Real-time tracking dashboard", "Advanced analytics", "Dedicated partner support"],
     link: "/partners",
   },
   {
@@ -36,8 +38,8 @@ const platformCards = [
     badge: "New",
     badgeColor: "bg-accent/20 text-accent",
     desc: "Powered by advanced machine learning",
-    details: "Our AI system analyzes market patterns, predicts trends, and provides intelligent trading recommendations. Get real-time insights and automated strategy execution.",
-    features: ["Market pattern recognition", "Predictive analytics", "Automated strategy execution", "Risk management AI", "Real-time market insights"],
+    details: "Our AI analyzes market patterns, predicts trends, and provides intelligent trading recommendations.",
+    features: ["Market pattern recognition", "Predictive analytics", "Automated execution", "Risk management AI"],
     link: "/trading",
   },
   {
@@ -45,8 +47,8 @@ const platformCards = [
     badge: "Premium",
     badgeColor: "bg-primary/20 text-primary",
     desc: "Expert-curated trading opportunities",
-    details: "Access professional-grade trading signals with high accuracy rates. Our expert analysts provide detailed analysis and entry/exit points for optimal trading performance.",
-    features: ["High-accuracy signals", "Real-time notifications", "Detailed analysis reports", "Risk-reward ratios", "24/7 market coverage"],
+    details: "Access professional-grade trading signals with high accuracy rates and detailed analysis.",
+    features: ["High-accuracy signals", "Real-time notifications", "Detailed analysis", "24/7 coverage"],
     link: "/signals",
   },
 ];
@@ -59,16 +61,16 @@ const whatYouGet = [
 ];
 
 const faqs = [
-  { q: "What is DTNexus?", a: "DTNexus is an advanced third-party trading platform built on the official Deriv API. It provides AI-powered trading tools, premium signals, educational resources, and an affiliate partners program — all in one unified dashboard." },
-  { q: "How does DTNexus work?", a: "DTNexus connects securely to your Deriv account via OAuth2 authentication. Once connected, you can use our AI-powered digit analysis tools, premium signals with real-time technical indicators, and automated trading strategies to enhance your trading performance." },
-  { q: "Is my money safe?", a: "Absolutely. DTNexus never holds your funds — all money stays in your personal Deriv account. We use Deriv's official OAuth2 authentication, so we never see your password. Your session tokens are encrypted and stored temporarily in your browser." },
-  { q: "Can I use a demo account?", a: "Yes! When you log in with your Deriv account, you can switch between your real (CR) and demo (VRTC) accounts. Demo accounts come with $10,000 in virtual funds, perfect for practicing strategies risk-free before trading with real money." },
-  { q: "What markets can I trade?", a: "DTNexus supports all Deriv Volatility Indices — Volatility 10, 25, 50, 75, 100, 150, 200, and 250, both standard and 1-second variants. We specialize in digit trading contracts including Over/Under, Even/Odd, and Matches/Differs." },
-  { q: "What is the commission structure?", a: "DTNexus applies a transparent 3% commission on trades executed through our platform. There are no hidden fees, subscription costs, or minimum deposits. All educational content, signals, and analytics tools are included at no additional charge." },
-  { q: "How does the AI trading bot work?", a: "Our Quantum Digit Intelligence AI analyzes the last 100+ market ticks to identify statistical patterns, frequency imbalances, and streak behaviors. It uses mean reversion logic, probability-based recovery strategies, and smart staking to find high-probability trade setups." },
-  { q: "What are Premium Signals?", a: "Premium Signals provide real-time technical analysis including RSI, MACD, Stochastic, CCI, and multiple Moving Averages. These indicators are calculated from live tick data and displayed as intuitive gauge charts showing overall market sentiment." },
-  { q: "How do I become a partner?", a: "Visit our Partners Program page and sign up for free. You'll receive a unique referral link that tracks anyone who signs up through it. You earn lifetime commissions on every trade your referrals make — starting at 25% and going up to 40% based on volume." },
-  { q: "Is DTNexus affiliated with Deriv?", a: "No. DTNexus is an independent third-party platform built using Deriv's official public API. We are not affiliated with, endorsed by, or sponsored by Deriv Group or any of its subsidiaries." },
+  { q: "What is DTNexus?", a: "DTNexus is an advanced third-party trading platform built on the official Deriv API. It provides AI-powered trading tools, premium signals, educational resources, and an affiliate partners program." },
+  { q: "How does DTNexus work?", a: "DTNexus connects securely to your Deriv account via OAuth2 authentication. Once connected, you can use our AI-powered digit analysis tools, premium signals, and automated trading strategies." },
+  { q: "Is my money safe?", a: "Absolutely. DTNexus never holds your funds — all money stays in your personal Deriv account. We use Deriv's official OAuth2 authentication, so we never see your password." },
+  { q: "Can I use a demo account?", a: "Yes! You can switch between real (CR) and demo (VRTC) accounts. Demo accounts come with $10,000 in virtual funds for practicing risk-free." },
+  { q: "What markets can I trade?", a: "DTNexus supports all Deriv Volatility Indices — from V10 to V250, both standard and 1-second variants. We specialize in digit trading contracts." },
+  { q: "What is the commission structure?", a: "DTNexus applies a transparent 3% commission on trades. No hidden fees or subscription costs. All tools are included." },
+  { q: "How does the AI trading bot work?", a: "Our AI analyzes 100+ market ticks to identify statistical patterns, frequency imbalances, and streak behaviors using mean reversion and probability-based recovery strategies." },
+  { q: "What are Premium Signals?", a: "Premium Signals provide real-time RSI, MACD, Stochastic, CCI, and multiple Moving Averages calculated from live tick data, displayed as intuitive gauge charts." },
+  { q: "How do I become a partner?", a: "Visit our Partners Program page and sign up for free. You earn lifetime commissions on every trade your referrals make — starting at 25% up to 40%." },
+  { q: "Is DTNexus affiliated with Deriv?", a: "No. DTNexus is an independent third-party platform built using Deriv's official public API. We are not affiliated with Deriv Group." },
 ];
 
 const LandingPage = () => {
@@ -76,55 +78,94 @@ const LandingPage = () => {
     <div className="min-h-screen bg-gradient-dark">
       <Navbar />
 
-      {/* Hero */}
-      <section className="relative overflow-hidden">
+      {/* Hero - 2 column grid */}
+      <section className="relative overflow-hidden min-h-[90vh] flex items-center">
+        <div className="absolute inset-0 bg-grid-pattern" />
         <div className="absolute inset-0">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[150px]" />
+          <div className="absolute top-[40%] left-[30%] w-[500px] h-[500px] bg-primary/8 rounded-full blur-[150px]" />
         </div>
 
-        <div className="container relative py-24 md:py-36 text-center">
-          <motion.div className="inline-block px-4 py-1.5 mb-6 rounded-full border border-primary/30 bg-primary/5" {...fadeUp}>
-            <span className="text-xs font-medium text-primary">🚀 Next-Gen Trading Platform</span>
-          </motion.div>
+        <div className="container relative py-20 lg:py-0">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            {/* Left - Text */}
+            <div className="space-y-8">
+              <motion.div className="inline-block px-3 py-1.5 rounded-full border border-border/30 bg-secondary/50" {...fadeUp}>
+                <span className="text-xs font-medium text-secondary-foreground">🚀 Next-Gen Trading Platform</span>
+              </motion.div>
 
-          <motion.h1 className="text-4xl md:text-6xl lg:text-7xl font-bold leading-tight" {...fadeUp} transition={{ duration: 0.6, delay: 0.1 }}>
-            Trading made <span className="text-gradient-brand">easier</span>
-          </motion.h1>
+              <motion.h1 className="text-5xl md:text-6xl lg:text-[64px] font-bold leading-[1.1] tracking-[-1px]" {...fadeUp} transition={{ duration: 0.6, delay: 0.1 }}>
+                Trading made <br />easier
+              </motion.h1>
 
-          <motion.p className="mt-6 max-w-2xl mx-auto text-lg text-muted-foreground leading-relaxed" {...fadeUp} transition={{ duration: 0.6, delay: 0.2 }}>
-            Experience AI-powered analytics, automated trading strategies, professional signals, and secure account management - all in one unified platform.
-          </motion.p>
+              <motion.p className="text-lg text-muted-foreground leading-relaxed max-w-[540px]" {...fadeUp} transition={{ duration: 0.6, delay: 0.2 }}>
+                Experience AI-powered analytics, automated trading strategies, professional signals, and secure account management — all in one platform.
+              </motion.p>
 
-          <motion.div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4" {...fadeUp} transition={{ duration: 0.6, delay: 0.3 }}>
-            <Link to="/trading" className="flex items-center gap-2 px-8 py-3.5 bg-gradient-brand text-primary-foreground font-semibold rounded-lg hover:opacity-90 transition-opacity glow-red">
-              Start Trading Now <TrendingUp className="w-5 h-5" />
-            </Link>
-            <a href={DERIV_AFFILIATE_LINK} target="_blank" rel="noopener" className="px-8 py-3.5 border border-border text-foreground font-semibold rounded-lg hover:bg-secondary transition-colors">
-              Create Free Deriv Account
-            </a>
-          </motion.div>
+              <motion.div className="flex flex-col sm:flex-row gap-4" {...fadeUp} transition={{ duration: 0.6, delay: 0.3 }}>
+                <Link to="/trading" className="inline-flex items-center justify-center gap-2 h-[52px] px-7 bg-gradient-brand text-primary-foreground font-semibold rounded-[10px] hover-lift glow-red">
+                  Start Trading Now <ArrowRight className="w-5 h-5" />
+                </Link>
+                <a href={DERIV_AFFILIATE_LINK} target="_blank" rel="noopener" className="inline-flex items-center justify-center gap-2 h-[52px] px-7 bg-secondary/80 border border-border text-foreground font-semibold rounded-[10px] hover:bg-secondary transition-colors">
+                  Create Free Account
+                </a>
+              </motion.div>
 
-          <motion.div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto" {...fadeUp} transition={{ duration: 0.6, delay: 0.4 }}>
-            {features.map((f) => (
-              <div key={f.title} className="flex flex-col items-center gap-3 p-6">
-                <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center">
-                  <f.icon className="w-5 h-5 text-muted-foreground" />
-                </div>
-                <h3 className="font-semibold text-foreground">{f.title}</h3>
-                <p className="text-sm text-muted-foreground">{f.desc}</p>
+              {/* Feature icon row */}
+              <motion.div className="flex gap-12 pt-4" {...fadeUp} transition={{ duration: 0.6, delay: 0.4 }}>
+                {features.map((f) => (
+                  <div key={f.title} className="flex flex-col items-center gap-2">
+                    <div className="w-[42px] h-[42px] rounded-full bg-secondary/60 flex items-center justify-center">
+                      <f.icon className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-foreground">{f.title}</h3>
+                    <p className="text-xs text-muted-foreground text-center">{f.desc}</p>
+                  </div>
+                ))}
+              </motion.div>
+            </div>
+
+            {/* Right - Images */}
+            <motion.div
+              className="relative hidden lg:block"
+              initial={{ opacity: 0, x: 40 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+            >
+              <div className="relative">
+                {/* Green glow behind */}
+                <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(0,255,100,0.15)_0%,transparent_60%)] blur-[40px] animate-glow-pulse" />
+
+                {/* Main trader image */}
+                <img
+                  src={traderNight}
+                  alt="Trader using DTNexus platform at night"
+                  className="relative z-10 w-full max-w-[480px] mx-auto rounded-2xl shadow-[0_30px_60px_rgba(0,0,0,0.6)] float-animation"
+                />
+
+                {/* Floating bid/ask card */}
+                <motion.img
+                  src={traderBidAsk}
+                  alt="Trading interface showing bid and ask prices"
+                  className="absolute -bottom-4 -left-8 w-32 rounded-xl shadow-xl border border-border/20 z-20"
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: 0.8 }}
+                />
               </div>
-            ))}
-          </motion.div>
+            </motion.div>
+          </div>
         </div>
       </section>
 
       {/* Our Platform Section */}
-      <section className="py-20">
+      <section className="py-[120px]">
         <div className="container">
           <motion.div className="text-center mb-6" {...fadeUp}>
             <span className="text-sm text-primary font-medium">Our Platform</span>
             <p className="text-muted-foreground mt-2 max-w-lg mx-auto">
-              Access our comprehensive suite of trading tools, from AI-powered analytics to professional signals and secure account management.
+              Access our comprehensive suite of trading tools, from AI-powered analytics to professional signals.
             </p>
           </motion.div>
 
@@ -176,6 +217,40 @@ const LandingPage = () => {
         </div>
       </section>
 
+      {/* Why Trade - 2 column with image */}
+      <section className="py-[120px]">
+        <div className="container">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+            <motion.div className="relative" {...fadeUp}>
+              <img src={traderMobile} alt="Trader checking markets on mobile" className="w-full max-w-md mx-auto rounded-2xl shadow-2xl" />
+              <div className="absolute -bottom-6 -right-6 w-48 rounded-xl overflow-hidden shadow-xl border border-border/20 hidden md:block">
+                <img src={partnerNetwork} alt="Partner network growth" className="w-full" />
+              </div>
+            </motion.div>
+            <motion.div className="space-y-8" {...fadeUp}>
+              <div>
+                <h2 className="text-3xl md:text-4xl font-bold text-foreground leading-tight">
+                  Why Trade With <span className="text-gradient-brand">DTNexus</span>
+                </h2>
+                <p className="mt-4 text-muted-foreground leading-relaxed">
+                  Experience lightning-fast execution, advanced automation, and data-driven insights. Our platform combines cutting-edge technology with proven strategies.
+                </p>
+                <Link to="/education" className="inline-flex items-center gap-2 mt-4 text-primary font-medium hover:underline">Learn More →</Link>
+              </div>
+              <div>
+                <h2 className="text-3xl md:text-4xl font-bold text-foreground leading-tight">
+                  Trading <span className="text-gradient-brand">Reimagined</span>
+                </h2>
+                <p className="mt-4 text-muted-foreground leading-relaxed">
+                  DTNexus leverages AI and machine learning to deliver expert signals and quantitative analysis. Our free learning materials help you master the markets.
+                </p>
+                <Link to="/education" className="inline-flex items-center gap-2 mt-4 text-primary font-medium hover:underline">Learn More →</Link>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       {/* Centralized Account Management */}
       <section className="py-16">
         <div className="container">
@@ -183,11 +258,11 @@ const LandingPage = () => {
             <div className="flex-1 space-y-4">
               <h2 className="text-2xl md:text-3xl font-bold text-foreground">Centralized Account Management</h2>
               <p className="text-muted-foreground">
-                Manage your account, billing, and preferences from one secure dashboard. Access all DTNexus services with single sign-on authentication.
+                Manage your account, billing, and preferences from one secure dashboard.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Link to="/trading" className="px-5 py-2.5 bg-gradient-brand text-primary-foreground text-sm font-semibold rounded-lg">
-                  ♡ Account Dashboard
+                  Account Dashboard
                 </Link>
                 <Link to="/trading" className="px-5 py-2.5 bg-primary/20 text-primary text-sm font-semibold rounded-lg">
                   📊 Billing & Subscriptions
@@ -203,46 +278,14 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Why Trade With DTNexus + Trading Reimagined */}
-      <section className="py-20">
-        <div className="container">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <motion.div {...fadeUp}>
-              <img src={excitedTrader} alt="Excited trader celebrating profits" className="w-full max-w-md mx-auto rounded-2xl" />
-            </motion.div>
-            <motion.div className="space-y-8" {...fadeUp}>
-              <div>
-                <h2 className="text-2xl md:text-3xl font-bold text-foreground">
-                  Why Trade With <span className="text-gradient-brand">DTNexus</span>
-                </h2>
-                <p className="mt-3 text-muted-foreground leading-relaxed">
-                  Experience lightning-fast execution, advanced automation, and data-driven insights at zero cost. Our platform combines cutting-edge technology with proven strategies to elevate your trading performance.
-                </p>
-                <Link to="/education" className="inline-flex items-center gap-2 mt-4 text-primary font-medium hover:underline">Learn More →</Link>
-              </div>
-              <div>
-                <h2 className="text-2xl md:text-3xl font-bold text-foreground">
-                  Trading <span className="text-gradient-brand">Reimagined</span>
-                </h2>
-                <p className="mt-3 text-muted-foreground leading-relaxed">
-                  DTNexus leverages AI and machine learning to deliver expert signals and quantitative analysis that professionals trust. Our comprehensive free learning materials help you master the markets while our automation tools execute with precision.
-                </p>
-                <Link to="/education" className="inline-flex items-center gap-2 mt-4 text-primary font-medium hover:underline">Learn More →</Link>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </section>
-
-      {/* Comprehensive Market Tracker */}
-      <section className="py-20 bg-card/30">
+      {/* Market Tracker Table */}
+      <section className="py-[120px] bg-card/30">
         <div className="container text-center">
-          <motion.div className="flex items-center justify-center gap-3 mb-6" {...fadeUp}>
-            <img src={marketGrowth} alt="Market growth" className="w-16 h-16 rounded-lg" />
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground">Comprehensive Currency Market Tracker</h2>
-          </motion.div>
+          <motion.h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2" {...fadeUp}>
+            Comprehensive Currency Market Tracker
+          </motion.h2>
           <motion.p className="text-muted-foreground max-w-xl mx-auto mb-8" {...fadeUp}>
-            Real-time market data with technical ratings, powered by live feeds. Track forex pairs, crypto, and synthetic indices.
+            Real-time market data with technical ratings.
           </motion.p>
           <motion.div className="p-1 rounded-xl bg-card border border-border overflow-hidden" {...fadeUp}>
             <div className="overflow-x-auto">
@@ -282,7 +325,7 @@ const LandingPage = () => {
       </section>
 
       {/* What You'll Get */}
-      <section className="py-20">
+      <section className="py-[120px]">
         <div className="container">
           <motion.h2 className="text-center text-sm font-semibold text-muted-foreground uppercase tracking-[0.2em] mb-12" {...fadeUp}>
             What You'll Get
@@ -302,16 +345,16 @@ const LandingPage = () => {
       </section>
 
       {/* Community */}
-      <section className="py-20 bg-gradient-brand relative overflow-hidden">
+      <section className="py-[120px] bg-gradient-brand relative overflow-hidden">
         <div className="absolute inset-0 bg-background/90" />
         <div className="container relative">
           <motion.div className="text-center mb-12" {...fadeUp}>
             <h2 className="text-3xl md:text-4xl font-bold">Join a Growing Community of<br />Success-Driven Traders</h2>
             <p className="mt-4 text-muted-foreground max-w-2xl mx-auto">
-              DTnexus is rapidly becoming the platform of choice for traders seeking an edge in today's dynamic markets. Our innovative approach combines powerful analytics, seamless automation, and a supportive community.
+              DTnexus is rapidly becoming the platform of choice for traders seeking an edge.
             </p>
             <div className="flex flex-wrap gap-6 justify-center mt-6 text-sm text-muted-foreground">
-              {["Advanced Analytics", "AI-Powered", "Expert Community", "24/7 Market Access"].map((f) => (
+              {["Advanced Analytics", "AI-Powered", "Expert Community", "24/7 Access"].map((f) => (
                 <span key={f} className="flex items-center gap-1.5"><span className="text-success">⊙</span> {f}</span>
               ))}
             </div>
@@ -333,7 +376,7 @@ const LandingPage = () => {
       </section>
 
       {/* FAQ */}
-      <section className="py-20">
+      <section className="py-[120px]">
         <div className="container max-w-2xl">
           <motion.div className="text-center mb-12" {...fadeUp}>
             <span className="text-sm text-primary font-medium">FAQ's</span>
@@ -354,7 +397,7 @@ const LandingPage = () => {
       </section>
 
       {/* Create Deriv Account CTA */}
-      <section className="py-20">
+      <section className="py-[120px]">
         <div className="container">
           <motion.div className="rounded-2xl overflow-hidden" {...fadeUp}>
             <div className="bg-gradient-brand p-8 md:p-12">
@@ -364,7 +407,7 @@ const LandingPage = () => {
                     Create Your Free Deriv Account
                   </h2>
                   <p className="text-primary-foreground/80 leading-relaxed">
-                    Don't have a Deriv account yet? Sign up in minutes and get access to $10,000 in virtual funds to practice with. Trade Volatility Indices, Forex, Crypto, and more on one of the world's leading trading platforms.
+                    Don't have a Deriv account yet? Sign up in minutes and get $10,000 in virtual funds to practice with.
                   </p>
                   <ul className="space-y-2">
                     {[
@@ -392,7 +435,7 @@ const LandingPage = () => {
                   {[
                     { step: "1", title: "Sign Up", desc: "Create your free Deriv account in under 2 minutes" },
                     { step: "2", title: "Fund Your Account", desc: "Deposit using crypto, bank transfer, or e-wallets" },
-                    { step: "3", title: "Connect to DTNexus", desc: "Link your Deriv account and start trading with AI" },
+                    { step: "3", title: "Connect to DTNexus", desc: "Link your account and start trading with AI" },
                   ].map((s) => (
                     <div key={s.step} className="flex gap-4 items-start p-4 rounded-xl bg-background/10 backdrop-blur-sm">
                       <div className="w-8 h-8 rounded-full bg-background/20 flex items-center justify-center shrink-0">
@@ -412,13 +455,13 @@ const LandingPage = () => {
       </section>
 
       {/* Final CTA */}
-      <section className="py-20 bg-card/50">
+      <section className="py-[120px] bg-card/50">
         <div className="container text-center">
           <motion.h2 className="text-3xl md:text-4xl font-bold" {...fadeUp}>
             Ready to Take Your Trading to the Next Level?
           </motion.h2>
           <motion.p className="mt-4 text-muted-foreground max-w-xl mx-auto" {...fadeUp}>
-            Unlock the full potential of your trading journey with our powerful tools and expert guidance.
+            Unlock the full potential of your trading journey.
           </motion.p>
           <motion.div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center" {...fadeUp}>
             <Link to="/trading" className="px-8 py-3.5 bg-gradient-brand text-primary-foreground font-semibold rounded-lg glow-red">

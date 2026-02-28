@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Wallet, List, Table, ChevronRight, Settings } from "lucide-react";
+import { X, Wallet, List, Table, ChevronRight, Settings, TrendingUp, BarChart3, Shield, Zap } from "lucide-react";
 import DerivWebSocket from "@/services/deriv-websocket";
 import { DerivAccount } from "@/services/deriv-auth";
 import { VOLATILITY_MARKETS, CONTRACT_TYPES, DIGIT_BARRIERS, getLastDigit } from "@/lib/trading-constants";
@@ -8,7 +8,7 @@ import AnalysisTab from "@/components/trading/AnalysisTab";
 
 interface TradingPanelProps {
   ws: DerivWebSocket | null;
-  account: DerivAccount;
+  account: DerivAccount | null;
 }
 
 interface SessionStats {
@@ -79,7 +79,9 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const consecutiveLosses = useRef(0);
   const currentStake = useRef(parseFloat("3"));
 
-  // Subscribe to ticks
+  const isLoggedIn = !!account;
+
+  // Subscribe to ticks - works even without login for live data
   useEffect(() => {
     if (!ws) return;
     if (prevMarketRef.current !== selectedMarket) ws.unsubscribeTicks(prevMarketRef.current);
@@ -96,9 +98,9 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     return () => { unsub(); };
   }, [ws, selectedMarket]);
 
-  // Get proposal
+  // Get proposal - only when logged in
   useEffect(() => {
-    if (!ws || isTrading) return;
+    if (!ws || !isLoggedIn || isTrading) return;
     const needsBarrier = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
     ws.getProposal({
       amount: parseFloat(stake) || 3,
@@ -116,14 +118,14 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       }
     });
     return () => { unsub(); };
-  }, [ws, contractType, stake, selectedMarket, duration, durationUnit, barrier, isTrading]);
+  }, [ws, contractType, stake, selectedMarket, duration, durationUnit, barrier, isTrading, isLoggedIn]);
 
   const marketLabel = VOLATILITY_MARKETS.find((m) => m.symbol === selectedMarket)?.label || selectedMarket;
   const needsBarrier = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
   const winRate = session.totalTrades > 0 ? ((session.wins / session.totalTrades) * 100).toFixed(1) : "0.0";
 
   const executeTrade = useCallback(() => {
-    if (!ws || !proposalId || isTrading) return;
+    if (!ws || !proposalId || isTrading || !isLoggedIn) return;
     setIsTrading(true);
     setTradeResult(null);
     const tradeStake = currentStake.current;
@@ -142,7 +144,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         setTradeResult({ profit, won });
         setIsTrading(false);
 
-        // Add transaction
         setTransactions((prev) => [{
           id: contractId || Date.now().toString(),
           contractType,
@@ -187,7 +188,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           }
         }
 
-        // Check TP/SL
         const tp = parseFloat(takeProfit);
         const sl = parseFloat(stopLoss);
         const totalP = session.totalProfit + profit;
@@ -202,9 +202,10 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         unsubContract();
       }
     });
-  }, [ws, proposalId, stake, isTrading, martingale, martingaleMultiplier, maxMartingaleSteps, session.totalProfit, takeProfit, stopLoss, contractType, marketLabel, duration, startMartingaleAfter, stopAfterMaxMartingale]);
+  }, [ws, proposalId, stake, isTrading, isLoggedIn, martingale, martingaleMultiplier, maxMartingaleSteps, session.totalProfit, takeProfit, stopLoss, contractType, marketLabel, duration, startMartingaleAfter, stopAfterMaxMartingale]);
 
   const startBot = () => {
+    if (!isLoggedIn) return;
     if (mode === "Quick") {
       executeTrade();
       return;
@@ -252,9 +253,9 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
   return (
     <div className="flex h-full">
-      {/* Left area - main content */}
+      {/* Left area - main content (70%) */}
       <div className="flex-1 overflow-y-auto p-4 lg:p-5">
-        {/* Tab selector at top */}
+        {/* Tab selector */}
         <div className="flex items-center gap-4 mb-4">
           <div className="flex gap-1 p-1 bg-card rounded-lg border border-border">
             {(["trading", "analysis"] as const).map((tab) => (
@@ -267,13 +268,18 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
               </button>
             ))}
           </div>
+          {currentTick !== null && (
+            <div className="flex items-center gap-2 ml-auto">
+              <span className="text-[10px] text-muted-foreground">{marketLabel}</span>
+              <span className="text-sm font-mono font-bold text-foreground">{currentTick.toFixed(4)}</span>
+            </div>
+          )}
         </div>
 
         {activeTab === "analysis" ? (
           <AnalysisTab lastDigits={lastDigits} session={session} marketLabel={marketLabel} />
         ) : (
           <div className="space-y-4">
-            {/* Transaction stats bar */}
             {showTransactions ? (
               <TransactionView
                 transactions={transactions}
@@ -286,62 +292,50 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
               />
             ) : (
               <>
-                {/* Account banner */}
-                <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
-                  <div className="flex items-center justify-between flex-wrap gap-2">
-                    <div>
-                      <span className="text-xs text-accent font-medium">⭐ Premium Feature</span>
-                      <h3 className="text-sm font-semibold text-foreground mt-1">
-                        Sign In to Access Digit Edge
-                      </h3>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Unlock the power of Digit Edge with our advanced trading tools.
-                      </p>
-                    </div>
-                    <span className={`text-xs px-2 py-1 rounded ${account.is_virtual ? "bg-warning/10 text-warning" : "bg-success/10 text-success"}`}>
-                      {account.loginid}
+                {/* Live market info banner */}
+                <div className="p-4 rounded-xl bg-card border border-border">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-foreground">{marketLabel}</h3>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${isLoggedIn ? (account!.is_virtual ? "bg-warning/10 text-warning" : "bg-success/10 text-success") : "bg-muted text-muted-foreground"}`}>
+                      {isLoggedIn ? account!.loginid : "Not Connected"}
                     </span>
                   </div>
-                </div>
-
-                {/* Why choose section */}
-                <div className="p-5 rounded-xl bg-card border border-border">
-                  <h3 className="text-base font-bold text-foreground mb-2">Why Choose Digit Edge?</h3>
-                  <p className="text-xs text-muted-foreground mb-3">
-                    Advanced digit analysis tool that uses machine learning to predict market movements with high accuracy.
-                  </p>
-                  <ul className="space-y-1.5 text-xs text-muted-foreground">
-                    {["Real-time digit analysis", "Machine learning predictions", "Historical pattern recognition", "Risk assessment tools", "Customizable alerts"].map((item) => (
-                      <li key={item} className="flex items-center gap-2">
-                        <span className="text-success">✓</span> {item}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* What You'll Get */}
-                <div>
-                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.2em] text-center mb-4">
-                    What You'll Get
-                  </h3>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    {[
-                      { title: "Advanced Analytics", desc: "Get detailed insights and analysis to make informed trading decisions." },
-                      { title: "AI-Powered Signals", desc: "Leverage artificial intelligence for accurate market predictions." },
-                      { title: "Real-Time Updates", desc: "Stay ahead with instant notifications and live market data." },
-                      { title: "Risk Management", desc: "Built-in tools to help you manage risk and protect your investments." },
-                    ].map((item) => (
-                      <div key={item.title} className="p-4 rounded-xl bg-card border border-border">
-                        <h4 className="text-sm font-semibold text-foreground mb-1">{item.title}</h4>
-                        <p className="text-xs text-muted-foreground">{item.desc}</p>
-                      </div>
-                    ))}
+                  <div className="flex items-center gap-6">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Current Price</p>
+                      <p className="text-2xl font-mono font-bold text-foreground">{currentTick?.toFixed(4) || "Loading..."}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Last Digit</p>
+                      <p className="text-2xl font-mono font-bold text-primary">{lastDigits.length > 0 ? lastDigits[lastDigits.length - 1] : "-"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Ticks Collected</p>
+                      <p className="text-lg font-mono font-bold text-foreground">{lastDigits.length}</p>
+                    </div>
                   </div>
                 </div>
 
-                {/* Last Digits Grid */}
+                {/* Sign in prompt (only if not logged in) */}
+                {!isLoggedIn && (
+                  <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <Shield className="w-5 h-5 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-sm font-semibold text-foreground">Connect to Execute Trades</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Live data is streaming. Connect your Deriv account to place trades and access the automated bot engine.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Last Digits Grid - always visible */}
                 <div className="p-5 rounded-xl bg-card border border-border">
-                  <h3 className="text-sm font-semibold text-foreground mb-3">Last Digits ({marketLabel})</h3>
+                  <h3 className="text-sm font-semibold text-foreground mb-3">Last 50 Digits ({marketLabel})</h3>
                   <div className="grid grid-cols-10 gap-1">
                     {(lastDigits.length > 0 ? lastDigits.slice(-50) : Array(50).fill(null)).map((digit, i) => (
                       <div
@@ -372,13 +366,48 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                     })}
                   </div>
                 </div>
+
+                {/* Session stats (when trading) */}
+                {session.totalTrades > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[
+                      { label: "Win Rate", value: `${winRate}%`, color: "text-buy" },
+                      { label: "Total P/L", value: `${session.totalProfit >= 0 ? "+" : ""}${session.totalProfit.toFixed(2)}`, color: session.totalProfit >= 0 ? "text-buy" : "text-sell" },
+                      { label: "Trades", value: session.totalTrades.toString(), color: "text-foreground" },
+                      { label: "Max DD", value: `${session.maxDrawdown.toFixed(1)}%`, color: "text-sell" },
+                    ].map((s) => (
+                      <div key={s.label} className="p-3 rounded-lg bg-card border border-border text-center">
+                        <p className="text-[10px] text-muted-foreground">{s.label}</p>
+                        <p className={`text-sm font-bold ${s.color}`}>{s.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Features preview for non-logged-in users */}
+                {!isLoggedIn && (
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    {[
+                      { icon: BarChart3, title: "Advanced Analytics", desc: "Detailed digit analysis and pattern recognition" },
+                      { icon: TrendingUp, title: "AI-Powered Bot", desc: "Automated trading with martingale recovery" },
+                      { icon: Zap, title: "Real-Time Updates", desc: "Live tick data and instant execution" },
+                      { icon: Shield, title: "Risk Management", desc: "Stop loss, take profit, and stake control" },
+                    ].map((item) => (
+                      <div key={item.title} className="p-4 rounded-xl bg-card border border-border">
+                        <item.icon className="w-5 h-5 text-primary mb-2" />
+                        <h4 className="text-sm font-semibold text-foreground">{item.title}</h4>
+                        <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </>
             )}
           </div>
         )}
       </div>
 
-      {/* Right Panel - Trading Controls (sticky sidebar) */}
+      {/* Right Panel - Trading Controls (30% sticky sidebar) - desktop only */}
       <div className="hidden lg:block w-[320px] border-l border-border bg-card/50 overflow-y-auto">
         <div className="p-4 space-y-4">
           {/* Market */}
@@ -439,15 +468,14 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           </div>
 
           {mode === "Quick" ? (
-            /* Quick mode - purchase buttons */
             <div className="space-y-3">
               <p className="text-xs text-center text-muted-foreground font-medium">Purchase</p>
               <button
                 onClick={executeTrade}
-                disabled={isTrading || !proposalId}
-                className="w-full py-3 bg-buy text-primary-foreground font-bold text-sm rounded-full disabled:opacity-50 transition-all hover:opacity-90"
+                disabled={isTrading || !proposalId || !isLoggedIn}
+                className="w-full py-3 bg-buy text-primary-foreground font-bold text-sm rounded-lg disabled:opacity-50 transition-all hover:opacity-90"
               >
-                {contractType.replace("DIGIT", "")}
+                {isLoggedIn ? contractType.replace("DIGIT", "") : "Connect to Trade"}
               </button>
               {payout && (
                 <div className="text-center text-xs text-muted-foreground">
@@ -457,7 +485,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
               )}
             </div>
           ) : (
-            /* Automated mode */
             <div className="space-y-3">
               <div className="text-center">
                 <p className="text-[10px] text-muted-foreground">Software Status</p>
@@ -468,17 +495,16 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
               <button
                 onClick={softwareStatus === "ACTIVE" ? stopBot : startBot}
-                disabled={isTrading}
-                className={`w-full py-2.5 font-semibold text-sm rounded-full border-2 transition-all ${
+                disabled={isTrading || !isLoggedIn}
+                className={`w-full py-2.5 font-semibold text-sm rounded-lg border-2 transition-all disabled:opacity-50 ${
                   softwareStatus === "ACTIVE"
-                    ? "border-primary text-primary hover:bg-primary/10"
-                    : "border-primary text-primary hover:bg-primary/10"
+                    ? "border-sell text-sell hover:bg-sell/10"
+                    : "border-buy text-buy hover:bg-buy/10"
                 }`}
               >
-                {softwareStatus === "ACTIVE" ? "Stop" : "Start"}
+                {!isLoggedIn ? "Connect to Start" : softwareStatus === "ACTIVE" ? "Stop" : "Start"}
               </button>
 
-              {/* Contract Type display */}
               <div>
                 <label className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">Contract Type <span className="text-primary text-xs">●</span></label>
                 <select value={contractType} onChange={(e) => setContractType(e.target.value)} className="mt-1 w-full px-3 py-2 bg-secondary border border-border rounded text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
@@ -486,7 +512,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                 </select>
               </div>
 
-              {/* Execution Speed */}
               <div>
                 <label className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">Execution Speed <span className="text-primary text-xs">●</span></label>
                 <select value={executionSpeed} onChange={(e) => setExecutionSpeed(e.target.value as any)} className="mt-1 w-full px-3 py-2 bg-secondary border border-border rounded text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
@@ -530,7 +555,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           <Wallet className="w-5 h-5 text-primary" />
         </button>
         <div className={`px-3 py-1.5 rounded-full text-xs font-bold shadow-lg ${session.totalProfit >= 0 ? "bg-buy text-primary-foreground" : "bg-sell text-primary-foreground"}`}>
-          {session.totalProfit >= 0 ? "" : ""}{session.totalProfit.toFixed(2)}
+          {session.totalProfit.toFixed(2)}
         </div>
       </div>
 
@@ -562,18 +587,18 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                 </FormField>
                 {martingale && (
                   <>
-                    <FormField label="Martingale Multiplier" hint="This is the multiplier used on the stake in case a loss is incurred. Multiplier must be greater than 1.">
+                    <FormField label="Martingale Multiplier" hint="This is the multiplier used on the stake in case a loss is incurred.">
                       <input type="number" value={martingaleMultiplier} onChange={(e) => setMartingaleMultiplier(e.target.value)} step="0.1" className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                     </FormField>
-                    <FormField label="Max Martingale Level" hint="This is the maximum number of times the Martingale is used on concurrent losses. When the maximum is reached, the next stake will reset back to the initial stake.">
+                    <FormField label="Max Martingale Level" hint="Max number of times Martingale is used on concurrent losses.">
                       <input type="number" value={maxMartingaleSteps} onChange={(e) => setMaxMartingaleSteps(parseInt(e.target.value) || 3)} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                     </FormField>
-                    <FormField label="Stop After Max Martingale Level" hint="Choose whether to stop software after max martingale level or reset to initial stake and continue trading.">
+                    <FormField label="Stop After Max Martingale Level" hint="Stop software after max level or reset and continue.">
                       <select value={stopAfterMaxMartingale ? "Yes" : "No"} onChange={(e) => setStopAfterMaxMartingale(e.target.value === "Yes")} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground">
                         <option>Yes</option><option>No</option>
                       </select>
                     </FormField>
-                    <FormField label="Start Martingale After" hint="This is the amount of losses you want incurred from the initial stake before the martingale starts.">
+                    <FormField label="Start Martingale After" hint="Number of losses before martingale kicks in.">
                       <input type="number" value={startMartingaleAfter} onChange={(e) => setStartMartingaleAfter(parseInt(e.target.value) || 1)} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                     </FormField>
                   </>
@@ -598,7 +623,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
               </div>
               <div className="p-6 space-y-3">
                 <p className="text-xs text-muted-foreground text-center">
-                  Select whether to continue trading from the last martingale and stake you stopped from or reset and start a new session
+                  Select whether to continue from the last session or start fresh.
                 </p>
                 <button onClick={resumeSession} className="w-full flex items-center justify-between p-4 rounded-xl border border-border hover:bg-secondary transition-colors">
                   <div className="flex items-center gap-3">
@@ -626,16 +651,14 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           <ModalOverlay onClose={() => setShowConfirmModal(false)}>
             <div className="bg-background border border-border rounded-xl w-full max-w-md">
               <div className="p-6 space-y-4">
-                <h3 className="text-sm font-semibold text-foreground">Are you sure you want to start the software?</h3>
+                <h3 className="text-sm font-semibold text-foreground">Are you sure you want to start?</h3>
                 <p className="text-xs text-primary">
-                  Please ensure that your settings are configured correctly before starting your trades! Below are your some of your important brief settings. PLEASE CONFIRM BEFORE PROCEEDING!
+                  Please ensure your settings are correct before starting. Below are your key settings:
                 </p>
                 <table className="w-full text-xs">
                   <tbody className="divide-y divide-border">
                     {[
                       ["Starting Stake:", `${parseFloat(stake).toFixed(2)}`],
-                      ["Default Stake after profit:", stake],
-                      ["Current Martingale Level:", "1"],
                       ["Martingale:", martingaleMultiplier],
                       ["Take Profit:", takeProfit],
                       ["Stop Loss:", stopLoss],
@@ -667,10 +690,10 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
               <h3 className="text-sm font-semibold text-foreground">Take Profit Hit!</h3>
               <div className="text-4xl">🎉💰</div>
               <p className="text-sm text-muted-foreground">
-                Congratulations! You have successfully hit your <strong className="text-foreground">Take Profit</strong> target for <strong className="text-foreground">{marketLabel}</strong>.
+                Congratulations! You hit your <strong className="text-foreground">Take Profit</strong> for <strong className="text-foreground">{marketLabel}</strong>.
               </p>
               <p className="text-sm text-foreground">
-                Take Profit Amount: <span className="text-buy font-bold">${tpAmount.toFixed(2)}</span>
+                Amount: <span className="text-buy font-bold">${tpAmount.toFixed(2)}</span>
               </p>
               <button onClick={() => setShowTpModal(false)} className="px-6 py-2 border border-border rounded-lg text-xs text-muted-foreground hover:bg-secondary">Close</button>
             </div>
@@ -717,20 +740,19 @@ const TransactionView = ({
   onClose: () => void;
 }) => (
   <div className="space-y-4">
-    {/* Stats bar */}
     <div className="flex items-center justify-between">
       <button onClick={onClose} className="text-xs text-primary hover:underline">← Back to Digit Edge</button>
-      <button onClick={clearTransactions} className="px-3 py-1 text-xs border border-border rounded hover:bg-secondary transition-colors">Clear Transactions</button>
+      <button onClick={clearTransactions} className="px-3 py-1 text-xs border border-border rounded hover:bg-secondary transition-colors">Clear</button>
     </div>
 
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
       {[
-        { label: "Total Profit/loss", value: session.totalProfit.toFixed(2), color: session.totalProfit >= 0 ? "text-buy" : "text-sell" },
-        { label: "Total Trades", value: session.totalTrades.toString(), color: "text-foreground" },
-        { label: "Contracts Won", value: session.wins.toString(), color: "text-buy" },
-        { label: "Contracts Lost", value: session.losses.toString(), color: "text-sell" },
-        { label: "Largest Stake", value: session.largestStake.toFixed(2), color: "text-warning" },
-        { label: "Most Accumulated Loss Streak", value: `-${session.maxLossStreak}`, color: "text-sell" },
+        { label: "Total P/L", value: session.totalProfit.toFixed(2), color: session.totalProfit >= 0 ? "text-buy" : "text-sell" },
+        { label: "Trades", value: session.totalTrades.toString(), color: "text-foreground" },
+        { label: "Won", value: session.wins.toString(), color: "text-buy" },
+        { label: "Lost", value: session.losses.toString(), color: "text-sell" },
+        { label: "Max Stake", value: session.largestStake.toFixed(2), color: "text-warning" },
+        { label: "Loss Streak", value: `-${session.maxLossStreak}`, color: "text-sell" },
       ].map((s) => (
         <div key={s.label} className="text-center">
           <p className="text-[10px] text-muted-foreground font-medium">{s.label}</p>
@@ -739,7 +761,6 @@ const TransactionView = ({
       ))}
     </div>
 
-    {/* View toggle */}
     <div className="flex border-b border-border">
       {(["list", "table"] as const).map((v) => (
         <button
@@ -757,7 +778,7 @@ const TransactionView = ({
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-border">
-              {["Contract", "Stake", "Profit/Loss", "Status", "Sellable"].map((h) => (
+              {["Contract", "Stake", "P/L", "Status"].map((h) => (
                 <th key={h} className="py-2 px-3 text-left text-muted-foreground font-medium">{h}</th>
               ))}
             </tr>
@@ -767,9 +788,8 @@ const TransactionView = ({
               <tr key={tx.id} className="border-b border-border/50">
                 <td className="py-2 px-3 text-foreground">{tx.contractType}</td>
                 <td className="py-2 px-3 text-foreground">{tx.stake.toFixed(2)}</td>
-                <td className={`py-2 px-3 ${tx.won ? "text-buy" : "text-sell"}`}>{tx.won ? "" : "-"}{Math.abs(tx.profit).toFixed(2)}</td>
-                <td className="py-2 px-3"><span className="px-2 py-0.5 rounded bg-sell/20 text-sell text-[10px]">Sold</span></td>
-                <td className="py-2 px-3"><span className="px-2 py-0.5 rounded bg-muted text-muted-foreground text-[10px]">No Resale</span></td>
+                <td className={`py-2 px-3 ${tx.won ? "text-buy" : "text-sell"}`}>{tx.won ? "+" : ""}{tx.profit.toFixed(2)}</td>
+                <td className="py-2 px-3"><span className={`px-2 py-0.5 rounded text-[10px] ${tx.won ? "bg-buy/20 text-buy" : "bg-sell/20 text-sell"}`}>{tx.won ? "Won" : "Lost"}</span></td>
               </tr>
             ))}
           </tbody>
@@ -783,16 +803,15 @@ const TransactionView = ({
               <span className={`text-sm ${tx.won ? "text-buy" : "text-sell"}`}>{tx.won ? "↗" : "↘"}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-foreground">Contract ID: {tx.id}</p>
+              <p className="text-xs font-medium text-foreground">{tx.contractType} • {tx.id}</p>
               <p className="text-[10px] text-muted-foreground">{tx.description}</p>
               <div className="flex gap-4 mt-1">
-                <span className="text-[10px] text-buy">Stake: {tx.stake.toFixed(2)}</span>
+                <span className="text-[10px] text-muted-foreground">Stake: {tx.stake.toFixed(2)}</span>
                 <span className={`text-[10px] ${tx.won ? "text-buy" : "text-sell"}`}>
-                  {tx.won ? "Profit" : "Loss"}: {Math.abs(tx.profit).toFixed(2)}
+                  {tx.won ? "+" : ""}{tx.profit.toFixed(2)}
                 </span>
               </div>
             </div>
-            <span className="px-2 py-0.5 rounded bg-sell/20 text-sell text-[10px] shrink-0">No Resale</span>
           </div>
         ))}
         {transactions.length === 0 && (

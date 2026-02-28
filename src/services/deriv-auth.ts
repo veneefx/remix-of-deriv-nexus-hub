@@ -10,6 +10,8 @@ export interface DerivAccount {
 }
 
 export const getOAuthUrl = (appId: string, redirectUri: string): string => {
+  // Deriv OAuth uses the redirect URL registered in the app settings
+  // The redirect_uri param is not used by Deriv - it uses the one configured in the app dashboard
   return `${DERIV_OAUTH_URL}?app_id=${appId}&l=en&brand=deriv`;
 };
 
@@ -18,7 +20,6 @@ export const parseCallbackParams = (): DerivAccount[] => {
   const params = new URLSearchParams(hash);
   const accounts: DerivAccount[] = [];
 
-  // Deriv returns multiple accounts as acct1, token1, cur1, etc.
   let i = 1;
   while (params.has(`acct${i}`)) {
     accounts.push({
@@ -34,24 +35,24 @@ export const parseCallbackParams = (): DerivAccount[] => {
 };
 
 export const storeAccounts = (accounts: DerivAccount[]) => {
-  sessionStorage.setItem("deriv_accounts", JSON.stringify(accounts));
+  localStorage.setItem("deriv_accounts", JSON.stringify(accounts));
 };
 
 export const getStoredAccounts = (): DerivAccount[] => {
-  const data = sessionStorage.getItem("deriv_accounts");
+  const data = localStorage.getItem("deriv_accounts");
   return data ? JSON.parse(data) : [];
 };
 
 export const getActiveAccount = (): DerivAccount | null => {
-  const active = sessionStorage.getItem("deriv_active_account");
+  const active = localStorage.getItem("deriv_active_account");
   return active ? JSON.parse(active) : null;
 };
 
 export const setActiveAccount = (account: DerivAccount) => {
-  sessionStorage.setItem("deriv_active_account", JSON.stringify(account));
+  localStorage.setItem("deriv_active_account", JSON.stringify(account));
 };
 
 export const clearAuth = () => {
-  sessionStorage.removeItem("deriv_accounts");
-  sessionStorage.removeItem("deriv_active_account");
+  localStorage.removeItem("deriv_accounts");
+  localStorage.removeItem("deriv_active_account");
 };
