@@ -101,6 +101,12 @@ const Navbar = () => {
           {/* Right CTA */}
           <div className="hidden lg:flex items-center gap-3">
             <Link
+              to="/auth"
+              className="flex items-center gap-2 h-10 px-5 border border-border text-foreground font-medium text-[13px] rounded-lg hover:bg-secondary transition-colors"
+            >
+              Login
+            </Link>
+            <Link
               to="/trading"
               className="flex items-center gap-2 h-10 px-5 bg-gradient-brand text-primary-foreground font-semibold text-[13px] rounded-lg hover-lift glow-red"
             >
