@@ -9,20 +9,26 @@ interface DerivChartProps {
 
 const DerivChart = ({ ws, selectedMarket }: DerivChartProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [prices, setPrices] = useState<{ price: number; time: number }[]>([]);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [priceChange, setPriceChange] = useState<number>(0);
   const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; price: number; time: number } | null>(null);
   const marketLabel = VOLATILITY_MARKETS.find(m => m.symbol === selectedMarket)?.label || selectedMarket;
 
   useEffect(() => {
     if (!ws) return;
     setPrices([]);
+    setCurrentPrice(null);
 
     const unsub = ws.on("tick", (data) => {
       if (data.tick) {
         const price = data.tick.quote;
         const time = data.tick.epoch * 1000;
-        setCurrentPrice(price);
+        setCurrentPrice(prev => {
+          if (prev !== null) setPriceChange(price - prev);
+          return price;
+        });
         setPrices(prev => {
           const updated = [...prev, { price, time }];
           return updated.length > 500 ? updated.slice(-500) : updated;
@@ -40,45 +46,53 @@ const DerivChart = ({ ws, selectedMarket }: DerivChartProps) => {
     if (!ctx) return;
 
     const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * 2;
-    canvas.height = rect.height * 2;
-    ctx.scale(2, 2);
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
     const W = rect.width;
     const H = rect.height;
 
-    ctx.fillStyle = "hsl(216, 28%, 7%)";
+    const isDark = document.documentElement.classList.contains("dark") || !document.documentElement.classList.contains("light");
+    ctx.fillStyle = isDark ? "hsl(216, 28%, 7%)" : "hsl(0, 0%, 98%)";
     ctx.fillRect(0, 0, W, H);
 
     const minP = Math.min(...prices.map(p => p.price));
     const maxP = Math.max(...prices.map(p => p.price));
     const range = maxP - minP || 1;
-    const pad = 40;
+    const padL = 10;
+    const padR = 70;
+    const padT = 20;
+    const padB = 30;
 
-    const toX = (i: number) => pad + (i / (prices.length - 1)) * (W - pad * 2);
-    const toY = (p: number) => pad + (1 - (p - minP) / range) * (H - pad * 2);
+    const toX = (i: number) => padL + (i / (prices.length - 1)) * (W - padL - padR);
+    const toY = (p: number) => padT + (1 - (p - minP) / range) * (H - padT - padB);
 
     // Grid
-    ctx.strokeStyle = "rgba(255,255,255,0.04)";
+    const gridColor = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)";
+    const textColor = isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.35)";
+    ctx.strokeStyle = gridColor;
     ctx.lineWidth = 0.5;
-    for (let i = 0; i <= 4; i++) {
-      const y = pad + i * ((H - pad * 2) / 4);
-      ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - 10, y); ctx.stroke();
-      const price = maxP - (i / 4) * range;
-      ctx.fillStyle = "rgba(255,255,255,0.3)";
-      ctx.font = "9px Inter";
-      ctx.textAlign = "right";
-      ctx.fillText(price.toFixed(3), W - 2, y + 3);
+    for (let i = 0; i <= 5; i++) {
+      const y = padT + i * ((H - padT - padB) / 5);
+      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
+      const price = maxP - (i / 5) * range;
+      ctx.fillStyle = textColor;
+      ctx.font = "10px Inter";
+      ctx.textAlign = "left";
+      ctx.fillText(price.toFixed(3), W - padR + 4, y + 3);
     }
 
     // Area fill
     ctx.beginPath();
-    ctx.moveTo(toX(0), H - pad);
+    ctx.moveTo(toX(0), H - padB);
     prices.forEach((p, i) => ctx.lineTo(toX(i), toY(p.price)));
-    ctx.lineTo(toX(prices.length - 1), H - pad);
+    ctx.lineTo(toX(prices.length - 1), H - padB);
     ctx.closePath();
     const grad = ctx.createLinearGradient(0, 0, 0, H);
-    grad.addColorStop(0, "rgba(59, 130, 246, 0.15)");
-    grad.addColorStop(1, "rgba(59, 130, 246, 0.01)");
+    const lineColor = isDark ? "rgba(59, 130, 246, 0.15)" : "rgba(59, 130, 246, 0.1)";
+    grad.addColorStop(0, lineColor);
+    grad.addColorStop(1, "transparent");
     ctx.fillStyle = grad;
     ctx.fill();
 
@@ -88,15 +102,26 @@ const DerivChart = ({ ws, selectedMarket }: DerivChartProps) => {
       if (i === 0) ctx.moveTo(toX(i), toY(p.price));
       else ctx.lineTo(toX(i), toY(p.price));
     });
-    ctx.strokeStyle = "rgba(59, 130, 246, 0.8)";
+    ctx.strokeStyle = isDark ? "rgba(59, 130, 246, 0.8)" : "rgba(59, 130, 246, 0.9)";
     ctx.lineWidth = 1.5;
     ctx.stroke();
 
+    // Dot at last price
+    if (prices.length > 0) {
+      const lastIdx = prices.length - 1;
+      const lx = toX(lastIdx);
+      const ly = toY(prices[lastIdx].price);
+      ctx.beginPath();
+      ctx.arc(lx, ly, 3, 0, Math.PI * 2);
+      ctx.fillStyle = "hsl(217, 91%, 60%)";
+      ctx.fill();
+    }
+
     // Time labels
-    ctx.fillStyle = "rgba(255,255,255,0.3)";
+    ctx.fillStyle = textColor;
     ctx.font = "9px Inter";
     ctx.textAlign = "center";
-    const step = Math.floor(prices.length / 6);
+    const step = Math.max(1, Math.floor(prices.length / 8));
     for (let i = 0; i < prices.length; i += step) {
       const d = new Date(prices[i].time);
       ctx.fillText(`${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}:${d.getSeconds().toString().padStart(2, "0")}`, toX(i), H - 5);
@@ -108,7 +133,9 @@ const DerivChart = ({ ws, selectedMarket }: DerivChartProps) => {
     if (!canvas || prices.length < 2) return;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    const idx = Math.round((x - 40) / (rect.width - 80) * (prices.length - 1));
+    const padL = 10;
+    const padR = 70;
+    const idx = Math.round((x - padL) / (rect.width - padL - padR) * (prices.length - 1));
     if (idx >= 0 && idx < prices.length) {
       setHoverInfo({ x: e.clientX - rect.left, y: e.clientY - rect.top, price: prices[idx].price, time: prices[idx].time });
     }
@@ -123,8 +150,11 @@ const DerivChart = ({ ws, selectedMarket }: DerivChartProps) => {
           <div>
             <p className="text-sm font-semibold text-foreground">{marketLabel}</p>
             {currentPrice && (
-              <p className="text-xs text-muted-foreground">
-                {currentPrice.toFixed(3)} <span className="text-sell">▼</span>
+              <p className="text-xs text-muted-foreground font-mono">
+                {currentPrice.toFixed(3)}{" "}
+                <span className={priceChange >= 0 ? "text-buy" : "text-sell"}>
+                  {priceChange >= 0 ? "▲" : "▼"} {Math.abs(priceChange).toFixed(3)} ({((priceChange / currentPrice) * 100).toFixed(2)}%)
+                </span>
               </p>
             )}
           </div>
@@ -132,7 +162,7 @@ const DerivChart = ({ ws, selectedMarket }: DerivChartProps) => {
       </div>
 
       {/* Chart */}
-      <div className="flex-1 relative">
+      <div ref={containerRef} className="flex-1 relative">
         <canvas
           ref={canvasRef}
           className="w-full h-full cursor-crosshair"
@@ -142,16 +172,19 @@ const DerivChart = ({ ws, selectedMarket }: DerivChartProps) => {
         {hoverInfo && (
           <div
             className="absolute bg-card border border-border rounded-lg px-3 py-2 text-xs pointer-events-none z-10 shadow-lg"
-            style={{ left: hoverInfo.x + 10, top: hoverInfo.y - 40 }}
+            style={{ left: Math.min(hoverInfo.x + 10, (containerRef.current?.clientWidth || 300) - 180), top: hoverInfo.y - 40 }}
           >
             <p className="text-muted-foreground">{new Date(hoverInfo.time).toLocaleString()}</p>
             <p className="font-bold text-foreground">{marketLabel}</p>
-            <p className="text-primary">{hoverInfo.price.toFixed(3)}</p>
+            <p className="text-primary font-mono">{hoverInfo.price.toFixed(3)}</p>
           </div>
         )}
         {prices.length < 2 && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-sm text-muted-foreground">Connecting to live data stream...</p>
+            <div className="text-center space-y-2">
+              <div className="w-8 h-8 mx-auto border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-muted-foreground">Connecting to live data stream...</p>
+            </div>
           </div>
         )}
       </div>
