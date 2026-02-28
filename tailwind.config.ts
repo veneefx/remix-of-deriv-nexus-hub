@@ -16,6 +16,7 @@ export default {
       fontFamily: {
         display: ["Orbitron", "sans-serif"],
         sans: ["Inter", "sans-serif"],
+        serif: ["Merriweather", "serif"],
       },
       colors: {
         border: "hsl(var(--border))",
