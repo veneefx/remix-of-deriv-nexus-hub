@@ -32,24 +32,25 @@ const Navbar = () => {
   const location = useLocation();
 
   return (
-    <nav className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl">
-      <div className="container">
-        <div className="mx-auto flex h-[72px] items-center justify-between px-8 bg-card/60 backdrop-blur-sm border border-border/30 rounded-xl mt-3">
-          <Link to="/" className="flex items-center gap-2.5">
-            <img src={logo} alt="Dnexus" className="h-8" />
-            <span className="font-display text-lg font-bold">
-              <span className="text-foreground">DN</span>
-              <span className="text-primary">EXUS</span>
+    <nav className="sticky top-0 z-50 py-3 px-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex h-[60px] items-center justify-between px-6 sm:px-8 bg-card/70 backdrop-blur-md border border-border/50 rounded-full shadow-lg shadow-black/10">
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2">
+            <img src={logo} alt="DTNexus" className="h-7" />
+            <span className="font-display text-base font-bold">
+              <span className="text-foreground">DT</span>
+              <span className="text-primary">NEXUS</span>
             </span>
           </Link>
 
-          {/* Desktop Nav */}
-          <div className="hidden lg:flex items-center gap-1">
+          {/* Desktop Nav - centered */}
+          <div className="hidden lg:flex items-center gap-0.5">
             {navItems.map((item) => (
               <div key={item.label} className="relative">
                 {item.children ? (
                   <button
-                    className={`flex items-center gap-1 px-4 py-2 text-sm font-medium transition-colors hover:text-foreground ${
+                    className={`flex items-center gap-1 px-3.5 py-2 text-[13px] font-medium transition-colors hover:text-foreground rounded-full ${
                       item.children.some((c) => c.path === location.pathname)
                         ? "text-primary"
                         : "text-secondary-foreground"
@@ -62,16 +63,17 @@ const Navbar = () => {
                     <AnimatePresence>
                       {openDropdown === item.label && (
                         <motion.div
-                          initial={{ opacity: 0, y: 5 }}
+                          initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 5 }}
-                          className="absolute top-full left-0 mt-1 w-48 bg-card border border-border rounded-lg shadow-xl overflow-hidden z-50"
+                          exit={{ opacity: 0, y: 8 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute top-full left-0 mt-2 w-48 bg-card/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-2xl shadow-black/20 overflow-hidden z-50"
                         >
                           {item.children.map((child) => (
                             <Link
                               key={child.path}
                               to={child.path}
-                              className="block px-4 py-2.5 text-sm text-secondary-foreground hover:bg-secondary hover:text-primary transition-colors"
+                              className="block px-4 py-2.5 text-[13px] text-secondary-foreground hover:bg-secondary hover:text-primary transition-colors"
                             >
                               {child.label}
                             </Link>
@@ -83,7 +85,7 @@ const Navbar = () => {
                 ) : (
                   <Link
                     to={item.path}
-                    className={`px-4 py-2 text-sm font-medium transition-colors hover:text-foreground ${
+                    className={`px-3.5 py-2 text-[13px] font-medium transition-colors hover:text-foreground rounded-full ${
                       location.pathname === item.path
                         ? "text-primary"
                         : "text-secondary-foreground"
@@ -96,13 +98,14 @@ const Navbar = () => {
             ))}
           </div>
 
+          {/* Right CTA */}
           <div className="hidden lg:flex items-center gap-3">
             <Link
               to="/trading"
-              className="flex items-center gap-2 px-5 py-2.5 bg-gradient-brand text-primary-foreground font-semibold text-sm rounded-lg hover-lift glow-red"
+              className="flex items-center gap-2 h-10 px-5 bg-gradient-brand text-primary-foreground font-semibold text-[13px] rounded-lg hover-lift glow-red"
             >
               Trading Hub
-              <TrendingUp className="w-4 h-4" />
+              <TrendingUp className="w-3.5 h-3.5" />
             </Link>
           </div>
 
@@ -111,7 +114,7 @@ const Navbar = () => {
             className="lg:hidden text-foreground"
             onClick={() => setMobileOpen(!mobileOpen)}
           >
-            {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
       </div>
@@ -120,24 +123,24 @@ const Navbar = () => {
       <AnimatePresence>
         {mobileOpen && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="lg:hidden border-t border-border bg-card"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="lg:hidden mt-2 mx-4 bg-card/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl overflow-hidden"
           >
-            <div className="container py-4 space-y-2">
+            <div className="p-4 space-y-1">
               {navItems.map((item) => (
                 <div key={item.label}>
                   {item.children ? (
                     <>
-                      <p className="px-3 py-2 text-sm text-muted-foreground font-medium">
+                      <p className="px-3 py-2 text-xs text-muted-foreground font-medium uppercase tracking-wider">
                         {item.label}
                       </p>
                       {item.children.map((child) => (
                         <Link
                           key={child.path}
                           to={child.path}
-                          className="block pl-6 py-2 text-sm text-secondary-foreground hover:text-primary"
+                          className="block pl-6 py-2 text-sm text-secondary-foreground hover:text-primary rounded-lg"
                           onClick={() => setMobileOpen(false)}
                         >
                           {child.label}
@@ -147,7 +150,7 @@ const Navbar = () => {
                   ) : (
                     <Link
                       to={item.path}
-                      className="block px-3 py-2 text-sm text-secondary-foreground hover:text-primary"
+                      className="block px-3 py-2 text-sm text-secondary-foreground hover:text-primary rounded-lg"
                       onClick={() => setMobileOpen(false)}
                     >
                       {item.label}
@@ -157,7 +160,7 @@ const Navbar = () => {
               ))}
               <Link
                 to="/trading"
-                className="block text-center mt-4 px-5 py-2.5 bg-gradient-brand text-primary-foreground font-semibold text-sm rounded-lg"
+                className="block text-center mt-3 px-5 py-2.5 bg-gradient-brand text-primary-foreground font-semibold text-sm rounded-xl"
                 onClick={() => setMobileOpen(false)}
               >
                 Trading Hub →
