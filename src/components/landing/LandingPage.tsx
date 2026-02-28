@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { TrendingUp, BarChart3, Users, Globe, Shield, Zap, Brain, ChevronDown, Lock, CreditCard, Star, Activity, ExternalLink, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import MarketTracker from "@/components/trading/MarketTracker";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import traderBidAsk from "@/assets/trader-bid-ask.webp";
@@ -357,39 +358,8 @@ const LandingPage = () => {
           <motion.p className="text-muted-foreground max-w-xl mx-auto mb-8 font-sans" {...fadeUp}>
             Real-time market data with technical ratings.
           </motion.p>
-          <motion.div className="p-1 rounded-xl bg-card border border-border overflow-hidden" {...fadeUp}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-secondary/50">
-                    {["TICKER", "PRICE", "CHG %", "CHG", "BID", "ASK", "HIGH", "LOW", "RATING"].map((h) => (
-                      <th key={h} className="py-3 px-4 text-xs font-semibold text-muted-foreground text-left font-sans">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    { ticker: "EURUSD", price: "1.18080", chgPct: "0.31%", chg: "0.00362", bid: "1.18056", ask: "1.18063", high: "1.18143", low: "1.17710", rating: "Buy", rColor: "text-buy" },
-                    { ticker: "GBPUSD", price: "1.90292", chgPct: "-0.37%", chg: "-0.007100", bid: "1.903620", ask: "1.903810", high: "1.912360", low: "1.900690", rating: "Sell", rColor: "text-sell" },
-                    { ticker: "USDJPY", price: "184.660", chgPct: "0.61%", chg: "1.127", bid: "184.589", ask: "184.604", high: "184.760", low: "183.206", rating: "Strong Buy", rColor: "text-buy" },
-                    { ticker: "AUDCAD", price: "0.971800", chgPct: "0.51%", chg: "0.004960", bid: "0.971180", ask: "0.971240", high: "0.973170", low: "0.966460", rating: "Buy", rColor: "text-buy" },
-                    { ticker: "EURGBP", price: "0.87119", chgPct: "-0.12%", chg: "-0.00105", bid: "0.87114", ask: "0.87117", high: "0.87320", low: "0.87079", rating: "Buy", rColor: "text-buy" },
-                  ].map((row) => (
-                    <tr key={row.ticker} className="border-b border-border/50 hover:bg-secondary/30 transition-colors">
-                      <td className="py-3 px-4 text-xs font-medium text-primary font-sans">{row.ticker}</td>
-                      <td className="py-3 px-4 text-xs text-foreground font-sans">{row.price}</td>
-                      <td className={`py-3 px-4 text-xs font-sans ${row.chgPct.startsWith("-") ? "text-sell" : "text-buy"}`}>{row.chgPct}</td>
-                      <td className={`py-3 px-4 text-xs font-sans ${row.chg.startsWith("-") ? "text-sell" : "text-buy"}`}>{row.chg}</td>
-                      <td className="py-3 px-4 text-xs text-muted-foreground font-sans">{row.bid}</td>
-                      <td className="py-3 px-4 text-xs text-muted-foreground font-sans">{row.ask}</td>
-                      <td className="py-3 px-4 text-xs text-muted-foreground font-sans">{row.high}</td>
-                      <td className="py-3 px-4 text-xs text-muted-foreground font-sans">{row.low}</td>
-                      <td className={`py-3 px-4 text-xs font-medium font-sans ${row.rColor}`}>{row.rating}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          <motion.div {...fadeUp}>
+            <MarketTracker />
           </motion.div>
         </div>
       </section>

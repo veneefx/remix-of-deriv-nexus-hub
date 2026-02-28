@@ -13,6 +13,9 @@ import Help from "./pages/Help";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import Risk from "./pages/Risk";
+import Auth from "./pages/Auth";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +37,9 @@ const App = () => (
           <Route path="/terms" element={<Terms />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/risk" element={<Risk />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/market-tracker" element={<Signals />} />
           <Route path="/charts" element={<Signals />} />
           <Route path="/profile" element={<TradingHub />} />
