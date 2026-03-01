@@ -169,7 +169,7 @@ const Signals = () => {
   const [prices, setPrices] = useState<number[]>([]);
   const [connected, setConnected] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [appId, setAppId] = useState<string>("68014");
+  const [appId, setAppId] = useState<string>("129344");
   const wsRef = useRef<DerivWebSocket | null>(null);
 
   // Fetch app ID from backend
