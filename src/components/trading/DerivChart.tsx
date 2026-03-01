@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { createChart, IChartApi, ISeriesApi, LineData, Time, ColorType } from "lightweight-charts";
 import DerivWebSocket from "@/services/deriv-websocket";
 import { VOLATILITY_MARKETS } from "@/lib/trading-constants";
+import { ChevronDown, Crosshair, TrendingUp, BarChart3, LineChart, PenTool, Download } from "lucide-react";
 
 interface DerivChartProps {
   ws: DerivWebSocket | null;
@@ -8,191 +10,216 @@ interface DerivChartProps {
 }
 
 const DerivChart = ({ ws, selectedMarket }: DerivChartProps) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [prices, setPrices] = useState<{ price: number; time: number }[]>([]);
+  const chartRef = useRef<IChartApi | null>(null);
+  const areaSeriesRef = useRef<ISeriesApi<"Area"> | null>(null);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [priceChange, setPriceChange] = useState<number>(0);
-  const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; price: number; time: number } | null>(null);
+  const [priceChangePercent, setPriceChangePercent] = useState<number>(0);
+  const [marketDropdownOpen, setMarketDropdownOpen] = useState(false);
+  const [hoverPrice, setHoverPrice] = useState<{ time: string; price: string; symbol: string } | null>(null);
+  const firstPriceRef = useRef<number | null>(null);
   const marketLabel = VOLATILITY_MARKETS.find(m => m.symbol === selectedMarket)?.label || selectedMarket;
 
-  useEffect(() => {
-    if (!ws) return;
-    setPrices([]);
-    setCurrentPrice(null);
+  const isDark = typeof document !== "undefined" && (document.documentElement.classList.contains("dark") || !document.documentElement.classList.contains("light"));
 
-    const unsub = ws.on("tick", (data) => {
-      if (data.tick) {
-        const price = data.tick.quote;
-        const time = data.tick.epoch * 1000;
-        setCurrentPrice(prev => {
-          if (prev !== null) setPriceChange(price - prev);
-          return price;
-        });
-        setPrices(prev => {
-          const updated = [...prev, { price, time }];
-          return updated.length > 500 ? updated.slice(-500) : updated;
+  // Create chart
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const chart = createChart(containerRef.current, {
+      layout: {
+        background: { type: ColorType.Solid, color: isDark ? "#0a0e17" : "#ffffff" },
+        textColor: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)",
+        fontSize: 11,
+      },
+      grid: {
+        vertLines: { visible: false },
+        horzLines: { color: isDark ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.04)" },
+      },
+      crosshair: {
+        mode: 0,
+        vertLine: { color: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)", style: 3, labelVisible: true },
+        horzLine: { color: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)", style: 3, labelVisible: true },
+      },
+      rightPriceScale: {
+        borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+        scaleMargins: { top: 0.15, bottom: 0.1 },
+      },
+      timeScale: {
+        borderColor: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
+        timeVisible: true,
+        secondsVisible: true,
+      },
+      handleScroll: true,
+      handleScale: true,
+    });
+
+    const series = chart.addAreaSeries({
+      lineColor: isDark ? "rgba(100, 150, 255, 0.8)" : "rgba(50, 100, 220, 0.9)",
+      topColor: isDark ? "rgba(100, 150, 255, 0.15)" : "rgba(50, 100, 220, 0.12)",
+      bottomColor: isDark ? "rgba(100, 150, 255, 0.01)" : "rgba(50, 100, 220, 0.01)",
+      lineWidth: 2,
+      crosshairMarkerVisible: true,
+      crosshairMarkerRadius: 4,
+      crosshairMarkerBorderColor: isDark ? "#6496ff" : "#3264dc",
+      crosshairMarkerBackgroundColor: isDark ? "#0a0e17" : "#ffffff",
+    });
+
+    chartRef.current = chart;
+    areaSeriesRef.current = series;
+
+    // Crosshair move handler for tooltip
+    chart.subscribeCrosshairMove((param) => {
+      if (!param.time || !param.point) {
+        setHoverPrice(null);
+        return;
+      }
+      const data = param.seriesData.get(series);
+      if (data && 'value' in data) {
+        const t = param.time as number;
+        const d = new Date(t * 1000);
+        setHoverPrice({
+          time: d.toLocaleString("en-GB", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+          price: (data as any).value.toFixed(3),
+          symbol: marketLabel.toUpperCase(),
         });
       }
     });
+
+    const handleResize = () => {
+      if (containerRef.current) {
+        chart.applyOptions({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight,
+        });
+      }
+    };
+
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(containerRef.current);
+    handleResize();
+
+    return () => {
+      resizeObserver.disconnect();
+      chart.remove();
+      chartRef.current = null;
+      areaSeriesRef.current = null;
+    };
+  }, [isDark, marketLabel]);
+
+  // Handle tick data
+  useEffect(() => {
+    if (!ws || !areaSeriesRef.current) return;
+    firstPriceRef.current = null;
+
+    const unsub = ws.on("tick", (data) => {
+      if (!data.tick || !areaSeriesRef.current) return;
+      const price = data.tick.quote;
+      const epoch = data.tick.epoch;
+
+      if (firstPriceRef.current === null) firstPriceRef.current = price;
+
+      setCurrentPrice(price);
+      const change = price - (firstPriceRef.current || price);
+      setPriceChange(change);
+      setPriceChangePercent(firstPriceRef.current ? (change / firstPriceRef.current) * 100 : 0);
+
+      try {
+        areaSeriesRef.current?.update({
+          time: epoch as Time,
+          value: price,
+        });
+      } catch {
+        // ignore update errors
+      }
+    });
+
     return () => { unsub(); };
   }, [ws, selectedMarket]);
 
-  // Draw line chart
+  // Clear data on market change
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || prices.length < 2) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    areaSeriesRef.current?.setData([]);
+    firstPriceRef.current = null;
+  }, [selectedMarket]);
 
-    const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    ctx.scale(dpr, dpr);
-    const W = rect.width;
-    const H = rect.height;
-
-    const isDark = document.documentElement.classList.contains("dark") || !document.documentElement.classList.contains("light");
-    ctx.fillStyle = isDark ? "hsl(216, 28%, 7%)" : "hsl(0, 0%, 98%)";
-    ctx.fillRect(0, 0, W, H);
-
-    const minP = Math.min(...prices.map(p => p.price));
-    const maxP = Math.max(...prices.map(p => p.price));
-    const range = maxP - minP || 1;
-    const padL = 10;
-    const padR = 70;
-    const padT = 20;
-    const padB = 30;
-
-    const toX = (i: number) => padL + (i / (prices.length - 1)) * (W - padL - padR);
-    const toY = (p: number) => padT + (1 - (p - minP) / range) * (H - padT - padB);
-
-    // Grid
-    const gridColor = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)";
-    const textColor = isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.35)";
-    ctx.strokeStyle = gridColor;
-    ctx.lineWidth = 0.5;
-    for (let i = 0; i <= 5; i++) {
-      const y = padT + i * ((H - padT - padB) / 5);
-      ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(W - padR, y); ctx.stroke();
-      const price = maxP - (i / 5) * range;
-      ctx.fillStyle = textColor;
-      ctx.font = "10px Inter";
-      ctx.textAlign = "left";
-      ctx.fillText(price.toFixed(3), W - padR + 4, y + 3);
-    }
-
-    // Area fill
-    ctx.beginPath();
-    ctx.moveTo(toX(0), H - padB);
-    prices.forEach((p, i) => ctx.lineTo(toX(i), toY(p.price)));
-    ctx.lineTo(toX(prices.length - 1), H - padB);
-    ctx.closePath();
-    const grad = ctx.createLinearGradient(0, 0, 0, H);
-    const lineColor = isDark ? "rgba(59, 130, 246, 0.15)" : "rgba(59, 130, 246, 0.1)";
-    grad.addColorStop(0, lineColor);
-    grad.addColorStop(1, "transparent");
-    ctx.fillStyle = grad;
-    ctx.fill();
-
-    // Line
-    ctx.beginPath();
-    prices.forEach((p, i) => {
-      if (i === 0) ctx.moveTo(toX(i), toY(p.price));
-      else ctx.lineTo(toX(i), toY(p.price));
-    });
-    ctx.strokeStyle = isDark ? "rgba(59, 130, 246, 0.8)" : "rgba(59, 130, 246, 0.9)";
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    // Dot at last price
-    if (prices.length > 0) {
-      const lastIdx = prices.length - 1;
-      const lx = toX(lastIdx);
-      const ly = toY(prices[lastIdx].price);
-      ctx.beginPath();
-      ctx.arc(lx, ly, 3, 0, Math.PI * 2);
-      ctx.fillStyle = "hsl(217, 91%, 60%)";
-      ctx.fill();
-    }
-
-    // Time labels
-    ctx.fillStyle = textColor;
-    ctx.font = "9px Inter";
-    ctx.textAlign = "center";
-    const step = Math.max(1, Math.floor(prices.length / 8));
-    for (let i = 0; i < prices.length; i += step) {
-      const d = new Date(prices[i].time);
-      ctx.fillText(`${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}:${d.getSeconds().toString().padStart(2, "0")}`, toX(i), H - 5);
-    }
-  }, [prices]);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas || prices.length < 2) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const padL = 10;
-    const padR = 70;
-    const idx = Math.round((x - padL) / (rect.width - padL - padR) * (prices.length - 1));
-    if (idx >= 0 && idx < prices.length) {
-      setHoverInfo({ x: e.clientX - rect.left, y: e.clientY - rect.top, price: prices[idx].price, time: prices[idx].time });
-    }
-  };
+  const changeIsUp = priceChange >= 0;
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="flex items-center gap-4 p-3 border-b border-border bg-card/50">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">📊</div>
+    <div className="h-full flex flex-col bg-background">
+      {/* Market selector header */}
+      <div className="flex items-center gap-4 px-4 py-2.5 border-b border-border bg-card/50">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <TrendingUp className="w-4 h-4 text-primary" />
+          </div>
           <div>
-            <p className="text-sm font-semibold text-foreground">{marketLabel}</p>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-bold text-foreground">{marketLabel}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+            </div>
             {currentPrice && (
-              <p className="text-xs text-muted-foreground font-mono">
-                {currentPrice.toFixed(3)}{" "}
-                <span className={priceChange >= 0 ? "text-buy" : "text-sell"}>
-                  {priceChange >= 0 ? "▲" : "▼"} {Math.abs(priceChange).toFixed(3)} ({((priceChange / currentPrice) * 100).toFixed(2)}%)
+              <div className="flex items-center gap-2 text-xs">
+                <span className="font-mono text-foreground">{currentPrice.toFixed(3)}</span>
+                <span className={changeIsUp ? "text-buy" : "text-sell"}>
+                  {changeIsUp ? "+" : ""}{priceChange.toFixed(3)} ({changeIsUp ? "+" : ""}{priceChangePercent.toFixed(2)}%)
                 </span>
-              </p>
+                {!changeIsUp && <span className="text-sell">▼</span>}
+                {changeIsUp && <span className="text-buy">▲</span>}
+              </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Chart */}
-      <div ref={containerRef} className="flex-1 relative">
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full cursor-crosshair"
-          onMouseMove={handleMouseMove}
-          onMouseLeave={() => setHoverInfo(null)}
-        />
-        {hoverInfo && (
-          <div
-            className="absolute bg-card border border-border rounded-lg px-3 py-2 text-xs pointer-events-none z-10 shadow-lg"
-            style={{ left: Math.min(hoverInfo.x + 10, (containerRef.current?.clientWidth || 300) - 180), top: hoverInfo.y - 40 }}
-          >
-            <p className="text-muted-foreground">{new Date(hoverInfo.time).toLocaleString()}</p>
-            <p className="font-bold text-foreground">{marketLabel}</p>
-            <p className="text-primary font-mono">{hoverInfo.price.toFixed(3)}</p>
-          </div>
-        )}
-        {prices.length < 2 && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center space-y-2">
-              <div className="w-8 h-8 mx-auto border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-muted-foreground">Connecting to live data stream...</p>
+      {/* Chart with left toolbar */}
+      <div className="flex-1 flex">
+        {/* Drawing tools sidebar */}
+        <div className="w-9 border-r border-border bg-card/30 flex flex-col items-center py-2 gap-1.5">
+          {[
+            { icon: "1m", isText: true },
+          ].map((_, i) => (
+            <button key={i} className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors text-[10px] font-bold">
+              1m
+            </button>
+          ))}
+          <div className="w-5 border-t border-border my-1" />
+          {[Crosshair, TrendingUp, BarChart3, LineChart, PenTool, Download].map((Icon, i) => (
+            <button key={i} className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+              <Icon className="w-3.5 h-3.5" />
+            </button>
+          ))}
+        </div>
+
+        {/* Chart */}
+        <div className="flex-1 relative">
+          <div ref={containerRef} className="absolute inset-0" />
+          {!currentPrice && (
+            <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+              <div className="text-center space-y-2">
+                <div className="w-8 h-8 mx-auto border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <p className="text-sm text-muted-foreground">Connecting to live data stream...</p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+          {/* Hover tooltip */}
+          {hoverPrice && (
+            <div className="absolute top-4 left-4 bg-card/90 border border-border rounded-lg px-3 py-2 text-xs z-20 pointer-events-none shadow-lg backdrop-blur-sm">
+              <p className="text-muted-foreground">{hoverPrice.time}</p>
+              <p className="font-bold text-foreground">{hoverPrice.symbol}</p>
+              <p className="text-primary font-mono text-sm">{hoverPrice.price}</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between px-3 py-2 border-t border-border text-[10px] text-muted-foreground">
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-buy" /> Live</span>
-        <span>{new Date().toUTCString()}</span>
+      <div className="flex items-center justify-between px-4 py-1.5 border-t border-border bg-card/50 text-[10px] text-muted-foreground">
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-buy" /> Live</span>
+        </div>
+        <span>{new Date().toUTCString().replace("GMT", "GMT")}</span>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { createChart, IChartApi, ISeriesApi, CandlestickData, Time, ColorType } from "lightweight-charts";
 import DerivWebSocket from "@/services/deriv-websocket";
 import { VOLATILITY_MARKETS } from "@/lib/trading-constants";
 
@@ -7,7 +8,23 @@ interface TradingViewChartProps {
   selectedMarket: string;
 }
 
-interface Candle {
+type Timeframe = "1m" | "2m" | "3m" | "5m" | "10m" | "15m" | "30m" | "1h" | "2h" | "4h" | "8h";
+
+const TIMEFRAMES: { label: string; value: Timeframe; seconds: number }[] = [
+  { label: "1m", value: "1m", seconds: 60 },
+  { label: "2m", value: "2m", seconds: 120 },
+  { label: "3m", value: "3m", seconds: 180 },
+  { label: "5m", value: "5m", seconds: 300 },
+  { label: "10m", value: "10m", seconds: 600 },
+  { label: "15m", value: "15m", seconds: 900 },
+  { label: "30m", value: "30m", seconds: 1800 },
+  { label: "1h", value: "1h", seconds: 3600 },
+  { label: "2h", value: "2h", seconds: 7200 },
+  { label: "4h", value: "4h", seconds: 14400 },
+  { label: "8h", value: "8h", seconds: 28800 },
+];
+
+interface OHLCData {
   time: number;
   open: number;
   high: number;
@@ -16,237 +33,227 @@ interface Candle {
 }
 
 const TradingViewChart = ({ ws, selectedMarket }: TradingViewChartProps) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [candles, setCandles] = useState<Candle[]>([]);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const candlesRef = useRef<Map<number, OHLCData>>(new Map());
+  const [timeframe, setTimeframe] = useState<Timeframe>("1m");
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
-  const [timeframe, setTimeframe] = useState("1m");
-  const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; candle: Candle } | null>(null);
+  const [ohlc, setOhlc] = useState<{ o: number; h: number; l: number; c: number } | null>(null);
+  const [priceChange, setPriceChange] = useState<number>(0);
+  const [priceChangePercent, setPriceChangePercent] = useState<number>(0);
   const marketLabel = VOLATILITY_MARKETS.find(m => m.symbol === selectedMarket)?.label || selectedMarket;
 
+  const isDark = typeof document !== "undefined" && (document.documentElement.classList.contains("dark") || !document.documentElement.classList.contains("light"));
+
+  // Create chart
   useEffect(() => {
-    if (!ws) return;
-    setCandles([]);
-    setCurrentPrice(null);
+    if (!containerRef.current) return;
 
-    const unsub = ws.on("tick", (data) => {
-      if (data.tick) {
-        const price = data.tick.quote;
-        const time = data.tick.epoch * 1000;
-        setCurrentPrice(price);
+    const chart = createChart(containerRef.current, {
+      layout: {
+        background: { type: ColorType.Solid, color: isDark ? "#0a0e17" : "#ffffff" },
+        textColor: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)",
+        fontSize: 11,
+      },
+      grid: {
+        vertLines: { color: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)" },
+        horzLines: { color: isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)" },
+      },
+      crosshair: {
+        mode: 0,
+        vertLine: { color: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)", style: 3 },
+        horzLine: { color: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)", style: 3 },
+      },
+      rightPriceScale: {
+        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+        scaleMargins: { top: 0.1, bottom: 0.1 },
+      },
+      timeScale: {
+        borderColor: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)",
+        timeVisible: true,
+        secondsVisible: false,
+      },
+      handleScroll: true,
+      handleScale: true,
+    });
 
-        const interval = timeframe === "1m" ? 60000 : timeframe === "5m" ? 300000 : 30000;
-        const candleTime = Math.floor(time / interval) * interval;
+    const series = chart.addCandlestickSeries({
+      upColor: "#26a69a",
+      downColor: "#ef5350",
+      borderDownColor: "#ef5350",
+      borderUpColor: "#26a69a",
+      wickDownColor: "#ef5350",
+      wickUpColor: "#26a69a",
+    });
 
-        setCandles(prev => {
-          const updated = [...prev];
-          const lastCandle = updated[updated.length - 1];
-          if (lastCandle && lastCandle.time === candleTime) {
-            lastCandle.high = Math.max(lastCandle.high, price);
-            lastCandle.low = Math.min(lastCandle.low, price);
-            lastCandle.close = price;
-          } else {
-            updated.push({ time: candleTime, open: price, high: price, low: price, close: price });
-            if (updated.length > 200) updated.shift();
-          }
-          return updated;
+    chartRef.current = chart;
+    seriesRef.current = series;
+
+    const handleResize = () => {
+      if (containerRef.current) {
+        chart.applyOptions({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight,
         });
       }
+    };
+
+    const resizeObserver = new ResizeObserver(handleResize);
+    resizeObserver.observe(containerRef.current);
+    handleResize();
+
+    return () => {
+      resizeObserver.disconnect();
+      chart.remove();
+      chartRef.current = null;
+      seriesRef.current = null;
+    };
+  }, [isDark]);
+
+  // Handle tick data
+  useEffect(() => {
+    if (!ws || !seriesRef.current) return;
+    candlesRef.current.clear();
+
+    const intervalSeconds = TIMEFRAMES.find(t => t.value === timeframe)?.seconds || 60;
+
+    const unsub = ws.on("tick", (data) => {
+      if (!data.tick || !seriesRef.current) return;
+      const price = data.tick.quote;
+      const epoch = data.tick.epoch;
+      const candleTime = Math.floor(epoch / intervalSeconds) * intervalSeconds;
+
+      setCurrentPrice(price);
+
+      const candles = candlesRef.current;
+      const existing = candles.get(candleTime);
+
+      if (existing) {
+        existing.high = Math.max(existing.high, price);
+        existing.low = Math.min(existing.low, price);
+        existing.close = price;
+      } else {
+        candles.set(candleTime, {
+          time: candleTime,
+          open: price,
+          high: price,
+          low: price,
+          close: price,
+        });
+        // Keep max 500 candles
+        if (candles.size > 500) {
+          const firstKey = candles.keys().next().value;
+          if (firstKey !== undefined) candles.delete(firstKey);
+        }
+      }
+
+      const candle = candles.get(candleTime)!;
+      setOhlc({ o: candle.open, h: candle.high, l: candle.low, c: candle.close });
+
+      // Calculate change from first candle
+      const allCandles = Array.from(candles.values());
+      if (allCandles.length > 1) {
+        const firstClose = allCandles[0].close;
+        setPriceChange(price - firstClose);
+        setPriceChangePercent(((price - firstClose) / firstClose) * 100);
+      }
+
+      // Update the series
+      try {
+        seriesRef.current?.update({
+          time: candleTime as Time,
+          open: candle.open,
+          high: candle.high,
+          low: candle.low,
+          close: candle.close,
+        });
+      } catch (e) {
+        // If update fails, set all data
+        const sorted = allCandles.sort((a, b) => a.time - b.time);
+        seriesRef.current?.setData(
+          sorted.map(c => ({
+            time: c.time as Time,
+            open: c.open,
+            high: c.high,
+            low: c.low,
+            close: c.close,
+          }))
+        );
+      }
     });
+
     return () => { unsub(); };
   }, [ws, selectedMarket, timeframe]);
 
-  // Draw chart
+  // Clear candles when timeframe changes
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || candles.length < 2) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    candlesRef.current.clear();
+    seriesRef.current?.setData([]);
+  }, [timeframe, selectedMarket]);
 
-    const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    ctx.scale(dpr, dpr);
-    const W = rect.width;
-    const H = rect.height;
-
-    // Background
-    const isDark = document.documentElement.classList.contains("dark") || !document.documentElement.classList.contains("light");
-    ctx.fillStyle = isDark ? "hsl(216, 28%, 7%)" : "hsl(0, 0%, 98%)";
-    ctx.fillRect(0, 0, W, H);
-
-    const visibleCandles = candles.slice(-100);
-    if (visibleCandles.length < 2) return;
-
-    const allPrices = visibleCandles.flatMap(c => [c.high, c.low]);
-    const minP = Math.min(...allPrices);
-    const maxP = Math.max(...allPrices);
-    const range = maxP - minP || 1;
-    const padL = 10;
-    const padR = 80;
-    const padT = 30;
-    const padB = 30;
-
-    const toY = (p: number) => padT + (1 - (p - minP) / range) * (H - padT - padB);
-    const candleW = (W - padL - padR) / visibleCandles.length;
-
-    // Grid lines + price labels
-    const gridColor = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)";
-    const textColor = isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)";
-    ctx.strokeStyle = gridColor;
-    ctx.lineWidth = 0.5;
-    for (let i = 0; i < 6; i++) {
-      const y = padT + i * ((H - padT - padB) / 5);
-      ctx.beginPath();
-      ctx.moveTo(padL, y);
-      ctx.lineTo(W - padR, y);
-      ctx.stroke();
-      const price = maxP - (i / 5) * range;
-      ctx.fillStyle = textColor;
-      ctx.font = "10px Inter";
-      ctx.textAlign = "left";
-      ctx.fillText(price.toFixed(4), W - padR + 4, y + 3);
-    }
-
-    // Candles
-    visibleCandles.forEach((c, i) => {
-      const x = padL + i * candleW + candleW / 2;
-      const isGreen = c.close >= c.open;
-      const color = isGreen ? "hsl(142, 76%, 36%)" : "hsl(0, 72%, 51%)";
-
-      // Wick
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x, toY(c.high));
-      ctx.lineTo(x, toY(c.low));
-      ctx.stroke();
-
-      // Body
-      const bodyTop = toY(Math.max(c.open, c.close));
-      const bodyBot = toY(Math.min(c.open, c.close));
-      const bodyH = Math.max(bodyBot - bodyTop, 1);
-      ctx.fillStyle = color;
-      ctx.fillRect(x - candleW * 0.35, bodyTop, candleW * 0.7, bodyH);
-    });
-
-    // Current price line
-    if (currentPrice) {
-      const y = toY(currentPrice);
-      ctx.setLineDash([4, 4]);
-      ctx.strokeStyle = "hsl(0, 72%, 51%)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(padL, y);
-      ctx.lineTo(W - padR, y);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Price tag
-      ctx.fillStyle = "hsl(0, 72%, 51%)";
-      const tagW = 72;
-      ctx.fillRect(W - padR, y - 10, tagW, 20);
-      ctx.fillStyle = "#fff";
-      ctx.font = "bold 10px Inter";
-      ctx.textAlign = "center";
-      ctx.fillText(currentPrice.toFixed(4), W - padR + tagW / 2, y + 4);
-    }
-
-    // Time labels
-    ctx.fillStyle = textColor;
-    ctx.font = "9px Inter";
-    ctx.textAlign = "center";
-    const step = Math.max(1, Math.floor(visibleCandles.length / 8));
-    for (let i = 0; i < visibleCandles.length; i += step) {
-      const x = padL + i * candleW + candleW / 2;
-      const d = new Date(visibleCandles[i].time);
-      ctx.fillText(`${d.getHours().toString().padStart(2, "0")}:${d.getMinutes().toString().padStart(2, "0")}`, x, H - 5);
-    }
-  }, [candles, currentPrice]);
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas || candles.length < 2) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const padL = 10;
-    const padR = 80;
-    const visibleCandles = candles.slice(-100);
-    const candleW = (rect.width - padL - padR) / visibleCandles.length;
-    const idx = Math.floor((x - padL) / candleW);
-    if (idx >= 0 && idx < visibleCandles.length) {
-      setHoverInfo({ x: e.clientX - rect.left, y: e.clientY - rect.top, candle: visibleCandles[idx] });
-    }
-  };
+  const changeColor = priceChange >= 0 ? "text-buy" : "text-sell";
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-border bg-card/50">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">📊</div>
-            <div>
-              <p className="text-sm font-semibold text-foreground">{marketLabel}</p>
-              {currentPrice && (
-                <p className="text-xs text-muted-foreground font-mono">
-                  O{currentPrice.toFixed(4)} H{currentPrice.toFixed(4)} L{currentPrice.toFixed(4)} C{currentPrice.toFixed(4)}
-                </p>
-              )}
+    <div className="h-full flex flex-col bg-background">
+      {/* Top bar - OHLC info */}
+      <div className="flex items-center gap-4 px-4 py-2 border-b border-border bg-card/50 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-primary font-bold">●</span>
+          <span className="font-semibold text-foreground">{marketLabel} · {timeframe}</span>
+        </div>
+        {ohlc && (
+          <div className="flex items-center gap-3 text-muted-foreground">
+            <span>O<span className="text-foreground ml-0.5">{ohlc.o.toFixed(4)}</span></span>
+            <span>H<span className="text-buy ml-0.5">{ohlc.h.toFixed(4)}</span></span>
+            <span>L<span className="text-sell ml-0.5">{ohlc.l.toFixed(4)}</span></span>
+            <span>C<span className="text-foreground ml-0.5">{ohlc.c.toFixed(4)}</span></span>
+            <span className={changeColor}>
+              {priceChange >= 0 ? "+" : ""}{priceChange.toFixed(4)} ({priceChangePercent >= 0 ? "+" : ""}{priceChangePercent.toFixed(2)}%)
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Chart area */}
+      <div className="flex-1 relative">
+        <div ref={containerRef} className="absolute inset-0" />
+        {candlesRef.current.size < 2 && (
+          <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none">
+            <div className="text-center space-y-2">
+              <div className="w-8 h-8 mx-auto border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-muted-foreground">Collecting tick data...</p>
             </div>
           </div>
-        </div>
-        <div className="flex gap-1">
-          {["30s", "1m", "5m"].map(tf => (
+        )}
+      </div>
+
+      {/* Bottom bar - Timeframes */}
+      <div className="flex items-center justify-between px-4 py-1.5 border-t border-border bg-card/50">
+        <div className="flex items-center gap-1">
+          {TIMEFRAMES.map(tf => (
             <button
-              key={tf}
-              onClick={() => { setTimeframe(tf); setCandles([]); }}
-              className={`px-2.5 py-1 text-[10px] font-medium rounded transition-colors ${timeframe === tf ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-secondary"}`}
+              key={tf.value}
+              onClick={() => setTimeframe(tf.value)}
+              className={`px-2 py-0.5 text-[11px] font-medium rounded transition-colors ${
+                timeframe === tf.value
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              }`}
             >
-              {tf}
+              {tf.label}
             </button>
           ))}
         </div>
-      </div>
-
-      {/* Chart */}
-      <div ref={containerRef} className="flex-1 relative">
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full cursor-crosshair"
-          onMouseMove={handleMouseMove}
-          onMouseLeave={() => setHoverInfo(null)}
-        />
-        {hoverInfo && (
-          <div
-            className="absolute bg-card border border-border rounded-lg px-3 py-2 text-xs pointer-events-none z-10 shadow-lg"
-            style={{ left: Math.min(hoverInfo.x + 10, (containerRef.current?.clientWidth || 300) - 180), top: hoverInfo.y - 60 }}
-          >
-            <p className="text-muted-foreground">{new Date(hoverInfo.candle.time).toLocaleString()}</p>
-            <p className="font-bold text-foreground">{marketLabel}</p>
-            <div className="grid grid-cols-2 gap-x-3 mt-1">
-              <span className="text-muted-foreground">O: <span className="text-foreground">{hoverInfo.candle.open.toFixed(4)}</span></span>
-              <span className="text-muted-foreground">H: <span className="text-buy">{hoverInfo.candle.high.toFixed(4)}</span></span>
-              <span className="text-muted-foreground">L: <span className="text-sell">{hoverInfo.candle.low.toFixed(4)}</span></span>
-              <span className="text-muted-foreground">C: <span className="text-foreground">{hoverInfo.candle.close.toFixed(4)}</span></span>
-            </div>
-          </div>
-        )}
-        {candles.length < 2 && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center space-y-2">
-              <div className="w-8 h-8 mx-auto border-2 border-primary border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-muted-foreground">Collecting tick data for candlestick chart...</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Footer */}
-      <div className="flex items-center justify-between px-3 py-2 border-t border-border text-[10px] text-muted-foreground">
-        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-buy" /> Live</span>
-        <span>{new Date().toUTCString()}</span>
+        <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+          <span>%</span>
+          <span>log</span>
+          <span>auto</span>
+          <span className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-buy" />
+            {new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" })} (UTC)
+          </span>
+        </div>
       </div>
     </div>
   );
