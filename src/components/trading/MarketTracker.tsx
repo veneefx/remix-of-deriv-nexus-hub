@@ -19,7 +19,7 @@ interface MarketRow {
   ask: number;
 }
 
-const DERIV_APP_ID = "68014";
+const DERIV_APP_ID = "129344";
 
 const MarketTracker = () => {
   const [data, setData] = useState<Record<string, MarketRow>>({});

@@ -21,15 +21,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { VOLATILITY_MARKETS, CONTRACT_TYPES } from "@/lib/trading-constants";
 
-const DERIV_APP_ID = "68014";
+const DERIV_APP_ID = "129344";
 
 const sidebarItems = [
   { icon: Home, label: "Home", path: "/" },
   { icon: TrendingUp, label: "AI Signals", path: "/signals" },
+  { icon: BarChart3, label: "Market Tracker", path: "/signals" },
   { icon: Users, label: "Partners", path: "/partners" },
-  { icon: BarChart3, label: "Signals (Beta)", path: "/signals-beta" },
   { icon: BookOpen, label: "eLearning Academy", path: "/education" },
   { icon: HelpCircle, label: "Help Center", path: "/help" },
+  { icon: Settings, label: "Risk Disclosure", path: "/risk" },
 ];
 
 type ViewMode = "digit-edge" | "trading-view" | "deriv-charts";
@@ -47,6 +48,7 @@ const TradingHub = () => {
   const [accountBalances, setAccountBalances] = useState<Record<string, number>>({});
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [ws, setWs] = useState<DerivWebSocket | null>(null);
+  const [wsConnected, setWsConnected] = useState(false);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [activeView, setActiveView] = useState<ViewMode>("digit-edge");
   const [selectedMarket, setSelectedMarket] = useState("R_10");
@@ -77,10 +79,17 @@ const TradingHub = () => {
     const wsInstance = new DerivWebSocket(DERIV_APP_ID);
     setWs(wsInstance);
     wsInstance.connect().then(() => {
+      setWsConnected(true);
+      // Subscribe to ticks for the selected market immediately
+      wsInstance.subscribeTicks(selectedMarket);
       // If user has a Deriv account connected, authorize for trading
       if (account) {
         wsInstance.authorize(account.token);
       }
+    }).catch(() => setWsConnected(false));
+
+    wsInstance.on("connection", (data) => {
+      setWsConnected(data.status === "connected");
     });
 
     if (account) {
@@ -248,8 +257,8 @@ const TradingHub = () => {
             </DropdownMenu>
 
             {/* Connection status */}
-            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${account ? "bg-buy/20 text-buy" : "bg-muted text-muted-foreground"}`}>
-              {account ? "Connected" : "Not Connected"}
+            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${wsConnected ? "bg-buy/20 text-buy" : "bg-sell/20 text-sell"}`}>
+              {wsConnected ? (account ? "Connected" : "Live Data") : "Connecting..."}
             </span>
           </div>
 
