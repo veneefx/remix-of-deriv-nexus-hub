@@ -10,6 +10,7 @@ import { getOAuthUrl } from "@/services/deriv-auth";
 import TradingPanel from "@/components/trading/TradingPanel";
 import TradingViewChart from "@/components/trading/TradingViewChart";
 import DerivChart from "@/components/trading/DerivChart";
+import ClientTokenManager from "@/components/trading/ClientTokenManager";
 import DerivWebSocket from "@/services/deriv-websocket";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -53,7 +54,7 @@ const TradingHub = () => {
   const [activeView, setActiveView] = useState<ViewMode>("digit-edge");
   const [selectedMarket, setSelectedMarket] = useState("R_10");
   const [tokenManagerOpen, setTokenManagerOpen] = useState(false);
-  const [tokenTab, setTokenTab] = useState<"demo" | "real">("demo");
+  const [tokenTab, setTokenTab] = useState<"demo" | "real" | "clients">("demo");
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
       return document.documentElement.classList.contains("dark") || !document.documentElement.classList.contains("light");
@@ -92,16 +93,20 @@ const TradingHub = () => {
     }
   }, []);
 
-  // Theme toggle
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add("dark");
-      document.documentElement.classList.remove("light");
-    } else {
-      document.documentElement.classList.add("light");
-      document.documentElement.classList.remove("dark");
-    }
-  }, [darkMode]);
+  // Theme toggle — just CSS class change, no app restart
+  const toggleTheme = useCallback(() => {
+    setDarkMode(prev => {
+      const next = !prev;
+      if (next) {
+        document.documentElement.classList.add("dark");
+        document.documentElement.classList.remove("light");
+      } else {
+        document.documentElement.classList.add("light");
+        document.documentElement.classList.remove("dark");
+      }
+      return next;
+    });
+  }, []);
 
   // WebSocket connection - connects for ALL users (no login required for data)
   useEffect(() => {
@@ -260,7 +265,7 @@ const TradingHub = () => {
         {/* Dark mode toggle */}
         <div className="p-3 border-t border-border space-y-2">
           <button
-            onClick={() => setDarkMode(!darkMode)}
+            onClick={toggleTheme}
             className="w-full flex items-center justify-between px-3 py-2 text-xs text-secondary-foreground rounded-lg hover:bg-secondary transition-colors"
           >
             <span className="flex items-center gap-2">
@@ -391,10 +396,10 @@ const TradingHub = () => {
         </main>
       </div>
 
-      {/* Token Manager Modal */}
+      {/* Token Manager Modal — Full Page */}
       {tokenManagerOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/60 backdrop-blur-sm" onClick={() => setTokenManagerOpen(false)}>
-          <div className="bg-card border border-border rounded-2xl shadow-2xl w-[480px] max-w-[95vw] max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="bg-card border border-border rounded-2xl shadow-2xl w-[560px] max-w-[95vw] max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <h2 className="text-base font-bold text-foreground">Token Manager</h2>
               <button onClick={() => setTokenManagerOpen(false)} className="text-muted-foreground hover:text-foreground">
@@ -404,74 +409,77 @@ const TradingHub = () => {
 
             {/* Tabs */}
             <div className="flex border-b border-border">
-              <button
-                onClick={() => setTokenTab("demo")}
-                className={`flex-1 py-3 text-sm font-medium transition-colors ${tokenTab === "demo" ? "text-foreground border-b-2 border-primary" : "text-muted-foreground"}`}
-              >
-                Demo
-              </button>
-              <button
-                onClick={() => setTokenTab("real")}
-                className={`flex-1 py-3 text-sm font-medium transition-colors ${tokenTab === "real" ? "text-foreground border-b-2 border-primary" : "text-muted-foreground"}`}
-              >
-                Real
-              </button>
+              {(["demo", "real", "clients"] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setTokenTab(tab as any)}
+                  className={`flex-1 py-3 text-sm font-medium capitalize transition-colors ${tokenTab === tab ? "text-foreground border-b-2 border-primary" : "text-muted-foreground"}`}
+                >
+                  {tab === "clients" ? "Client Tokens" : tab}
+                </button>
+              ))}
             </div>
 
-            {/* Account List */}
-            <div className="p-6 space-y-3 min-h-[120px]">
-              {(tokenTab === "demo" ? demoAccounts : realAccounts).length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No {tokenTab} accounts found.
-                  {!account && " Connect your Deriv account first."}
-                </p>
+            {/* Account List / Client Token Manager */}
+            <div className="p-6 space-y-3 min-h-[120px] max-h-[50vh] overflow-y-auto">
+              {tokenTab === "clients" ? (
+                <ClientTokenManager />
               ) : (
-                (tokenTab === "demo" ? demoAccounts : realAccounts).map((acc, i) => {
-                  const isActive = account?.loginid === acc.loginid;
-                  const accBalance = isActive ? balance : accountBalances[acc.loginid];
-                  return (
-                    <div
-                      key={acc.loginid}
-                      className={`flex items-center gap-3 p-3 rounded-xl border transition-colors cursor-pointer ${
-                        isActive ? "border-primary bg-primary/5" : "border-border hover:bg-secondary/50"
-                      }`}
-                      onClick={() => handleSwitchAccount(acc)}
-                    >
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <span className="text-[10px] font-bold text-primary">
-                          {acc.is_virtual ? "DEMO" : i + 1}
-                        </span>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium text-foreground">{acc.loginid}</p>
-                          {isActive && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-buy/20 text-buy">Active</span>
+                <>
+                  {(tokenTab === "demo" ? demoAccounts : realAccounts).length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No {tokenTab} accounts found.
+                      {!account && " Connect your Deriv account first."}
+                    </p>
+                  ) : (
+                    (tokenTab === "demo" ? demoAccounts : realAccounts).map((acc, i) => {
+                      const isActive = account?.loginid === acc.loginid;
+                      const accBalance = isActive ? balance : accountBalances[acc.loginid];
+                      return (
+                        <div
+                          key={acc.loginid}
+                          className={`flex items-center gap-3 p-3 rounded-xl border transition-colors cursor-pointer ${
+                            isActive ? "border-primary bg-primary/5" : "border-border hover:bg-secondary/50"
+                          }`}
+                          onClick={() => handleSwitchAccount(acc)}
+                        >
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            <span className="text-[10px] font-bold text-primary">
+                              {acc.is_virtual ? "DEMO" : i + 1}
+                            </span>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-foreground">{acc.loginid}</p>
+                              {isActive && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-buy/20 text-buy">Active</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              {accBalance !== undefined && accBalance !== null
+                                ? `${accBalance.toFixed(2)} ${acc.currency}`
+                                : `0.00 ${acc.currency}`}
+                            </p>
+                          </div>
+                          {acc.is_virtual && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); ws?.send({ topup_virtual: 1 }); }}
+                              className="text-[10px] font-medium px-2 py-1 rounded bg-secondary text-foreground hover:bg-muted transition-colors"
+                            >
+                              Reset Balance
+                            </button>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          {accBalance !== undefined && accBalance !== null
-                            ? `${accBalance.toFixed(2)} ${acc.currency}`
-                            : `0.00 ${acc.currency}`}
-                        </p>
-                      </div>
-                      {acc.is_virtual && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); ws?.send({ topup_virtual: 1 }); }}
-                          className="text-[10px] font-medium px-2 py-1 rounded bg-secondary text-foreground hover:bg-muted transition-colors"
-                        >
-                          Reset Balance
-                        </button>
-                      )}
-                    </div>
-                  );
-                })
+                      );
+                    })
+                  )}
+                </>
               )}
             </div>
 
             {/* Actions */}
             <div className="flex justify-center gap-3 px-6 py-4 border-t border-border">
-              {account && (
+              {account && tokenTab !== "clients" && (
                 <button onClick={() => { handleLogout(); setTokenManagerOpen(false); }} className="px-4 py-2 text-xs font-semibold bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition-colors">
                   Disconnect
                 </button>

@@ -58,6 +58,9 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [stopAfterMaxMartingale, setStopAfterMaxMartingale] = useState(true);
   const [startMartingaleAfter, setStartMartingaleAfter] = useState(1);
   const [tradeDiffers, setTradeDiffers] = useState(false);
+  const [smartRisker, setSmartRisker] = useState(false);
+  const [freqBasedTrading, setFreqBasedTrading] = useState(false);
+  const [freqThreshold, setFreqThreshold] = useState(12); // % threshold for digit frequency imbalance
 
   const [session, setSession] = useState<SessionStats>({
     totalTrades: 0, wins: 0, losses: 0, totalProfit: 0,
@@ -78,10 +81,23 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const botRunning = useRef(false);
   const consecutiveLosses = useRef(0);
   const currentStake = useRef(parseFloat("3"));
+  const partialProfitTaken = useRef(0);
 
   const isLoggedIn = !!account;
 
-  // Subscribe to ticks - works even without login for live data
+  // Check if digit frequency condition is met for trading
+  const isFreqConditionMet = useCallback((): boolean => {
+    if (!freqBasedTrading || lastDigits.length < 30) return true; // Not enough data, allow trading
+    const total = lastDigits.length;
+    for (let d = 0; d <= 9; d++) {
+      const count = lastDigits.filter(x => x === d).length;
+      const pct = (count / total) * 100;
+      if (pct >= freqThreshold) return true; // Imbalance detected
+    }
+    return false;
+  }, [lastDigits, freqBasedTrading, freqThreshold]);
+
+  // Subscribe to ticks
   useEffect(() => {
     if (!ws) return;
     if (prevMarketRef.current !== selectedMarket) ws.unsubscribeTicks(prevMarketRef.current);
@@ -98,16 +114,17 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     return () => { unsub(); };
   }, [ws, selectedMarket]);
 
-  // Get proposal - only when logged in
+  // Get proposal
   useEffect(() => {
     if (!ws || !isLoggedIn || isTrading) return;
     const needsBarrier = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
+    const isRiseFall = contractType === "CALL" || contractType === "PUT";
     ws.getProposal({
       amount: parseFloat(stake) || 3,
       contractType,
       symbol: selectedMarket,
-      duration,
-      durationUnit,
+      duration: isRiseFall ? Math.max(duration, 5) : duration,
+      durationUnit: isRiseFall ? "t" : durationUnit,
       ...(needsBarrier && { barrier }),
     });
 
@@ -126,6 +143,10 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
   const executeTrade = useCallback(() => {
     if (!ws || !proposalId || isTrading || !isLoggedIn) return;
+    
+    // Check frequency condition
+    if (freqBasedTrading && !isFreqConditionMet()) return;
+    
     setIsTrading(true);
     setTradeResult(null);
     const tradeStake = currentStake.current;
@@ -188,9 +209,20 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           }
         }
 
+        // Smart Risker: take 50% partial profits
+        const totalP = session.totalProfit + profit;
+        if (smartRisker && totalP > 0) {
+          const halfStake = parseFloat(stake) * 0.5;
+          if (totalP >= halfStake + partialProfitTaken.current) {
+            partialProfitTaken.current = totalP;
+            // Continue trading with base stake (auto-secure profits)
+            currentStake.current = parseFloat(stake);
+            consecutiveLosses.current = 0;
+          }
+        }
+
         const tp = parseFloat(takeProfit);
         const sl = parseFloat(stopLoss);
-        const totalP = session.totalProfit + profit;
         if (totalP >= tp) {
           setTpAmount(totalP);
           setShowTpModal(true);
@@ -202,7 +234,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         unsubContract();
       }
     });
-  }, [ws, proposalId, stake, isTrading, isLoggedIn, martingale, martingaleMultiplier, maxMartingaleSteps, session.totalProfit, takeProfit, stopLoss, contractType, marketLabel, duration, startMartingaleAfter, stopAfterMaxMartingale]);
+  }, [ws, proposalId, stake, isTrading, isLoggedIn, martingale, martingaleMultiplier, maxMartingaleSteps, session.totalProfit, takeProfit, stopLoss, contractType, marketLabel, duration, startMartingaleAfter, stopAfterMaxMartingale, smartRisker, freqBasedTrading, isFreqConditionMet]);
 
   const startBot = () => {
     if (!isLoggedIn) return;
@@ -230,6 +262,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     botRunning.current = true;
     consecutiveLosses.current = 0;
     currentStake.current = parseFloat(stake);
+    partialProfitTaken.current = 0;
     setSession({ totalTrades: 0, wins: 0, losses: 0, totalProfit: 0, peakBalance: 0, maxDrawdown: 0, startBalance: 0, largestStake: 0, maxLossStreak: 0 });
     setTransactions([]);
   };
@@ -239,17 +272,30 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     botRunning.current = false;
   };
 
-  // Auto-trade loop
+  // Auto-trade loop — Fast = per tick (instant), Normal = 4s delay
   useEffect(() => {
     if (softwareStatus !== "ACTIVE" || !botRunning.current || isTrading || mode !== "Automated") return;
-    const delay = executionSpeed === "Fast" ? 1500 : 4000;
-    const timer = setTimeout(() => {
-      if (botRunning.current && !isTrading) executeTrade();
-    }, delay);
-    return () => clearTimeout(timer);
-  }, [softwareStatus, isTrading, mode, executionSpeed, executeTrade]);
+    
+    if (executionSpeed === "Fast") {
+      // Per-tick trading: execute immediately when not trading
+      executeTrade();
+    } else {
+      const timer = setTimeout(() => {
+        if (botRunning.current && !isTrading) executeTrade();
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [softwareStatus, isTrading, mode, executionSpeed, executeTrade, currentTick]);
 
   const clearTransactions = () => setTransactions([]);
+
+  // Compute digit frequencies for display
+  const digitFrequencies = DIGIT_BARRIERS.map((d) => {
+    const num = parseInt(d);
+    const count = lastDigits.filter((x) => x === num).length;
+    const total = lastDigits.length;
+    return { digit: num, count, pct: total > 0 ? (count / total) * 100 : 0 };
+  });
 
   return (
     <div className="flex h-full">
@@ -316,7 +362,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   </div>
                 </div>
 
-                {/* Sign in prompt (only if not logged in) */}
+                {/* Sign in prompt */}
                 {!isLoggedIn && (
                   <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
                     <div className="flex items-center gap-3">
@@ -333,41 +379,57 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   </div>
                 )}
 
-                {/* Last Digits Grid - always visible */}
-                <div className="p-5 rounded-xl bg-card border border-border">
+                {/* Last 50 Digits — Tiny Circles */}
+                <div className="p-4 rounded-xl bg-card border border-border">
                   <h3 className="text-sm font-semibold text-foreground mb-3">Last 50 Digits ({marketLabel})</h3>
-                  <div className="grid grid-cols-10 gap-1">
+                  <div className="flex flex-wrap gap-1.5">
                     {(lastDigits.length > 0 ? lastDigits.slice(-50) : Array(50).fill(null)).map((digit, i) => (
                       <div
                         key={i}
-                        className={`w-full aspect-square rounded flex items-center justify-center text-[10px] font-mono font-bold ${
-                          digit === null ? "bg-secondary text-muted-foreground" : digit >= 5 ? "bg-buy/20 text-buy" : "bg-sell/20 text-sell"
+                        className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-mono font-bold transition-all ${
+                          digit === null
+                            ? "bg-secondary text-muted-foreground"
+                            : digit >= 5
+                              ? "bg-buy/20 text-buy border border-buy/30"
+                              : "bg-sell/20 text-sell border border-sell/30"
                         }`}
                       >
-                        {digit ?? "-"}
+                        {digit !== null && digit !== undefined ? digit : "-"}
                       </div>
                     ))}
                   </div>
 
-                  {/* Digit frequency bars */}
-                  <div className="mt-3 grid grid-cols-10 gap-1">
-                    {DIGIT_BARRIERS.map((d) => {
-                      const count = lastDigits.filter((x) => x === parseInt(d)).length;
-                      const pct = lastDigits.length > 0 ? (count / lastDigits.length) * 100 : 0;
-                      return (
-                        <div key={d} className="text-center">
-                          <div className="h-12 bg-secondary rounded-sm relative overflow-hidden">
-                            <div className="absolute bottom-0 left-0 right-0 bg-primary/40 rounded-sm transition-all" style={{ height: `${pct}%` }} />
-                          </div>
-                          <span className="text-[10px] text-muted-foreground block mt-0.5">{d}</span>
-                          <span className="text-[8px] text-muted-foreground">{pct.toFixed(0)}%</span>
+                  {/* Digit frequency — Deriv-style donut circles */}
+                  <div className="mt-4 grid grid-cols-10 gap-2">
+                    {digitFrequencies.map((d) => (
+                      <div key={d.digit} className="flex flex-col items-center gap-1">
+                        <div className="relative w-10 h-10">
+                          <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                            <circle cx="18" cy="18" r="15" fill="none" stroke="hsl(var(--secondary))" strokeWidth="3" />
+                            <circle
+                              cx="18" cy="18" r="15" fill="none"
+                              stroke={d.pct > 12 ? "hsl(var(--sell))" : d.pct > 8 ? "hsl(var(--warning))" : "hsl(var(--buy))"}
+                              strokeWidth="3"
+                              strokeDasharray={`${d.pct} ${100 - d.pct}`}
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                          <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-foreground">{d.digit}</span>
                         </div>
-                      );
-                    })}
+                        <span className="text-[8px] text-muted-foreground">{d.pct.toFixed(0)}%</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* Session stats (when trading) */}
+                {/* Freq-based status */}
+                {freqBasedTrading && softwareStatus === "ACTIVE" && (
+                  <div className={`p-3 rounded-lg text-center text-xs font-medium ${isFreqConditionMet() ? "bg-buy/10 text-buy" : "bg-warning/10 text-warning"}`}>
+                    {isFreqConditionMet() ? "⚡ Frequency imbalance detected — Trading active" : "⏸ Waiting for digit frequency imbalance..."}
+                  </div>
+                )}
+
+                {/* Session stats */}
                 {session.totalTrades > 0 && (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {[
@@ -384,7 +446,14 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   </div>
                 )}
 
-                {/* Features preview for non-logged-in users */}
+                {/* Smart Risker indicator */}
+                {smartRisker && session.totalProfit > 0 && (
+                  <div className="p-3 rounded-lg bg-success/10 border border-success/20 text-center">
+                    <p className="text-xs font-medium text-success">🛡 Smart Risker Active — Partial profits secured at ${partialProfitTaken.current.toFixed(2)}</p>
+                  </div>
+                )}
+
+                {/* Features preview */}
                 {!isLoggedIn && (
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     {[
@@ -407,7 +476,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         )}
       </div>
 
-      {/* Right Panel - Trading Controls (30% sticky sidebar) - desktop only */}
+      {/* Right Panel - Trading Controls */}
       <div className="hidden lg:block w-[320px] border-l border-border bg-card/50 overflow-y-auto">
         <div className="p-4 space-y-4">
           {/* Market */}
@@ -515,8 +584,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
               <div>
                 <label className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">Execution Speed <span className="text-primary text-xs">●</span></label>
                 <select value={executionSpeed} onChange={(e) => setExecutionSpeed(e.target.value as any)} className="mt-1 w-full px-3 py-2 bg-secondary border border-border rounded text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
-                  <option value="Fast">Fast</option>
-                  <option value="Normal">Normal</option>
+                  <option value="Fast">⚡ Fast (Per Tick)</option>
+                  <option value="Normal">🐢 Normal (4s delay)</option>
                 </select>
               </div>
             </div>
@@ -603,6 +672,29 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                     </FormField>
                   </>
                 )}
+
+                {/* Smart Risker */}
+                <div className="border-t border-border pt-4">
+                  <FormField label="Smart Risker" hint="Automatically secures 50% partial profits and continues trading with base stake.">
+                    <select value={smartRisker ? "Yes" : "No"} onChange={(e) => setSmartRisker(e.target.value === "Yes")} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground">
+                      <option>No</option><option>Yes</option>
+                    </select>
+                  </FormField>
+                </div>
+
+                {/* Frequency-based trading */}
+                <div className="border-t border-border pt-4">
+                  <FormField label="Frequency-Based Trading" hint="Only trades when a digit frequency imbalance is detected (digit appears more than threshold %).">
+                    <select value={freqBasedTrading ? "Yes" : "No"} onChange={(e) => setFreqBasedTrading(e.target.value === "Yes")} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground">
+                      <option>No</option><option>Yes</option>
+                    </select>
+                  </FormField>
+                  {freqBasedTrading && (
+                    <FormField label="Frequency Threshold (%)" hint="Minimum digit frequency percentage to trigger a trade.">
+                      <input type="number" value={freqThreshold} onChange={(e) => setFreqThreshold(parseInt(e.target.value) || 12)} min="8" max="30" className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
+                    </FormField>
+                  )}
+                </div>
               </div>
               <div className="p-4 border-t border-border">
                 <button onClick={() => setShowRiskModal(false)} className="w-full py-2 text-xs text-muted-foreground hover:text-foreground transition-colors">Close</button>
@@ -663,6 +755,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                       ["Take Profit:", takeProfit],
                       ["Stop Loss:", stopLoss],
                       ["Market:", marketLabel],
+                      ["Smart Risker:", smartRisker ? "On" : "Off"],
+                      ["Freq Trading:", freqBasedTrading ? `On (${freqThreshold}%)` : "Off"],
                     ].map(([k, v]) => (
                       <tr key={k}>
                         <td className="py-2 text-muted-foreground font-medium">{k}</td>
