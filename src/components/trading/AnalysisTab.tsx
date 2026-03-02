@@ -97,43 +97,54 @@ const AnalysisTab = ({ lastDigits, session, marketLabel }: AnalysisTabProps) => 
         </div>
       </div>
 
-      {/* Last 100 Digits Grid */}
+      {/* Last 100 Digits — Tiny Circles */}
       <div className="p-5 rounded-xl bg-card border border-border">
         <h4 className="text-sm font-semibold text-foreground mb-4">Last 100 Digits — {marketLabel}</h4>
-        <div className="grid grid-cols-10 gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           {(lastDigits.length > 0 ? lastDigits.slice(-100) : Array(100).fill(null)).map((digit, i) => (
             <div
               key={i}
-              className={`w-full aspect-square rounded flex items-center justify-center text-xs font-mono font-bold ${
-                digit === null ? "bg-secondary text-muted-foreground" : digit >= 5 ? "bg-buy/20 text-buy" : "bg-sell/20 text-sell"
+              className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-mono font-bold ${
+                digit === null
+                  ? "bg-secondary text-muted-foreground"
+                  : digit >= 5
+                    ? "bg-buy/20 text-buy border border-buy/30"
+                    : "bg-sell/20 text-sell border border-sell/30"
               }`}
             >
-              {digit ?? "-"}
+              {digit !== null && digit !== undefined ? digit : "-"}
             </div>
           ))}
         </div>
       </div>
 
-      {/* Digit Frequency Circles */}
+      {/* Digit Frequency — Deriv-style donut circles */}
       <div className="p-5 rounded-xl bg-card border border-border">
         <h4 className="text-sm font-semibold text-foreground mb-4">Digit Frequency</h4>
         <div className="grid grid-cols-5 sm:grid-cols-10 gap-4">
-          {digitFrequencies.map((d) => (
-            <div key={d.digit} className="flex flex-col items-center gap-2">
-              <div className="relative w-14 h-14">
-                <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                  <circle cx="18" cy="18" r="16" fill="none" stroke="hsl(var(--secondary))" strokeWidth="3" />
-                  <circle
-                    cx="18" cy="18" r="16" fill="none"
-                    stroke={d.pct > 12 ? "hsl(var(--sell))" : d.pct > 8 ? "hsl(var(--warning))" : "hsl(var(--buy))"}
-                    strokeWidth="3" strokeDasharray={`${d.pct} ${100 - d.pct}`} strokeLinecap="round"
-                  />
-                </svg>
-                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-foreground">{d.digit}</span>
+          {digitFrequencies.map((d) => {
+            const circumference = 2 * Math.PI * 15;
+            const dashLen = (d.pct / 100) * circumference;
+            const gapLen = circumference - dashLen;
+            return (
+              <div key={d.digit} className="flex flex-col items-center gap-2">
+                <div className="relative w-12 h-12">
+                  <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                    <circle cx="18" cy="18" r="15" fill="none" stroke="hsl(var(--secondary))" strokeWidth="2.5" />
+                    <circle
+                      cx="18" cy="18" r="15" fill="none"
+                      stroke={d.pct > 12 ? "hsl(var(--sell))" : d.pct > 8 ? "hsl(var(--warning))" : "hsl(var(--buy))"}
+                      strokeWidth="2.5"
+                      strokeDasharray={`${dashLen} ${gapLen}`}
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-foreground">{d.digit}</span>
+                </div>
+                <span className="text-[10px] text-muted-foreground">{d.pct.toFixed(1)}%</span>
               </div>
-              <span className="text-[10px] text-muted-foreground">{d.pct.toFixed(1)}%</span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

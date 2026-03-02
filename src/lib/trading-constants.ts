@@ -19,11 +19,14 @@ export const CONTRACT_TYPES = [
   { type: "DIGITUNDER", label: "Under", description: "Last digit is under your prediction" },
   { type: "DIGITEVEN", label: "Even", description: "Last digit is even" },
   { type: "DIGITODD", label: "Odd", description: "Last digit is odd" },
+  { type: "CALL", label: "Rise", description: "Price rises at end of contract" },
+  { type: "PUT", label: "Fall", description: "Price falls at end of contract" },
 ] as const;
 
 export const DIGIT_BARRIERS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
 export const getLastDigit = (quote: number): number => {
-  const str = quote.toString();
+  // Handle trailing zeros by using toFixed with enough precision
+  const str = quote.toFixed(4);
   return parseInt(str[str.length - 1], 10);
 };
