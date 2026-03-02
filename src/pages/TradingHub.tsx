@@ -63,6 +63,35 @@ const TradingHub = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
+  // Handle OAuth callback params if user lands on /trading with tokens in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("acct1") || params.has("token1")) {
+      // Parse multi-account OAuth response
+      const { parseCallbackParams, storeAccounts, setActiveAccount: setActive } = require("@/services/deriv-auth");
+      const parsed: DerivAccount[] = [];
+      let i = 1;
+      while (params.has(`acct${i}`)) {
+        parsed.push({
+          loginid: params.get(`acct${i}`) || "",
+          token: params.get(`token${i}`) || "",
+          currency: params.get(`cur${i}`) || "USD",
+          is_virtual: (params.get(`acct${i}`) || "").startsWith("VRTC"),
+        });
+        i++;
+      }
+      if (parsed.length > 0) {
+        storeAccounts(parsed);
+        const realAccount = parsed.find((a: DerivAccount) => !a.is_virtual) || parsed[0];
+        setActive(realAccount);
+        setAccounts(parsed);
+        setAccount(realAccount);
+        // Clean URL
+        window.history.replaceState({}, document.title, "/trading");
+      }
+    }
+  }, []);
+
   // Theme toggle
   useEffect(() => {
     if (darkMode) {
@@ -80,7 +109,6 @@ const TradingHub = () => {
     setWs(wsInstance);
     wsInstance.connect().then(() => {
       setWsConnected(true);
-      // Subscribe to ticks for the selected market immediately
       wsInstance.subscribeTicks(selectedMarket);
       // If user has a Deriv account connected, authorize for trading
       if (account) {
@@ -92,20 +120,47 @@ const TradingHub = () => {
       setWsConnected(data.status === "connected");
     });
 
-    if (account) {
-      wsInstance.on("authorize", (data) => {
-        if (data.authorize) {
-          setBalance(data.authorize.balance);
-          wsInstance.getBalance();
+    wsInstance.on("authorize", (data) => {
+      if (data.authorize) {
+        const bal = data.authorize.balance;
+        const loginid = data.authorize.loginid;
+        setBalance(bal);
+        setAccountBalances(prev => ({ ...prev, [loginid]: bal }));
+        wsInstance.getBalance();
+      }
+    });
+
+    wsInstance.on("balance", (data) => {
+      if (data.balance) {
+        setBalance(data.balance.balance);
+        if (account) {
+          setAccountBalances(prev => ({ ...prev, [account.loginid]: data.balance.balance }));
         }
-      });
-      wsInstance.on("balance", (data) => {
-        if (data.balance) setBalance(data.balance.balance);
-      });
-    }
+      }
+    });
 
     return () => { wsInstance.disconnect(); };
   }, [account]);
+
+  // Fetch balances for non-active accounts
+  useEffect(() => {
+    if (accounts.length <= 1 || !account) return;
+    const otherAccounts = accounts.filter(a => a.loginid !== account.loginid);
+    
+    otherAccounts.forEach(acc => {
+      const tempWs = new DerivWebSocket(DERIV_APP_ID);
+      tempWs.connect().then(() => {
+        tempWs.authorize(acc.token);
+        tempWs.on("authorize", (data) => {
+          if (data.authorize) {
+            setAccountBalances(prev => ({ ...prev, [data.authorize.loginid]: data.authorize.balance }));
+          }
+          // Disconnect after getting balance
+          setTimeout(() => tempWs.disconnect(), 1000);
+        });
+      }).catch(() => {});
+    });
+  }, [accounts, account]);
 
   // Subscribe to ticks when market changes (for trading-view & deriv-charts)
   useEffect(() => {
@@ -373,6 +428,7 @@ const TradingHub = () => {
               ) : (
                 (tokenTab === "demo" ? demoAccounts : realAccounts).map((acc, i) => {
                   const isActive = account?.loginid === acc.loginid;
+                  const accBalance = isActive ? balance : accountBalances[acc.loginid];
                   return (
                     <div
                       key={acc.loginid}
@@ -382,20 +438,24 @@ const TradingHub = () => {
                       onClick={() => handleSwitchAccount(acc)}
                     >
                       <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <span className="text-xs font-bold text-primary">
-                          {acc.is_virtual ? "DEMO" : "REAL"}
+                        <span className="text-[10px] font-bold text-primary">
+                          {acc.is_virtual ? "DEMO" : i + 1}
                         </span>
                       </div>
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-foreground">{acc.loginid}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-foreground">{acc.loginid}</p>
+                          {isActive && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-buy/20 text-buy">Active</span>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground">
-                          {balance !== null && isActive ? `${balance.toFixed(2)} ${acc.currency}` : `${acc.currency}`}
+                          {accBalance !== undefined && accBalance !== null
+                            ? `${accBalance.toFixed(2)} ${acc.currency}`
+                            : `0.00 ${acc.currency}`}
                         </p>
                       </div>
-                      {isActive && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-buy/20 text-buy">Active</span>
-                      )}
-                      {isActive && acc.is_virtual && (
+                      {acc.is_virtual && (
                         <button
                           onClick={(e) => { e.stopPropagation(); ws?.send({ topup_virtual: 1 }); }}
                           className="text-[10px] font-medium px-2 py-1 rounded bg-secondary text-foreground hover:bg-muted transition-colors"
