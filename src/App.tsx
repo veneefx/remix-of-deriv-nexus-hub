@@ -16,6 +16,7 @@ import Risk from "./pages/Risk";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
+import AdminStrategy from "./pages/AdminStrategy";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ const App = () => (
           <Route path="/risk" element={<Risk />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/admin/strategy" element={<AdminStrategy />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/market-tracker" element={<Signals />} />
           <Route path="/charts" element={<Signals />} />
