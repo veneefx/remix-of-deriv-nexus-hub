@@ -5,6 +5,7 @@ import DerivWebSocket from "@/services/deriv-websocket";
 import { DerivAccount } from "@/services/deriv-auth";
 import { VOLATILITY_MARKETS, CONTRACT_TYPES, DIGIT_BARRIERS, getLastDigit } from "@/lib/trading-constants";
 import AnalysisTab from "@/components/trading/AnalysisTab";
+import { supabase } from "@/integrations/supabase/client";
 
 interface TradingPanelProps {
   ws: DerivWebSocket | null;
@@ -30,6 +31,14 @@ interface Transaction {
   profit: number;
   won: boolean;
   description: string;
+}
+
+interface StrategyProfile {
+  digit_frequency_threshold: number;
+  momentum_weight: number;
+  confluence_required: boolean;
+  max_open_trades: number;
+  minimum_tick_history: number;
 }
 
 const TradingPanel = ({ ws, account }: TradingPanelProps) => {
@@ -60,7 +69,9 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [tradeDiffers, setTradeDiffers] = useState(false);
   const [smartRisker, setSmartRisker] = useState(false);
   const [freqBasedTrading, setFreqBasedTrading] = useState(false);
-  const [freqThreshold, setFreqThreshold] = useState(12); // % threshold for digit frequency imbalance
+  const [freqThreshold, setFreqThreshold] = useState(12);
+  const [strategyProfile, setStrategyProfile] = useState<"aggressive" | "balanced" | "conservative">("balanced");
+  const [strategyVersion, setStrategyVersion] = useState<number | null>(null);
 
   const [session, setSession] = useState<SessionStats>({
     totalTrades: 0, wins: 0, losses: 0, totalProfit: 0,
@@ -82,17 +93,62 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const consecutiveLosses = useRef(0);
   const currentStake = useRef(parseFloat("3"));
   const partialProfitTaken = useRef(0);
+  const openContracts = useRef(0);
+  const proposalIdRef = useRef<string | null>(null);
+  const isTradingRef = useRef(false);
+  const sessionProfitRef = useRef(0);
 
   const isLoggedIn = !!account;
 
+  // Keep refs in sync
+  useEffect(() => { proposalIdRef.current = proposalId; }, [proposalId]);
+  useEffect(() => { isTradingRef.current = isTrading; }, [isTrading]);
+  useEffect(() => { sessionProfitRef.current = session.totalProfit; }, [session.totalProfit]);
+
+  // Load global strategy from database
+  useEffect(() => {
+    const loadStrategy = async () => {
+      const { data } = await supabase
+        .from("global_strategy")
+        .select("*")
+        .eq("active", true)
+        .limit(1)
+        .single();
+      if (data) {
+        setStrategyVersion(data.version);
+        const profiles = data.profiles as unknown as Record<string, StrategyProfile>;
+        const risk = data.risk_global as unknown as any;
+        const recovery = data.recovery_global as unknown as any;
+        // Apply global risk settings
+        if (risk) {
+          setMartingale(risk.martingale_enabled ?? true);
+          setMartingaleMultiplier(String(risk.multiplier ?? 2.2));
+          setMaxMartingaleSteps(risk.max_recovery_steps ?? 10);
+          setStopLoss(String(risk.daily_loss_limit ?? 100));
+          setTakeProfit(String(risk.daily_profit_target ?? 1000));
+          setSmartRisker(risk.secure_partial_profit_percent > 0);
+          setFreqThreshold(risk.stop_after_loss_streak ?? 12);
+        }
+        if (recovery) {
+          setStopAfterMaxMartingale(recovery.reset_after_win ?? true);
+          setStartMartingaleAfter(recovery.start_martingale_after ?? 1);
+        }
+      }
+    };
+    loadStrategy();
+    // Poll for strategy updates every 30 seconds
+    const interval = setInterval(loadStrategy, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Check if digit frequency condition is met for trading
   const isFreqConditionMet = useCallback((): boolean => {
-    if (!freqBasedTrading || lastDigits.length < 30) return true; // Not enough data, allow trading
+    if (!freqBasedTrading || lastDigits.length < 30) return true;
     const total = lastDigits.length;
     for (let d = 0; d <= 9; d++) {
       const count = lastDigits.filter(x => x === d).length;
       const pct = (count / total) * 100;
-      if (pct >= freqThreshold) return true; // Imbalance detected
+      if (pct >= freqThreshold) return true;
     }
     return false;
   }, [lastDigits, freqBasedTrading, freqThreshold]);
@@ -108,52 +164,150 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       if (data.tick) {
         const quote = data.tick.quote;
         setCurrentTick(quote);
-        setLastDigits((prev) => [...prev.slice(-99), getLastDigit(quote)]);
+        const digit = getLastDigit(quote);
+        setLastDigits((prev) => [...prev.slice(-99), digit]);
+
+        // FAST MODE: Execute trade on every tick if bot is running
+        if (botRunning.current && !isTradingRef.current && proposalIdRef.current && executionSpeed === "Fast") {
+          executeTradeImmediate();
+        }
       }
     });
     return () => { unsub(); };
-  }, [ws, selectedMarket]);
+  }, [ws, selectedMarket, executionSpeed]);
 
-  // Get proposal
+  // Get proposal - continuously request proposals
   useEffect(() => {
-    if (!ws || !isLoggedIn || isTrading) return;
-    const needsBarrier = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
-    const isRiseFall = contractType === "CALL" || contractType === "PUT";
-    ws.getProposal({
-      amount: parseFloat(stake) || 3,
-      contractType,
-      symbol: selectedMarket,
-      duration: isRiseFall ? Math.max(duration, 5) : duration,
-      durationUnit: isRiseFall ? "t" : durationUnit,
-      ...(needsBarrier && { barrier }),
-    });
+    if (!ws || !isLoggedIn) return;
+    
+    const requestProposal = () => {
+      const needsBarrier = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
+      const isRiseFall = contractType === "CALL" || contractType === "PUT";
+      ws.getProposal({
+        amount: parseFloat(stake) || 3,
+        contractType,
+        symbol: selectedMarket,
+        duration: isRiseFall ? Math.max(duration, 5) : duration,
+        durationUnit: isRiseFall ? "t" : durationUnit,
+        ...(needsBarrier && { barrier }),
+      });
+    };
+
+    requestProposal();
 
     const unsub = ws.on("proposal", (data) => {
       if (data.proposal) {
         setProposalId(data.proposal.id);
+        proposalIdRef.current = data.proposal.id;
         setPayout(data.proposal.payout);
       }
     });
     return () => { unsub(); };
-  }, [ws, contractType, stake, selectedMarket, duration, durationUnit, barrier, isTrading, isLoggedIn]);
+  }, [ws, contractType, stake, selectedMarket, duration, durationUnit, barrier, isLoggedIn]);
 
   const marketLabel = VOLATILITY_MARKETS.find((m) => m.symbol === selectedMarket)?.label || selectedMarket;
   const needsBarrier = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
   const winRate = session.totalTrades > 0 ? ((session.wins / session.totalTrades) * 100).toFixed(1) : "0.0";
 
-  const executeTrade = useCallback(() => {
-    if (!ws || !proposalId || isTrading || !isLoggedIn) return;
-    
-    // Check frequency condition
+  const handleTradeResult = useCallback((profit: number, won: boolean, contractId: string, tradeStake: number) => {
+    setTradeResult({ profit, won });
+    openContracts.current = Math.max(0, openContracts.current - 1);
+
+    setTransactions((prev) => [{
+      id: contractId || Date.now().toString(),
+      contractType,
+      stake: tradeStake,
+      profit,
+      won,
+      description: `Win if ${marketLabel} is ${contractType.replace("DIGIT", "").toLowerCase()} after ${duration} ticks.`,
+    }, ...prev]);
+
+    setSession((prev) => {
+      const newProfit = prev.totalProfit + profit;
+      const newPeak = Math.max(prev.peakBalance, newProfit);
+      const dd = newPeak > 0 ? ((newPeak - newProfit) / newPeak) * 100 : 0;
+      const newLossStreak = won ? 0 : consecutiveLosses.current + 1;
+      return {
+        ...prev,
+        totalTrades: prev.totalTrades + 1,
+        wins: prev.wins + (won ? 1 : 0),
+        losses: prev.losses + (won ? 0 : 1),
+        totalProfit: newProfit,
+        peakBalance: newPeak,
+        maxDrawdown: Math.max(prev.maxDrawdown, dd),
+        largestStake: Math.max(prev.largestStake, tradeStake),
+        maxLossStreak: Math.max(prev.maxLossStreak, newLossStreak),
+      };
+    });
+
+    // Recovery logic
+    if (won) {
+      consecutiveLosses.current = 0;
+      currentStake.current = parseFloat(stake);
+    } else {
+      consecutiveLosses.current++;
+      if (martingale && consecutiveLosses.current >= startMartingaleAfter && consecutiveLosses.current < maxMartingaleSteps) {
+        currentStake.current *= parseFloat(martingaleMultiplier);
+      } else if (martingale && consecutiveLosses.current >= maxMartingaleSteps) {
+        if (stopAfterMaxMartingale) {
+          stopBot();
+        } else {
+          currentStake.current = parseFloat(stake);
+          consecutiveLosses.current = 0;
+        }
+      }
+    }
+
+    // Smart Risker
+    const totalP = sessionProfitRef.current + profit;
+    if (smartRisker && totalP > 0) {
+      const halfStake = parseFloat(stake) * 0.5;
+      if (totalP >= halfStake + partialProfitTaken.current) {
+        partialProfitTaken.current = totalP;
+        currentStake.current = parseFloat(stake);
+        consecutiveLosses.current = 0;
+      }
+    }
+
+    // TP/SL checks
+    const tp = parseFloat(takeProfit);
+    const sl = parseFloat(stopLoss);
+    if (totalP >= tp) {
+      setTpAmount(totalP);
+      setShowTpModal(true);
+      stopBot();
+    } else if (totalP <= -sl) {
+      stopBot();
+    }
+
+    // Mark trading as done so next trade can fire
+    setIsTrading(false);
+    isTradingRef.current = false;
+  }, [stake, martingale, martingaleMultiplier, maxMartingaleSteps, takeProfit, stopLoss, contractType, marketLabel, duration, startMartingaleAfter, stopAfterMaxMartingale, smartRisker]);
+
+  const executeTradeImmediate = useCallback(() => {
+    if (!ws || !proposalIdRef.current || isTradingRef.current || !isLoggedIn) return;
     if (freqBasedTrading && !isFreqConditionMet()) return;
     
-    setIsTrading(true);
-    setTradeResult(null);
+    const currentProposalId = proposalIdRef.current;
     const tradeStake = currentStake.current;
-    ws.buyContract(proposalId, tradeStake);
+    
+    setIsTrading(true);
+    isTradingRef.current = true;
+    setTradeResult(null);
+    openContracts.current++;
+    
+    ws.buyContract(currentProposalId, tradeStake);
 
     const unsubBuy = ws.on("buy", (data) => {
-      if (data.buy) ws.subscribeOpenContract();
+      if (data.buy) {
+        ws.subscribeOpenContract();
+      }
+      if (data.error) {
+        setIsTrading(false);
+        isTradingRef.current = false;
+        openContracts.current = Math.max(0, openContracts.current - 1);
+      }
       unsubBuy();
     });
 
@@ -162,79 +316,15 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         const profit = data.proposal_open_contract.profit;
         const won = profit > 0;
         const contractId = data.proposal_open_contract.contract_id;
-        setTradeResult({ profit, won });
-        setIsTrading(false);
-
-        setTransactions((prev) => [{
-          id: contractId || Date.now().toString(),
-          contractType,
-          stake: tradeStake,
-          profit,
-          won,
-          description: `Win if ${marketLabel} is ${contractType.replace("DIGIT", "").toLowerCase()} after ${duration} ticks.`,
-        }, ...prev]);
-
-        setSession((prev) => {
-          const newProfit = prev.totalProfit + profit;
-          const newPeak = Math.max(prev.peakBalance, newProfit);
-          const dd = newPeak > 0 ? ((newPeak - newProfit) / newPeak) * 100 : 0;
-          const newLossStreak = won ? 0 : consecutiveLosses.current + 1;
-          return {
-            ...prev,
-            totalTrades: prev.totalTrades + 1,
-            wins: prev.wins + (won ? 1 : 0),
-            losses: prev.losses + (won ? 0 : 1),
-            totalProfit: newProfit,
-            peakBalance: newPeak,
-            maxDrawdown: Math.max(prev.maxDrawdown, dd),
-            largestStake: Math.max(prev.largestStake, tradeStake),
-            maxLossStreak: Math.max(prev.maxLossStreak, newLossStreak),
-          };
-        });
-
-        if (won) {
-          consecutiveLosses.current = 0;
-          currentStake.current = parseFloat(stake);
-        } else {
-          consecutiveLosses.current++;
-          if (martingale && consecutiveLosses.current >= startMartingaleAfter && consecutiveLosses.current < maxMartingaleSteps) {
-            currentStake.current *= parseFloat(martingaleMultiplier);
-          } else if (martingale && consecutiveLosses.current >= maxMartingaleSteps) {
-            if (stopAfterMaxMartingale) {
-              stopBot();
-            } else {
-              currentStake.current = parseFloat(stake);
-              consecutiveLosses.current = 0;
-            }
-          }
-        }
-
-        // Smart Risker: take 50% partial profits
-        const totalP = session.totalProfit + profit;
-        if (smartRisker && totalP > 0) {
-          const halfStake = parseFloat(stake) * 0.5;
-          if (totalP >= halfStake + partialProfitTaken.current) {
-            partialProfitTaken.current = totalP;
-            // Continue trading with base stake (auto-secure profits)
-            currentStake.current = parseFloat(stake);
-            consecutiveLosses.current = 0;
-          }
-        }
-
-        const tp = parseFloat(takeProfit);
-        const sl = parseFloat(stopLoss);
-        if (totalP >= tp) {
-          setTpAmount(totalP);
-          setShowTpModal(true);
-          stopBot();
-        } else if (totalP <= -sl) {
-          stopBot();
-        }
-
+        handleTradeResult(profit, won, contractId, tradeStake);
         unsubContract();
       }
     });
-  }, [ws, proposalId, stake, isTrading, isLoggedIn, martingale, martingaleMultiplier, maxMartingaleSteps, session.totalProfit, takeProfit, stopLoss, contractType, marketLabel, duration, startMartingaleAfter, stopAfterMaxMartingale, smartRisker, freqBasedTrading, isFreqConditionMet]);
+  }, [ws, isLoggedIn, freqBasedTrading, isFreqConditionMet, handleTradeResult]);
+
+  const executeTrade = useCallback(() => {
+    executeTradeImmediate();
+  }, [executeTradeImmediate]);
 
   const startBot = () => {
     if (!isLoggedIn) return;
@@ -263,6 +353,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     consecutiveLosses.current = 0;
     currentStake.current = parseFloat(stake);
     partialProfitTaken.current = 0;
+    openContracts.current = 0;
     setSession({ totalTrades: 0, wins: 0, losses: 0, totalProfit: 0, peakBalance: 0, maxDrawdown: 0, startBalance: 0, largestStake: 0, maxLossStreak: 0 });
     setTransactions([]);
   };
@@ -272,20 +363,17 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     botRunning.current = false;
   };
 
-  // Auto-trade loop — Fast = per tick (instant), Normal = 4s delay
+  // Normal mode auto-trade loop (4s interval)
   useEffect(() => {
-    if (softwareStatus !== "ACTIVE" || !botRunning.current || isTrading || mode !== "Automated") return;
-    
-    if (executionSpeed === "Fast") {
-      // Per-tick trading: execute immediately when not trading
-      executeTrade();
-    } else {
-      const timer = setTimeout(() => {
-        if (botRunning.current && !isTrading) executeTrade();
-      }, 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [softwareStatus, isTrading, mode, executionSpeed, executeTrade, currentTick]);
+    if (softwareStatus !== "ACTIVE" || !botRunning.current || mode !== "Automated" || executionSpeed !== "Normal") return;
+
+    const timer = setInterval(() => {
+      if (botRunning.current && !isTradingRef.current && proposalIdRef.current) {
+        executeTradeImmediate();
+      }
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [softwareStatus, mode, executionSpeed, executeTradeImmediate]);
 
   const clearTransactions = () => setTransactions([]);
 
@@ -314,6 +402,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
               </button>
             ))}
           </div>
+          {strategyVersion && (
+            <span className="text-[9px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+              Strategy v{strategyVersion} • {strategyProfile}
+            </span>
+          )}
           {currentTick !== null && (
             <div className="flex items-center gap-2 ml-auto">
               <span className="text-[10px] text-muted-foreground">{marketLabel}</span>
@@ -356,8 +449,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                       <p className="text-2xl font-mono font-bold text-primary">{lastDigits.length > 0 ? lastDigits[lastDigits.length - 1] : "-"}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] text-muted-foreground">Ticks Collected</p>
+                      <p className="text-[10px] text-muted-foreground">Ticks</p>
                       <p className="text-lg font-mono font-bold text-foreground">{lastDigits.length}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Open</p>
+                      <p className="text-lg font-mono font-bold text-warning">{openContracts.current}</p>
                     </div>
                   </div>
                 </div>
@@ -382,11 +479,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                 {/* Last 50 Digits — Tiny Circles */}
                 <div className="p-4 rounded-xl bg-card border border-border">
                   <h3 className="text-sm font-semibold text-foreground mb-3">Last 50 Digits ({marketLabel})</h3>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1">
                     {(lastDigits.length > 0 ? lastDigits.slice(-50) : Array(50).fill(null)).map((digit, i) => (
                       <div
                         key={i}
-                        className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-mono font-bold transition-all ${
+                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-mono font-bold transition-all ${
                           digit === null
                             ? "bg-secondary text-muted-foreground"
                             : digit >= 5
@@ -394,31 +491,36 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                               : "bg-sell/20 text-sell border border-sell/30"
                         }`}
                       >
-                        {digit !== null && digit !== undefined ? digit : "-"}
+                        {digit !== null && digit !== undefined ? String(digit) : "-"}
                       </div>
                     ))}
                   </div>
 
                   {/* Digit frequency — Deriv-style donut circles */}
-                  <div className="mt-4 grid grid-cols-10 gap-2">
-                    {digitFrequencies.map((d) => (
-                      <div key={d.digit} className="flex flex-col items-center gap-1">
-                        <div className="relative w-10 h-10">
-                          <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                            <circle cx="18" cy="18" r="15" fill="none" stroke="hsl(var(--secondary))" strokeWidth="3" />
-                            <circle
-                              cx="18" cy="18" r="15" fill="none"
-                              stroke={d.pct > 12 ? "hsl(var(--sell))" : d.pct > 8 ? "hsl(var(--warning))" : "hsl(var(--buy))"}
-                              strokeWidth="3"
-                              strokeDasharray={`${d.pct} ${100 - d.pct}`}
-                              strokeLinecap="round"
-                            />
-                          </svg>
-                          <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-foreground">{d.digit}</span>
+                  <div className="mt-4 grid grid-cols-10 gap-1.5">
+                    {digitFrequencies.map((d) => {
+                      const circumference = 2 * Math.PI * 15;
+                      const dashLen = (d.pct / 100) * circumference;
+                      const gapLen = circumference - dashLen;
+                      return (
+                        <div key={d.digit} className="flex flex-col items-center gap-0.5">
+                          <div className="relative w-9 h-9">
+                            <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                              <circle cx="18" cy="18" r="15" fill="none" stroke="hsl(var(--secondary))" strokeWidth="2.5" />
+                              <circle
+                                cx="18" cy="18" r="15" fill="none"
+                                stroke={d.pct > 12 ? "hsl(var(--sell))" : d.pct > 8 ? "hsl(var(--warning))" : "hsl(var(--buy))"}
+                                strokeWidth="2.5"
+                                strokeDasharray={`${dashLen} ${gapLen}`}
+                                strokeLinecap="round"
+                              />
+                            </svg>
+                            <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-foreground">{d.digit}</span>
+                          </div>
+                          <span className="text-[8px] text-muted-foreground">{d.pct.toFixed(0)}%</span>
                         </div>
-                        <span className="text-[8px] text-muted-foreground">{d.pct.toFixed(0)}%</span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -523,6 +625,26 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
             </div>
           </div>
 
+          {/* Strategy Profile Selector */}
+          <div>
+            <label className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">Strategy Profile <span className="text-primary text-xs">●</span></label>
+            <div className="mt-1 flex gap-1">
+              {(["aggressive", "balanced", "conservative"] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setStrategyProfile(p)}
+                  className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors capitalize ${
+                    strategyProfile === p
+                      ? p === "aggressive" ? "bg-sell/20 text-sell border border-sell/30" : p === "balanced" ? "bg-warning/20 text-warning border border-warning/30" : "bg-buy/20 text-buy border border-buy/30"
+                      : "bg-secondary text-muted-foreground"
+                  }`}
+                >
+                  {p === "aggressive" ? "🟥" : p === "balanced" ? "🟨" : "🟩"} {p}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Quick / Automated tabs */}
           <div className="flex items-center justify-center border-b border-border">
             {(["Quick", "Automated"] as const).map((m) => (
@@ -557,29 +679,22 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
             <div className="space-y-3">
               <div className="text-center">
                 <p className="text-[10px] text-muted-foreground">Software Status</p>
-                <p className={`text-xl font-bold ${softwareStatus === "ACTIVE" ? "text-success" : "text-primary"}`}>
+                <p className={`text-xl font-bold ${softwareStatus === "ACTIVE" ? "text-success animate-pulse" : "text-primary"}`}>
                   {softwareStatus}
                 </p>
               </div>
 
               <button
                 onClick={softwareStatus === "ACTIVE" ? stopBot : startBot}
-                disabled={isTrading || !isLoggedIn}
+                disabled={!isLoggedIn}
                 className={`w-full py-2.5 font-semibold text-sm rounded-lg border-2 transition-all disabled:opacity-50 ${
                   softwareStatus === "ACTIVE"
                     ? "border-sell text-sell hover:bg-sell/10"
                     : "border-buy text-buy hover:bg-buy/10"
                 }`}
               >
-                {!isLoggedIn ? "Connect to Start" : softwareStatus === "ACTIVE" ? "Stop" : "Start"}
+                {!isLoggedIn ? "Connect to Start" : softwareStatus === "ACTIVE" ? "⏹ Stop" : "▶ Start"}
               </button>
-
-              <div>
-                <label className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">Contract Type <span className="text-primary text-xs">●</span></label>
-                <select value={contractType} onChange={(e) => setContractType(e.target.value)} className="mt-1 w-full px-3 py-2 bg-secondary border border-border rounded text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
-                  {CONTRACT_TYPES.map((c) => (<option key={c.type} value={c.type}>{c.type}</option>))}
-                </select>
-              </div>
 
               <div>
                 <label className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">Execution Speed <span className="text-primary text-xs">●</span></label>
@@ -607,7 +722,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           {tradeResult && (
             <div className={`p-3 rounded-lg text-center ${tradeResult.won ? "bg-success/10 text-success" : "bg-sell/10 text-sell"}`}>
               <p className="text-xs font-semibold">
-                {tradeResult.won ? "Won" : "Lost"}: {tradeResult.profit.toFixed(2)} USD
+                {tradeResult.won ? "✅ Won" : "❌ Lost"}: {tradeResult.profit.toFixed(2)} USD
               </p>
             </div>
           )}
@@ -751,10 +866,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   <tbody className="divide-y divide-border">
                     {[
                       ["Starting Stake:", `${parseFloat(stake).toFixed(2)}`],
+                      ["Strategy:", strategyProfile],
                       ["Martingale:", martingaleMultiplier],
                       ["Take Profit:", takeProfit],
                       ["Stop Loss:", stopLoss],
                       ["Market:", marketLabel],
+                      ["Speed:", executionSpeed],
                       ["Smart Risker:", smartRisker ? "On" : "Off"],
                       ["Freq Trading:", freqBasedTrading ? `On (${freqThreshold}%)` : "Off"],
                     ].map(([k, v]) => (

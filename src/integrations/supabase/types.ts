@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      global_strategy: {
+        Row: {
+          active: boolean
+          created_at: string
+          digit_settings: Json
+          id: string
+          profiles: Json
+          recovery_global: Json
+          rise_fall_settings: Json
+          risk_global: Json
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          digit_settings?: Json
+          id?: string
+          profiles?: Json
+          recovery_global?: Json
+          rise_fall_settings?: Json
+          risk_global?: Json
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          digit_settings?: Json
+          id?: string
+          profiles?: Json
+          recovery_global?: Json
+          rise_fall_settings?: Json
+          risk_global?: Json
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -45,6 +84,36 @@ export type Database = {
           id?: string
           is_admin?: boolean
           is_premium?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_plans: {
+        Row: {
+          created_at: string
+          expiry_date: string
+          id: string
+          plan_type: string
+          start_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expiry_date?: string
+          id?: string
+          plan_type?: string
+          start_date?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expiry_date?: string
+          id?: string
+          plan_type?: string
+          start_date?: string
           updated_at?: string
           user_id?: string
         }

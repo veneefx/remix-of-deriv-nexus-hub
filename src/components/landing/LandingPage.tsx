@@ -33,7 +33,7 @@ const platformCards = [
     badge: "Popular",
     badgeColor: "bg-buy/20 text-buy",
     desc: "Join our affiliate network and earn commissions",
-    details: "Partner with DTNexus and earn competitive commissions while helping traders succeed.",
+    details: "Partner with DNexus and earn competitive commissions while helping traders succeed.",
     features: ["Competitive commission rates", "Real-time tracking dashboard", "Advanced analytics", "Dedicated partner support", "Marketing materials & tools"],
     link: "/partners",
     image: phoneTrade1,
@@ -68,16 +68,16 @@ const whatYouGet = [
 ];
 
 const faqs = [
-  { q: "What is DTNexus?", a: "DTNexus is an advanced third-party trading platform built on the official Deriv API. It provides AI-powered trading tools, premium signals, educational resources, and an affiliate partners program." },
-  { q: "How does DTNexus work?", a: "DTNexus connects securely to your Deriv account via OAuth2 authentication. Once connected, you can use our AI-powered digit analysis tools, premium signals, and automated trading strategies." },
-  { q: "Is my money safe?", a: "Absolutely. DTNexus never holds your funds — all money stays in your personal Deriv account. We use Deriv's official OAuth2 authentication, so we never see your password." },
+  { q: "What is DNexus?", a: "DNexus is an advanced third-party trading platform built on the official Deriv API. It provides AI-powered trading tools, premium signals, educational resources, and an affiliate partners program." },
+  { q: "How does DNexus work?", a: "DNexus connects securely to your Deriv account via OAuth2 authentication. Once connected, you can use our AI-powered digit analysis tools, premium signals, and automated trading strategies." },
+  { q: "Is my money safe?", a: "Absolutely. DNexus never holds your funds — all money stays in your personal Deriv account. We use Deriv's official OAuth2 authentication, so we never see your password." },
   { q: "Can I use a demo account?", a: "Yes! You can switch between real (CR) and demo (VRTC) accounts. Demo accounts come with $10,000 in virtual funds for practicing risk-free." },
-  { q: "What markets can I trade?", a: "DTNexus supports all Deriv Volatility Indices — from V10 to V250, both standard and 1-second variants. We specialize in digit trading contracts." },
-  { q: "What is the commission structure?", a: "DTNexus applies a transparent 3% commission on trades. No hidden fees or subscription costs. All tools are included." },
+  { q: "What markets can I trade?", a: "DNexus supports all Deriv Volatility Indices — from V10 to V250, both standard and 1-second variants. We specialize in digit trading contracts." },
+  { q: "What is the commission structure?", a: "DNexus applies a transparent 3% commission on trades. No hidden fees or subscription costs. All tools are included." },
   { q: "How does the AI trading bot work?", a: "Our AI analyzes 100+ market ticks to identify statistical patterns, frequency imbalances, and streak behaviors using mean reversion and probability-based recovery strategies." },
   { q: "What are Premium Signals?", a: "Premium Signals provide real-time RSI, MACD, Stochastic, CCI, and multiple Moving Averages calculated from live tick data, displayed as intuitive gauge charts." },
   { q: "How do I become a partner?", a: "Visit our Partners Program page and sign up for free. You earn lifetime commissions on every trade your referrals make — starting at 25% up to 40%." },
-  { q: "Is DTNexus affiliated with Deriv?", a: "No. DTNexus is an independent third-party platform built using Deriv's official public API. We are not affiliated with Deriv Group." },
+  { q: "Is DNexus affiliated with Deriv?", a: "No. DNexus is an independent third-party platform built using Deriv's official public API. We are not affiliated with Deriv Group." },
 ];
 
 const LandingPage = () => {
@@ -85,16 +85,15 @@ const LandingPage = () => {
     <div className="min-h-screen bg-gradient-dark flex flex-col">
       <Navbar />
 
-      {/* Hero - 2 column grid */}
+      {/* Hero */}
       <section className="relative overflow-hidden min-h-[90vh] flex items-center">
         <div className="absolute inset-0 bg-grid-pattern" />
         <div className="absolute inset-0">
           <div className="absolute top-[40%] left-[30%] w-[500px] h-[500px] bg-primary/8 rounded-full blur-[150px]" />
         </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative py-20 lg:py-0 w-full">
+        <div className="w-full max-w-[1400px] mx-auto px-8 relative py-20 lg:py-0">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            {/* Left - Text */}
             <div className="space-y-8">
               <motion.div className="inline-block px-3 py-1.5 rounded-full border border-border/30 bg-secondary/50" {...fadeUp}>
                 <span className="text-xs font-medium text-secondary-foreground font-sans">🚀 Next-Gen Trading Platform</span>
@@ -117,7 +116,6 @@ const LandingPage = () => {
                 </a>
               </motion.div>
 
-              {/* Feature icon row */}
               <motion.div className="flex flex-wrap gap-8 sm:gap-12 pt-4" {...fadeUp} transition={{ duration: 0.6, delay: 0.4 }}>
                 {features.map((f) => (
                   <div key={f.title} className="flex flex-col items-center gap-2">
@@ -130,17 +128,11 @@ const LandingPage = () => {
                 ))}
               </motion.div>
 
-              {/* Floating illustration */}
               <motion.div className="mt-6 hidden md:block" {...fadeUp} transition={{ duration: 0.6, delay: 0.5 }}>
-                <img
-                  src={traderNight}
-                  alt="Trader using DTNexus"
-                  className="w-72 rounded-2xl shadow-2xl float-animation"
-                />
+                <img src={traderNight} alt="Trader using DNexus" className="w-72 rounded-2xl shadow-2xl float-animation object-cover" />
               </motion.div>
             </div>
 
-            {/* Right - Phone mockup */}
             <motion.div
               className="relative hidden lg:flex justify-center"
               initial={{ opacity: 0, x: 40 }}
@@ -148,25 +140,9 @@ const LandingPage = () => {
               viewport={{ once: true }}
               transition={{ duration: 0.8, delay: 0.3 }}
             >
-              {/* Green glow behind phone */}
               <div className="absolute inset-0 bg-[radial-gradient(circle,rgba(0,255,100,0.20)_0%,transparent_60%)] blur-[40px] animate-glow-pulse" />
-
-              <img
-                src={phoneTrade2}
-                alt="DTNexus mobile trading interface"
-                className="relative z-10 w-[340px] rounded-[2rem] shadow-[0_30px_60px_rgba(0,0,0,0.6)] transform -rotate-[4deg] float-animation"
-              />
-
-              {/* Floating bid/ask card */}
-              <motion.img
-                src={traderBidAsk}
-                alt="Bid and ask prices"
-                className="absolute -bottom-6 -left-4 w-28 rounded-xl shadow-xl border border-border/20 z-20"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: 1 }}
-              />
+              <img src={phoneTrade2} alt="DNexus mobile trading interface" className="relative z-10 w-[340px] rounded-[2rem] shadow-[0_30px_60px_rgba(0,0,0,0.6)] transform -rotate-[4deg] float-animation object-contain" />
+              <motion.img src={traderBidAsk} alt="Bid and ask prices" className="absolute -bottom-6 -left-4 w-28 rounded-xl shadow-xl border border-border/20 z-20 object-cover" initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 1 }} />
             </motion.div>
           </div>
         </div>
@@ -174,7 +150,7 @@ const LandingPage = () => {
 
       {/* Our Platform Section */}
       <section className="py-16 md:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1400px] mx-auto px-8">
           <motion.div className="text-center mb-6" {...fadeUp}>
             <span className="text-sm text-primary font-medium font-sans">Our Platform</span>
             <p className="text-muted-foreground mt-2 max-w-lg mx-auto font-sans">
@@ -182,7 +158,6 @@ const LandingPage = () => {
             </p>
           </motion.div>
 
-          {/* Stats bar */}
           <motion.div className="p-6 rounded-xl bg-gradient-brand mb-12" {...fadeUp}>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
               {[
@@ -200,14 +175,13 @@ const LandingPage = () => {
             </div>
           </motion.div>
 
-          {/* Phone image showcase */}
           <motion.div className="flex justify-center gap-6 mb-12 overflow-hidden" {...fadeUp}>
             {[phoneTrade1, phoneTrade2, phoneChart].map((img, i) => (
               <motion.img
                 key={i}
                 src={img}
                 alt={`Platform screenshot ${i + 1}`}
-                className="w-40 sm:w-48 md:w-56 rounded-2xl shadow-2xl shadow-black/30 border border-border/20"
+                className="w-40 sm:w-48 md:w-56 rounded-2xl shadow-2xl shadow-black/30 border border-border/20 object-cover"
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -216,15 +190,9 @@ const LandingPage = () => {
             ))}
           </motion.div>
 
-          {/* Platform cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {platformCards.map((card, i) => (
-              <motion.div
-                key={card.title}
-                className="rounded-2xl bg-card border border-border hover:border-primary/30 transition-all overflow-hidden group"
-                {...fadeUp}
-                transition={{ delay: i * 0.1 }}
-              >
+              <motion.div key={card.title} className="rounded-2xl bg-card border border-border hover:border-primary/30 transition-all overflow-hidden group" {...fadeUp} transition={{ delay: i * 0.1 }}>
                 <div className="p-6 space-y-4">
                   <div className="flex items-start justify-between">
                     <h3 className="font-bold text-foreground font-sans">{card.title}</h3>
@@ -250,12 +218,12 @@ const LandingPage = () => {
 
       {/* Trade On Our Next-Gen Platform */}
       <section className="py-16 md:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1400px] mx-auto px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
             <motion.div className="relative" {...fadeUp}>
-              <img src={traderMobile} alt="Trader checking markets on mobile" className="w-full max-w-md mx-auto rounded-2xl shadow-2xl" />
+              <img src={traderMobile} alt="Trader checking markets on mobile" className="w-full max-w-md mx-auto rounded-2xl shadow-2xl object-cover" />
               <div className="absolute -bottom-6 -right-6 w-48 rounded-xl overflow-hidden shadow-xl border border-border/20 hidden md:block">
-                <img src={partnerNetwork} alt="Partner network growth" className="w-full" />
+                <img src={partnerNetwork} alt="Partner network growth" className="w-full object-cover" />
               </div>
             </motion.div>
             <motion.div className="space-y-6" {...fadeUp}>
@@ -293,12 +261,12 @@ const LandingPage = () => {
 
       {/* Centralized Account Management */}
       <section className="py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1400px] mx-auto px-8">
           <motion.div className="p-8 rounded-2xl bg-card border border-border flex flex-col md:flex-row items-center gap-8" {...fadeUp}>
             <div className="flex-1 space-y-4">
               <h2 className="text-2xl md:text-3xl font-bold text-foreground">Centralized Account Management</h2>
               <p className="text-muted-foreground font-sans">
-                Manage your account, billing, and preferences from one secure dashboard. Access all DTNexus services with single sign-on authentication.
+                Manage your account, billing, and preferences from one secure dashboard. Access all DNexus services with single sign-on authentication.
               </p>
               <div className="flex flex-wrap gap-3">
                 <Link to="/trading" className="px-5 py-2.5 bg-gradient-brand text-primary-foreground text-sm font-semibold rounded-lg font-sans">
@@ -318,17 +286,17 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Why Trade With DTNexus */}
+      {/* Why Trade With DNexus */}
       <section className="py-16 md:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1400px] mx-auto px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
             <motion.div className="relative" {...fadeUp}>
-              <img src={traderNight} alt="Trader working" className="w-full max-w-md mx-auto rounded-2xl shadow-2xl float-animation" />
+              <img src={traderNight} alt="Trader working" className="w-full max-w-md mx-auto rounded-2xl shadow-2xl float-animation object-cover" />
             </motion.div>
             <motion.div className="space-y-8" {...fadeUp}>
               <div>
                 <h2 className="text-3xl md:text-4xl font-bold text-foreground leading-tight">
-                  Why Trade With <span className="text-gradient-brand">DTNexus</span>
+                  Why Trade With <span className="text-gradient-brand">DNexus</span>
                 </h2>
                 <p className="mt-4 text-muted-foreground leading-relaxed font-sans">
                   Experience lightning-fast execution, advanced automation, and data-driven insights at zero cost. Our platform combines cutting-edge technology with proven strategies to elevate your trading performance.
@@ -340,7 +308,7 @@ const LandingPage = () => {
                   Trading <span className="text-gradient-brand">Reimagined</span>
                 </h2>
                 <p className="mt-4 text-muted-foreground leading-relaxed font-sans">
-                  DTNexus leverages AI and machine learning to deliver expert signals and quantitative analysis. Our free learning materials help you master the markets.
+                  DNexus leverages AI and machine learning to deliver expert signals and quantitative analysis. Our free learning materials help you master the markets.
                 </p>
                 <Link to="/education" className="inline-flex items-center gap-2 mt-4 text-primary font-medium hover:underline font-sans">Learn More →</Link>
               </div>
@@ -349,9 +317,9 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Market Tracker Table */}
+      {/* Market Tracker */}
       <section className="py-16 md:py-24 bg-card/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div className="max-w-[1400px] mx-auto px-8 text-center">
           <motion.h2 className="text-2xl md:text-3xl font-bold text-foreground mb-2" {...fadeUp}>
             Comprehensive Currency Market Tracker
           </motion.h2>
@@ -366,7 +334,7 @@ const LandingPage = () => {
 
       {/* What You'll Get */}
       <section className="py-16 md:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1400px] mx-auto px-8">
           <motion.h2 className="text-center text-sm font-semibold text-muted-foreground uppercase tracking-[0.2em] mb-12 font-sans" {...fadeUp}>
             What You'll Get
           </motion.h2>
@@ -387,11 +355,11 @@ const LandingPage = () => {
       {/* Community */}
       <section className="py-16 md:py-24 bg-gradient-brand relative overflow-hidden">
         <div className="absolute inset-0 bg-background/90" />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+        <div className="max-w-[1400px] mx-auto px-8 relative">
           <motion.div className="text-center mb-12" {...fadeUp}>
             <h2 className="text-3xl md:text-4xl font-bold">Join a Growing Community of<br />Success-Driven Traders</h2>
             <p className="mt-4 text-muted-foreground max-w-2xl mx-auto font-sans">
-              DTNexus is rapidly becoming the platform of choice for traders seeking an edge.
+              DNexus is rapidly becoming the platform of choice for traders seeking an edge.
             </p>
             <div className="flex flex-wrap gap-6 justify-center mt-6 text-sm text-muted-foreground font-sans">
               {["Advanced Analytics", "AI-Powered", "Expert Community", "24/7 Access"].map((f) => (
@@ -417,7 +385,7 @@ const LandingPage = () => {
 
       {/* FAQ */}
       <section className="py-16 md:py-24">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-2xl mx-auto px-8">
           <motion.div className="text-center mb-12" {...fadeUp}>
             <span className="text-sm text-primary font-medium font-sans">FAQ's</span>
             <h2 className="text-3xl font-bold mt-2">Frequently Asked Questions</h2>
@@ -438,7 +406,7 @@ const LandingPage = () => {
 
       {/* Create Deriv Account CTA */}
       <section className="py-16 md:py-24">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-[1400px] mx-auto px-8">
           <motion.div className="rounded-2xl overflow-hidden" {...fadeUp}>
             <div className="bg-gradient-brand p-8 md:p-12">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
@@ -462,12 +430,7 @@ const LandingPage = () => {
                       </li>
                     ))}
                   </ul>
-                  <a
-                    href={DERIV_AFFILIATE_LINK}
-                    target="_blank"
-                    rel="noopener"
-                    className="inline-flex items-center gap-2 px-8 py-3.5 bg-background text-foreground font-semibold rounded-lg hover:bg-secondary transition-colors font-sans"
-                  >
+                  <a href={DERIV_AFFILIATE_LINK} target="_blank" rel="noopener" className="inline-flex items-center gap-2 px-8 py-3.5 bg-background text-foreground font-semibold rounded-lg hover:bg-secondary transition-colors font-sans">
                     Create Account Now <ExternalLink className="w-4 h-4" />
                   </a>
                 </div>
@@ -475,7 +438,7 @@ const LandingPage = () => {
                   {[
                     { step: "1", title: "Sign Up", desc: "Create your free Deriv account in under 2 minutes" },
                     { step: "2", title: "Fund Your Account", desc: "Deposit using crypto, bank transfer, or e-wallets" },
-                    { step: "3", title: "Connect to DTNexus", desc: "Link your account and start trading with AI" },
+                    { step: "3", title: "Connect to DNexus", desc: "Link your account and start trading with AI" },
                   ].map((s) => (
                     <div key={s.step} className="flex gap-4 items-start p-4 rounded-xl bg-background/10 backdrop-blur-sm">
                       <div className="w-8 h-8 rounded-full bg-background/20 flex items-center justify-center shrink-0">
@@ -496,7 +459,7 @@ const LandingPage = () => {
 
       {/* Final CTA */}
       <section className="py-16 md:py-24 bg-card/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <div className="max-w-[1400px] mx-auto px-8 text-center">
           <motion.h2 className="text-3xl md:text-4xl font-bold" {...fadeUp}>
             Ready to Take Your Trading to the Next Level?
           </motion.h2>

@@ -2,10 +2,10 @@ import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Home, BarChart3, Users, TrendingUp, BookOpen, HelpCircle,
-  Menu, X, Wallet, ChevronDown, Moon, Sun, Settings
+  Menu, X, Wallet, ChevronDown, Moon, Sun, Settings, Shield
 } from "lucide-react";
 import logo from "@/assets/logo.png";
-import { getActiveAccount, getStoredAccounts, clearAuth, setActiveAccount, type DerivAccount } from "@/services/deriv-auth";
+import { getActiveAccount, getStoredAccounts, clearAuth, setActiveAccount, parseCallbackParams, storeAccounts, type DerivAccount } from "@/services/deriv-auth";
 import { getOAuthUrl } from "@/services/deriv-auth";
 import TradingPanel from "@/components/trading/TradingPanel";
 import TradingViewChart from "@/components/trading/TradingViewChart";
@@ -68,26 +68,13 @@ const TradingHub = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.has("acct1") || params.has("token1")) {
-      // Parse multi-account OAuth response
-      const { parseCallbackParams, storeAccounts, setActiveAccount: setActive } = require("@/services/deriv-auth");
-      const parsed: DerivAccount[] = [];
-      let i = 1;
-      while (params.has(`acct${i}`)) {
-        parsed.push({
-          loginid: params.get(`acct${i}`) || "",
-          token: params.get(`token${i}`) || "",
-          currency: params.get(`cur${i}`) || "USD",
-          is_virtual: (params.get(`acct${i}`) || "").startsWith("VRTC"),
-        });
-        i++;
-      }
+      const parsed = parseCallbackParams();
       if (parsed.length > 0) {
         storeAccounts(parsed);
-        const realAccount = parsed.find((a: DerivAccount) => !a.is_virtual) || parsed[0];
-        setActive(realAccount);
+        const realAccount = parsed.find((a) => !a.is_virtual) || parsed[0];
+        setActiveAccount(realAccount);
         setAccounts(parsed);
         setAccount(realAccount);
-        // Clean URL
         window.history.replaceState({}, document.title, "/trading");
       }
     }
@@ -108,14 +95,13 @@ const TradingHub = () => {
     });
   }, []);
 
-  // WebSocket connection - connects for ALL users (no login required for data)
+  // WebSocket connection
   useEffect(() => {
     const wsInstance = new DerivWebSocket(DERIV_APP_ID);
     setWs(wsInstance);
     wsInstance.connect().then(() => {
       setWsConnected(true);
       wsInstance.subscribeTicks(selectedMarket);
-      // If user has a Deriv account connected, authorize for trading
       if (account) {
         wsInstance.authorize(account.token);
       }
@@ -160,14 +146,12 @@ const TradingHub = () => {
           if (data.authorize) {
             setAccountBalances(prev => ({ ...prev, [data.authorize.loginid]: data.authorize.balance }));
           }
-          // Disconnect after getting balance
           setTimeout(() => tempWs.disconnect(), 1000);
         });
       }).catch(() => {});
     });
   }, [accounts, account]);
 
-  // Subscribe to ticks when market changes (for trading-view & deriv-charts)
   useEffect(() => {
     if (!ws) return;
     if (activeView === "trading-view" || activeView === "deriv-charts") {
@@ -208,14 +192,13 @@ const TradingHub = () => {
         }`}
       >
         <div className="h-14 px-4 flex items-center gap-2 border-b border-border">
-          <img src={logo} alt="DTNexus" className="h-6" />
+          <img src={logo} alt="DNexus" className="h-6" />
           <span className="font-display text-sm font-bold">
-            <span className="text-foreground">DT</span>
-            <span className="text-primary">NEXUS</span>
+            <span className="text-foreground">DN</span>
+            <span className="text-primary">EXUS</span>
           </span>
         </div>
 
-        {/* User area */}
         <div className="p-3 border-b border-border">
           {account ? (
             <div className="space-y-2">
@@ -251,7 +234,7 @@ const TradingHub = () => {
         <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
           {sidebarItems.map((item) => (
             <Link
-              key={item.path}
+              key={item.path + item.label}
               to={item.path}
               className="flex items-center gap-2.5 px-3 py-2 text-xs text-secondary-foreground rounded-lg hover:bg-secondary transition-colors"
               onClick={() => setSidebarOpen(false)}
@@ -262,7 +245,6 @@ const TradingHub = () => {
           ))}
         </nav>
 
-        {/* Dark mode toggle */}
         <div className="p-3 border-t border-border space-y-2">
           <button
             onClick={toggleTheme}
@@ -293,9 +275,8 @@ const TradingHub = () => {
             <button className="lg:hidden text-foreground" onClick={() => setSidebarOpen(true)}>
               <Menu className="w-5 h-5" />
             </button>
-            <img src={logo} alt="DTNexus" className="h-5 lg:hidden" />
+            <img src={logo} alt="DNexus" className="h-5 lg:hidden" />
 
-            {/* View Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-secondary rounded-lg transition-colors">
@@ -316,7 +297,6 @@ const TradingHub = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {/* Connection status */}
             <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${wsConnected ? "bg-buy/20 text-buy" : "bg-sell/20 text-sell"}`}>
               {wsConnected ? (account ? "Connected" : "Live Data") : "Connecting..."}
             </span>
@@ -367,13 +347,7 @@ const TradingHub = () => {
                 <TradingViewChart ws={ws} selectedMarket={selectedMarket} />
               </div>
               {!isMobile && (
-                <TradingSidebar
-                  ws={ws}
-                  account={account}
-                  selectedMarket={selectedMarket}
-                  setSelectedMarket={setSelectedMarket}
-                  onLogin={handleLogin}
-                />
+                <TradingSidebar ws={ws} account={account} selectedMarket={selectedMarket} setSelectedMarket={setSelectedMarket} onLogin={handleLogin} />
               )}
             </div>
           )}
@@ -383,20 +357,14 @@ const TradingHub = () => {
                 <DerivChart ws={ws} selectedMarket={selectedMarket} />
               </div>
               {!isMobile && (
-                <TradingSidebar
-                  ws={ws}
-                  account={account}
-                  selectedMarket={selectedMarket}
-                  setSelectedMarket={setSelectedMarket}
-                  onLogin={handleLogin}
-                />
+                <TradingSidebar ws={ws} account={account} selectedMarket={selectedMarket} setSelectedMarket={setSelectedMarket} onLogin={handleLogin} />
               )}
             </div>
           )}
         </main>
       </div>
 
-      {/* Token Manager Modal — Full Page */}
+      {/* Token Manager Modal */}
       {tokenManagerOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/60 backdrop-blur-sm" onClick={() => setTokenManagerOpen(false)}>
           <div className="bg-card border border-border rounded-2xl shadow-2xl w-[560px] max-w-[95vw] max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -407,12 +375,11 @@ const TradingHub = () => {
               </button>
             </div>
 
-            {/* Tabs */}
             <div className="flex border-b border-border">
               {(["demo", "real", "clients"] as const).map(tab => (
                 <button
                   key={tab}
-                  onClick={() => setTokenTab(tab as any)}
+                  onClick={() => setTokenTab(tab)}
                   className={`flex-1 py-3 text-sm font-medium capitalize transition-colors ${tokenTab === tab ? "text-foreground border-b-2 border-primary" : "text-muted-foreground"}`}
                 >
                   {tab === "clients" ? "Client Tokens" : tab}
@@ -420,7 +387,6 @@ const TradingHub = () => {
               ))}
             </div>
 
-            {/* Account List / Client Token Manager */}
             <div className="p-6 space-y-3 min-h-[120px] max-h-[50vh] overflow-y-auto">
               {tokenTab === "clients" ? (
                 <ClientTokenManager />
@@ -477,7 +443,6 @@ const TradingHub = () => {
               )}
             </div>
 
-            {/* Actions */}
             <div className="flex justify-center gap-3 px-6 py-4 border-t border-border">
               {account && tokenTab !== "clients" && (
                 <button onClick={() => { handleLogout(); setTokenManagerOpen(false); }} className="px-4 py-2 text-xs font-semibold bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition-colors">
@@ -495,7 +460,7 @@ const TradingHub = () => {
   );
 };
 
-/* Shared Trading Sidebar for Trading View & Deriv Charts */
+/* Shared Trading Sidebar */
 const TradingSidebar = ({
   ws, account, selectedMarket, setSelectedMarket, onLogin
 }: {
@@ -536,10 +501,6 @@ const TradingSidebar = ({
         </div>
       </div>
 
-      <div className="flex gap-2 text-xs font-medium border-b border-border pb-2">
-        <span className="text-foreground">Quick</span>
-        <span className="text-muted-foreground">Automated</span>
-      </div>
       <div className="text-center space-y-2">
         <p className="text-[10px] text-muted-foreground">Software Status</p>
         <p className="text-lg font-bold text-sell">INACTIVE</p>
@@ -556,18 +517,10 @@ const TradingSidebar = ({
       )}
 
       <div>
-        <label className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">Contract Type <span className="text-primary text-xs">●</span></label>
-        <select value={contractType} onChange={(e) => setContractType(e.target.value)} className="mt-1 w-full px-3 py-2 bg-secondary border border-border rounded text-xs text-foreground">
-          {CONTRACT_TYPES.map((c) => (<option key={c.type} value={c.type}>{c.label}</option>))}
-        </select>
-      </div>
-
-      <div>
         <label className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">Execution Speed <span className="text-primary text-xs">●</span></label>
         <select className="mt-1 w-full px-3 py-2 bg-secondary border border-border rounded text-xs text-foreground">
           <option>Fast</option>
           <option>Normal</option>
-          <option>Slow</option>
         </select>
       </div>
 

@@ -3,11 +3,11 @@ import logo from "@/assets/logo.png";
 
 const Footer = () => (
   <footer className="border-t border-border bg-card/50">
-    <div className="container py-12">
+    <div className="max-w-[1400px] mx-auto px-8 py-12">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
         <div className="space-y-4">
           <div className="flex items-center gap-2">
-            <img src={logo} alt="Dnexus" className="h-8" />
+            <img src={logo} alt="DNexus" className="h-8" />
             <span className="font-display text-lg font-bold">
               <span className="text-foreground">DN</span>
               <span className="text-primary">EXUS</span>
@@ -49,11 +49,11 @@ const Footer = () => (
 
       <div className="mt-10 pt-6 border-t border-border">
         <p className="text-xs text-muted-foreground text-center leading-relaxed">
-          Dnexus is an independent third-party trading interface built using the official Deriv API. 
+          DNexus is an independent third-party trading interface built using the official Deriv API. 
           We are not affiliated with Deriv Group. Trading involves risk. Past performance does not guarantee future results.
         </p>
         <p className="text-xs text-muted-foreground text-center mt-2">
-          © {new Date().getFullYear()} Dnexus. All rights reserved.
+          © {new Date().getFullYear()} DNexus. All rights reserved.
         </p>
       </div>
     </div>
