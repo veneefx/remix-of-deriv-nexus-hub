@@ -97,6 +97,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const proposalIdRef = useRef<string | null>(null);
   const isTradingRef = useRef(false);
   const sessionProfitRef = useRef(0);
+  const lastDigitsRef = useRef<number[]>([]);
 
   const isLoggedIn = !!account;
 
@@ -104,6 +105,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   useEffect(() => { proposalIdRef.current = proposalId; }, [proposalId]);
   useEffect(() => { isTradingRef.current = isTrading; }, [isTrading]);
   useEffect(() => { sessionProfitRef.current = session.totalProfit; }, [session.totalProfit]);
+  useEffect(() => { lastDigitsRef.current = lastDigits; }, [lastDigits]);
 
   // Load global strategy from database
   useEffect(() => {
@@ -116,10 +118,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         .single();
       if (data) {
         setStrategyVersion(data.version);
-        const profiles = data.profiles as unknown as Record<string, StrategyProfile>;
         const risk = data.risk_global as unknown as any;
         const recovery = data.recovery_global as unknown as any;
-        // Apply global risk settings
         if (risk) {
           setMartingale(risk.martingale_enabled ?? true);
           setMartingaleMultiplier(String(risk.multiplier ?? 2.2));
@@ -136,24 +136,24 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       }
     };
     loadStrategy();
-    // Poll for strategy updates every 30 seconds
     const interval = setInterval(loadStrategy, 30000);
     return () => clearInterval(interval);
   }, []);
 
   // Check if digit frequency condition is met for trading
   const isFreqConditionMet = useCallback((): boolean => {
-    if (!freqBasedTrading || lastDigits.length < 30) return true;
-    const total = lastDigits.length;
+    if (!freqBasedTrading || lastDigitsRef.current.length < 30) return true;
+    const digits = lastDigitsRef.current;
+    const total = digits.length;
     for (let d = 0; d <= 9; d++) {
-      const count = lastDigits.filter(x => x === d).length;
+      const count = digits.filter(x => x === d).length;
       const pct = (count / total) * 100;
       if (pct >= freqThreshold) return true;
     }
     return false;
-  }, [lastDigits, freqBasedTrading, freqThreshold]);
+  }, [freqBasedTrading, freqThreshold]);
 
-  // Subscribe to ticks
+  // Subscribe to ticks — CRITICAL: filter msg_type === "tick" and read data.tick.quote
   useEffect(() => {
     if (!ws) return;
     if (prevMarketRef.current !== selectedMarket) ws.unsubscribeTicks(prevMarketRef.current);
@@ -161,16 +161,25 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     ws.subscribeTicks(selectedMarket);
 
     const unsub = ws.on("tick", (data) => {
-      if (data.tick) {
-        const quote = data.tick.quote;
-        setCurrentTick(quote);
-        const digit = getLastDigit(quote);
-        setLastDigits((prev) => [...prev.slice(-99), digit]);
+      // Only process actual tick messages with valid quote
+      if (!data.tick || typeof data.tick.quote !== "number") return;
+      
+      const quote = data.tick.quote;
+      setCurrentTick(quote);
+      
+      // Extract digit from raw string — NO toFixed
+      const quoteStr = quote.toString();
+      const digit = parseInt(quoteStr[quoteStr.length - 1], 10);
+      
+      setLastDigits((prev) => {
+        const next = [...prev.slice(-99), digit];
+        lastDigitsRef.current = next;
+        return next;
+      });
 
-        // FAST MODE: Execute trade on every tick if bot is running
-        if (botRunning.current && !isTradingRef.current && proposalIdRef.current && executionSpeed === "Fast") {
-          executeTradeImmediate();
-        }
+      // FAST MODE: fire trade immediately on tick
+      if (botRunning.current && !isTradingRef.current && proposalIdRef.current && executionSpeed === "Fast") {
+        executeTradeFast();
       }
     });
     return () => { unsub(); };
@@ -184,7 +193,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       const needsBarrier = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
       const isRiseFall = contractType === "CALL" || contractType === "PUT";
       ws.getProposal({
-        amount: parseFloat(stake) || 3,
+        amount: currentStake.current,
         contractType,
         symbol: selectedMarket,
         duration: isRiseFall ? Math.max(duration, 5) : duration,
@@ -194,6 +203,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     };
 
     requestProposal();
+    // Re-request proposal every 3 seconds to keep it fresh
+    const proposalInterval = setInterval(requestProposal, 3000);
 
     const unsub = ws.on("proposal", (data) => {
       if (data.proposal) {
@@ -202,7 +213,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         setPayout(data.proposal.payout);
       }
     });
-    return () => { unsub(); };
+    return () => { unsub(); clearInterval(proposalInterval); };
   }, [ws, contractType, stake, selectedMarket, duration, durationUnit, barrier, isLoggedIn]);
 
   const marketLabel = VOLATILITY_MARKETS.find((m) => m.symbol === selectedMarket)?.label || selectedMarket;
@@ -280,51 +291,69 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       stopBot();
     }
 
-    // Mark trading as done so next trade can fire
+    // CRITICAL: Mark trading as done IMMEDIATELY so next tick can fire
     setIsTrading(false);
     isTradingRef.current = false;
-  }, [stake, martingale, martingaleMultiplier, maxMartingaleSteps, takeProfit, stopLoss, contractType, marketLabel, duration, startMartingaleAfter, stopAfterMaxMartingale, smartRisker]);
 
-  const executeTradeImmediate = useCallback(() => {
+    // Re-request proposal with current stake for next trade
+    if (ws && botRunning.current) {
+      const needsB = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
+      const isRF = contractType === "CALL" || contractType === "PUT";
+      ws.getProposal({
+        amount: currentStake.current,
+        contractType,
+        symbol: selectedMarket,
+        duration: isRF ? Math.max(duration, 5) : duration,
+        durationUnit: isRF ? "t" : durationUnit,
+        ...(needsB && { barrier }),
+      });
+    }
+  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, stopAfterMaxMartingale, smartRisker, selectedMarket]);
+
+  // FAST trade execution — non-blocking, uses one-time listeners
+  const executeTradeFast = useCallback(() => {
     if (!ws || !proposalIdRef.current || isTradingRef.current || !isLoggedIn) return;
     if (freqBasedTrading && !isFreqConditionMet()) return;
     
     const currentProposalId = proposalIdRef.current;
     const tradeStake = currentStake.current;
     
-    setIsTrading(true);
+    // Lock immediately
     isTradingRef.current = true;
+    setIsTrading(true);
     setTradeResult(null);
     openContracts.current++;
     
     ws.buyContract(currentProposalId, tradeStake);
 
+    // Listen for buy response
     const unsubBuy = ws.on("buy", (data) => {
+      unsubBuy();
+      if (data.error) {
+        isTradingRef.current = false;
+        setIsTrading(false);
+        openContracts.current = Math.max(0, openContracts.current - 1);
+        return;
+      }
       if (data.buy) {
+        // Subscribe to contract result
         ws.subscribeOpenContract();
       }
-      if (data.error) {
-        setIsTrading(false);
-        isTradingRef.current = false;
-        openContracts.current = Math.max(0, openContracts.current - 1);
-      }
-      unsubBuy();
     });
 
+    // Listen for contract completion
     const unsubContract = ws.on("proposal_open_contract", (data) => {
-      if (data.proposal_open_contract?.is_sold) {
-        const profit = data.proposal_open_contract.profit;
-        const won = profit > 0;
-        const contractId = data.proposal_open_contract.contract_id;
-        handleTradeResult(profit, won, contractId, tradeStake);
+      const poc = data.proposal_open_contract;
+      if (poc && poc.is_sold) {
         unsubContract();
+        handleTradeResult(poc.profit, poc.profit > 0, poc.contract_id, tradeStake);
       }
     });
   }, [ws, isLoggedIn, freqBasedTrading, isFreqConditionMet, handleTradeResult]);
 
   const executeTrade = useCallback(() => {
-    executeTradeImmediate();
-  }, [executeTradeImmediate]);
+    executeTradeFast();
+  }, [executeTradeFast]);
 
   const startBot = () => {
     if (!isLoggedIn) return;
@@ -354,6 +383,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     currentStake.current = parseFloat(stake);
     partialProfitTaken.current = 0;
     openContracts.current = 0;
+    isTradingRef.current = false;
+    setIsTrading(false);
     setSession({ totalTrades: 0, wins: 0, losses: 0, totalProfit: 0, peakBalance: 0, maxDrawdown: 0, startBalance: 0, largestStake: 0, maxLossStreak: 0 });
     setTransactions([]);
   };
@@ -361,6 +392,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const stopBot = () => {
     setSoftwareStatus("INACTIVE");
     botRunning.current = false;
+    isTradingRef.current = false;
+    setIsTrading(false);
   };
 
   // Normal mode auto-trade loop (4s interval)
@@ -369,11 +402,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
     const timer = setInterval(() => {
       if (botRunning.current && !isTradingRef.current && proposalIdRef.current) {
-        executeTradeImmediate();
+        executeTradeFast();
       }
     }, 4000);
     return () => clearInterval(timer);
-  }, [softwareStatus, mode, executionSpeed, executeTradeImmediate]);
+  }, [softwareStatus, mode, executionSpeed, executeTradeFast]);
 
   const clearTransactions = () => setTransactions([]);
 
@@ -410,7 +443,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           {currentTick !== null && (
             <div className="flex items-center gap-2 ml-auto">
               <span className="text-[10px] text-muted-foreground">{marketLabel}</span>
-              <span className="text-sm font-mono font-bold text-foreground">{currentTick.toFixed(4)}</span>
+              <span className="text-sm font-mono font-bold text-foreground">{currentTick}</span>
             </div>
           )}
         </div>
@@ -442,7 +475,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   <div className="flex items-center gap-6">
                     <div>
                       <p className="text-[10px] text-muted-foreground">Current Price</p>
-                      <p className="text-2xl font-mono font-bold text-foreground">{currentTick?.toFixed(4) || "Loading..."}</p>
+                      <p className="text-2xl font-mono font-bold text-foreground">{currentTick !== null ? currentTick : "Loading..."}</p>
                     </div>
                     <div>
                       <p className="text-[10px] text-muted-foreground">Last Digit</p>
@@ -481,8 +514,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   <h3 className="text-sm font-semibold text-foreground mb-3">Last 50 Digits ({marketLabel})</h3>
                   <div className="flex flex-wrap gap-1">
                     {(lastDigits.length > 0 ? lastDigits.slice(-50) : Array(50).fill(null)).map((digit, i) => (
-                      <div
+                      <motion.div
                         key={i}
+                        initial={digit !== null ? { scale: 0.5, opacity: 0 } : false}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ duration: 0.15 }}
                         className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-mono font-bold transition-all ${
                           digit === null
                             ? "bg-secondary text-muted-foreground"
@@ -492,7 +528,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                         }`}
                       >
                         {digit !== null && digit !== undefined ? String(digit) : "-"}
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
 
@@ -526,9 +562,13 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
                 {/* Freq-based status */}
                 {freqBasedTrading && softwareStatus === "ACTIVE" && (
-                  <div className={`p-3 rounded-lg text-center text-xs font-medium ${isFreqConditionMet() ? "bg-buy/10 text-buy" : "bg-warning/10 text-warning"}`}>
+                  <motion.div 
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className={`p-3 rounded-lg text-center text-xs font-medium ${isFreqConditionMet() ? "bg-buy/10 text-buy" : "bg-warning/10 text-warning"}`}
+                  >
                     {isFreqConditionMet() ? "⚡ Frequency imbalance detected — Trading active" : "⏸ Waiting for digit frequency imbalance..."}
-                  </div>
+                  </motion.div>
                 )}
 
                 {/* Session stats */}
@@ -540,22 +580,31 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                       { label: "Trades", value: session.totalTrades.toString(), color: "text-foreground" },
                       { label: "Max DD", value: `${session.maxDrawdown.toFixed(1)}%`, color: "text-sell" },
                     ].map((s) => (
-                      <div key={s.label} className="p-3 rounded-lg bg-card border border-border text-center">
+                      <motion.div 
+                        key={s.label} 
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="p-3 rounded-lg bg-card border border-border text-center"
+                      >
                         <p className="text-[10px] text-muted-foreground">{s.label}</p>
                         <p className={`text-sm font-bold ${s.color}`}>{s.value}</p>
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
                 )}
 
                 {/* Smart Risker indicator */}
                 {smartRisker && session.totalProfit > 0 && (
-                  <div className="p-3 rounded-lg bg-success/10 border border-success/20 text-center">
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="p-3 rounded-lg bg-success/10 border border-success/20 text-center"
+                  >
                     <p className="text-xs font-medium text-success">🛡 Smart Risker Active — Partial profits secured at ${partialProfitTaken.current.toFixed(2)}</p>
-                  </div>
+                  </motion.div>
                 )}
 
-                {/* Features preview */}
+                {/* Features preview for non-logged-in users */}
                 {!isLoggedIn && (
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     {[
@@ -564,11 +613,16 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                       { icon: Zap, title: "Real-Time Updates", desc: "Live tick data and instant execution" },
                       { icon: Shield, title: "Risk Management", desc: "Stop loss, take profit, and stake control" },
                     ].map((item) => (
-                      <div key={item.title} className="p-4 rounded-xl bg-card border border-border">
+                      <motion.div 
+                        key={item.title} 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="p-4 rounded-xl bg-card border border-border"
+                      >
                         <item.icon className="w-5 h-5 text-primary mb-2" />
                         <h4 className="text-sm font-semibold text-foreground">{item.title}</h4>
                         <p className="text-xs text-muted-foreground mt-1">{item.desc}</p>
-                      </div>
+                      </motion.div>
                     ))}
                   </div>
                 )}
@@ -609,7 +663,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           {/* Stake */}
           <div>
             <label className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">Stake <span className="text-primary text-xs">●</span></label>
-            <input type="number" value={stake} onChange={(e) => setStake(e.target.value)} min="0.35" step="0.01" className="mt-1 w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+            <input type="number" value={stake} onChange={(e) => { setStake(e.target.value); currentStake.current = parseFloat(e.target.value) || 3; }} min="0.35" step="0.01" className="mt-1 w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
           </div>
 
           {/* Duration */}
@@ -633,10 +687,10 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                 <button
                   key={p}
                   onClick={() => setStrategyProfile(p)}
-                  className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-colors capitalize ${
+                  className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-all capitalize ${
                     strategyProfile === p
                       ? p === "aggressive" ? "bg-sell/20 text-sell border border-sell/30" : p === "balanced" ? "bg-warning/20 text-warning border border-warning/30" : "bg-buy/20 text-buy border border-buy/30"
-                      : "bg-secondary text-muted-foreground"
+                      : "bg-secondary text-muted-foreground hover:bg-muted"
                   }`}
                 >
                   {p === "aggressive" ? "🟥" : p === "balanced" ? "🟨" : "🟩"} {p}
@@ -719,13 +773,20 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           </button>
 
           {/* Last trade result */}
-          {tradeResult && (
-            <div className={`p-3 rounded-lg text-center ${tradeResult.won ? "bg-success/10 text-success" : "bg-sell/10 text-sell"}`}>
-              <p className="text-xs font-semibold">
-                {tradeResult.won ? "✅ Won" : "❌ Lost"}: {tradeResult.profit.toFixed(2)} USD
-              </p>
-            </div>
-          )}
+          <AnimatePresence>
+            {tradeResult && (
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className={`p-3 rounded-lg text-center ${tradeResult.won ? "bg-success/10 text-success" : "bg-sell/10 text-sell"}`}
+              >
+                <p className="text-xs font-semibold">
+                  {tradeResult.won ? "✅ Won" : "❌ Lost"}: {tradeResult.profit.toFixed(2)} USD
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -738,9 +799,14 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         >
           <Wallet className="w-5 h-5 text-primary" />
         </button>
-        <div className={`px-3 py-1.5 rounded-full text-xs font-bold shadow-lg ${session.totalProfit >= 0 ? "bg-buy text-primary-foreground" : "bg-sell text-primary-foreground"}`}>
+        <motion.div 
+          key={session.totalProfit}
+          initial={{ scale: 1.2 }}
+          animate={{ scale: 1 }}
+          className={`px-3 py-1.5 rounded-full text-xs font-bold shadow-lg ${session.totalProfit >= 0 ? "bg-buy text-primary-foreground" : "bg-sell text-primary-foreground"}`}
+        >
           {session.totalProfit.toFixed(2)}
-        </div>
+        </motion.div>
       </div>
 
       {/* Risk Management Modal */}
@@ -1009,7 +1075,12 @@ const TransactionView = ({
     ) : (
       <div className="space-y-3 max-h-[50vh] overflow-y-auto">
         {transactions.map((tx) => (
-          <div key={tx.id} className="flex items-start gap-3 p-3 rounded-lg bg-card border border-border">
+          <motion.div 
+            key={tx.id} 
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-start gap-3 p-3 rounded-lg bg-card border border-border"
+          >
             <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${tx.won ? "bg-buy/20" : "bg-sell/20"}`}>
               <span className={`text-sm ${tx.won ? "text-buy" : "text-sell"}`}>{tx.won ? "↗" : "↘"}</span>
             </div>
@@ -1023,7 +1094,7 @@ const TransactionView = ({
                 </span>
               </div>
             </div>
-          </div>
+          </motion.div>
         ))}
         {transactions.length === 0 && (
           <p className="text-xs text-muted-foreground text-center py-8">No transactions yet</p>

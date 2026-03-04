@@ -26,7 +26,9 @@ export const CONTRACT_TYPES = [
 export const DIGIT_BARRIERS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
 export const getLastDigit = (quote: number): number => {
-  // Handle trailing zeros by using toFixed with enough precision
-  const str = quote.toFixed(4);
-  return parseInt(str[str.length - 1], 10);
+  // Extract last digit directly from string representation
+  // Do NOT use toFixed as it can create false trailing zeros
+  const str = quote.toString();
+  const lastChar = str[str.length - 1];
+  return parseInt(lastChar, 10);
 };
