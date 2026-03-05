@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Home, BarChart3, Users, TrendingUp, BookOpen, HelpCircle,
-  Menu, X, Wallet, ChevronDown, Moon, Sun, Settings, Shield
+  Menu, X, Wallet, ChevronDown, Moon, Sun, Settings, Shield,
+  AlertTriangle, Search, Activity, User
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { getActiveAccount, getStoredAccounts, clearAuth, setActiveAccount, parseCallbackParams, storeAccounts, type DerivAccount } from "@/services/deriv-auth";
@@ -10,6 +11,7 @@ import { getOAuthUrl } from "@/services/deriv-auth";
 import TradingPanel from "@/components/trading/TradingPanel";
 import TradingViewChart from "@/components/trading/TradingViewChart";
 import DerivChart from "@/components/trading/DerivChart";
+import DATTab from "@/components/trading/DATTab";
 import ClientTokenManager from "@/components/trading/ClientTokenManager";
 import DerivWebSocket from "@/services/deriv-websocket";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -21,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { VOLATILITY_MARKETS, CONTRACT_TYPES } from "@/lib/trading-constants";
+import { motion, AnimatePresence } from "framer-motion";
 
 const DERIV_APP_ID = "129344";
 
@@ -31,15 +34,17 @@ const sidebarItems = [
   { icon: Users, label: "Partners", path: "/partners" },
   { icon: BookOpen, label: "eLearning Academy", path: "/education" },
   { icon: HelpCircle, label: "Help Center", path: "/help" },
-  { icon: Settings, label: "Risk Disclosure", path: "/risk" },
+  { icon: Settings, label: "Settings", path: "/risk" },
 ];
 
-type ViewMode = "digit-edge" | "trading-view" | "deriv-charts";
+type ViewMode = "digit-edge" | "trading-view" | "deriv-charts" | "dat" | "transactions";
 
 const viewLabels: Record<ViewMode, string> = {
   "digit-edge": "Digit Edge",
   "trading-view": "Trading View",
   "deriv-charts": "Deriv Charts",
+  "dat": "DAT",
+  "transactions": "Transactions",
 };
 
 const TradingHub = () => {
@@ -55,6 +60,8 @@ const TradingHub = () => {
   const [selectedMarket, setSelectedMarket] = useState("R_10");
   const [tokenManagerOpen, setTokenManagerOpen] = useState(false);
   const [tokenTab, setTokenTab] = useState<"demo" | "real" | "clients">("demo");
+  const [lastDigits, setLastDigits] = useState<number[]>([]);
+  const [currentTick, setCurrentTick] = useState<number | null>(null);
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
       return document.documentElement.classList.contains("dark") || !document.documentElement.classList.contains("light");
@@ -64,7 +71,7 @@ const TradingHub = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
 
-  // Handle OAuth callback params if user lands on /trading with tokens in URL
+  // Handle OAuth callback params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.has("acct1") || params.has("token1")) {
@@ -80,7 +87,6 @@ const TradingHub = () => {
     }
   }, []);
 
-  // Theme toggle — just CSS class change, no app restart
   const toggleTheme = useCallback(() => {
     setDarkMode(prev => {
       const next = !prev;
@@ -91,6 +97,7 @@ const TradingHub = () => {
         document.documentElement.classList.add("light");
         document.documentElement.classList.remove("dark");
       }
+      localStorage.setItem("theme", next ? "dark" : "light");
       return next;
     });
   }, []);
@@ -130,6 +137,16 @@ const TradingHub = () => {
       }
     });
 
+    // Track ticks for DAT tab
+    wsInstance.on("tick", (data) => {
+      if (!data.tick || typeof data.tick.quote !== "number") return;
+      const quote = data.tick.quote;
+      setCurrentTick(quote);
+      const quoteStr = Number(quote).toFixed(2);
+      const digit = parseInt(quoteStr[quoteStr.length - 1], 10);
+      setLastDigits(prev => [...prev.slice(-999), digit]);
+    });
+
     return () => { wsInstance.disconnect(); };
   }, [account]);
 
@@ -137,7 +154,6 @@ const TradingHub = () => {
   useEffect(() => {
     if (accounts.length <= 1 || !account) return;
     const otherAccounts = accounts.filter(a => a.loginid !== account.loginid);
-    
     otherAccounts.forEach(acc => {
       const tempWs = new DerivWebSocket(DERIV_APP_ID);
       tempWs.connect().then(() => {
@@ -154,11 +170,9 @@ const TradingHub = () => {
 
   useEffect(() => {
     if (!ws) return;
-    if (activeView === "trading-view" || activeView === "deriv-charts") {
-      ws.send({ forget_all: "ticks" });
-      ws.subscribeTicks(selectedMarket);
-    }
-  }, [ws, selectedMarket, activeView]);
+    ws.send({ forget_all: "ticks" });
+    ws.subscribeTicks(selectedMarket);
+  }, [ws, selectedMarket]);
 
   const handleLogin = () => {
     const url = getOAuthUrl(DERIV_APP_ID, `${window.location.origin}/callback`);
@@ -182,165 +196,186 @@ const TradingHub = () => {
 
   const demoAccounts = accounts.filter(a => a.is_virtual);
   const realAccounts = accounts.filter(a => !a.is_virtual);
+  const marketLabel = VOLATILITY_MARKETS.find(m => m.symbol === selectedMarket)?.label || selectedMarket;
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      {/* Sidebar */}
-      <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-56 bg-card border-r border-border flex flex-col transition-transform lg:translate-x-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
-        <div className="h-14 px-4 flex items-center gap-2 border-b border-border">
-          <img src={logo} alt="DNexus" className="h-6" />
-          <span className="font-display text-sm font-bold">
-            <span className="text-foreground">DN</span>
-            <span className="text-primary">EXUS</span>
-          </span>
-        </div>
-
-        <div className="p-3 border-b border-border">
-          {account ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                  <span className="text-xs font-bold text-primary">
-                    {account.is_virtual ? "D" : "R"}
+      {/* Floating Sidebar — slides from LEFT */}
+      <AnimatePresence>
+        {sidebarOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm"
+              onClick={() => setSidebarOpen(false)}
+            />
+            <motion.aside
+              initial={{ x: -280 }}
+              animate={{ x: 0 }}
+              exit={{ x: -280 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border flex flex-col shadow-2xl"
+            >
+              <div className="h-14 px-4 flex items-center justify-between border-b border-border">
+                <div className="flex items-center gap-2">
+                  <img src={logo} alt="DNexus" className="h-6" />
+                  <span className="font-display text-sm font-bold">
+                    <span className="text-foreground">DN</span>
+                    <span className="text-primary">EXUS</span>
                   </span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-foreground truncate">{account.loginid}</p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {account.is_virtual ? "Demo" : "Real"} • {account.currency}
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-1.5">
-                <button onClick={() => setTokenManagerOpen(true)} className="flex-1 px-2 py-1 text-[10px] font-medium bg-primary/10 text-primary rounded hover:bg-primary/20 transition-colors">
-                  Token Manager
-                </button>
-                <button onClick={handleLogout} className="flex-1 px-2 py-1 text-[10px] font-medium bg-destructive/10 text-destructive rounded hover:bg-destructive/20 transition-colors">
-                  Logout
+                <button onClick={() => setSidebarOpen(false)} className="text-muted-foreground hover:text-foreground">
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-            </div>
-          ) : (
-            <button onClick={handleLogin} className="w-full px-3 py-2 bg-gradient-brand text-primary-foreground font-semibold text-xs rounded-lg">
-              Connect Deriv Account
-            </button>
-          )}
-        </div>
 
-        <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
-          {sidebarItems.map((item) => (
-            <Link
-              key={item.path + item.label}
-              to={item.path}
-              className="flex items-center gap-2.5 px-3 py-2 text-xs text-secondary-foreground rounded-lg hover:bg-secondary transition-colors"
-              onClick={() => setSidebarOpen(false)}
-            >
-              <item.icon className="w-4 h-4" />
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+              {/* Account info */}
+              <div className="p-3 border-b border-border">
+                {account ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                        <span className="text-xs font-bold text-primary">
+                          {account.is_virtual ? "D" : "R"}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-foreground truncate">{account.loginid}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {account.is_virtual ? "Demo" : "Real"} • {account.currency}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-1.5">
+                      <button onClick={() => { setTokenManagerOpen(true); setSidebarOpen(false); }} className="flex-1 px-2 py-1 text-[10px] font-medium bg-primary/10 text-primary rounded hover:bg-primary/20 transition-colors">
+                        Token Manager
+                      </button>
+                      <button onClick={handleLogout} className="flex-1 px-2 py-1 text-[10px] font-medium bg-destructive/10 text-destructive rounded hover:bg-destructive/20 transition-colors">
+                        Logout
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={handleLogin} className="w-full px-3 py-2 bg-gradient-brand text-primary-foreground font-semibold text-xs rounded-lg">
+                    Connect Deriv Account
+                  </button>
+                )}
+              </div>
 
-        <div className="p-3 border-t border-border space-y-2">
-          <button
-            onClick={toggleTheme}
-            className="w-full flex items-center justify-between px-3 py-2 text-xs text-secondary-foreground rounded-lg hover:bg-secondary transition-colors"
-          >
-            <span className="flex items-center gap-2">
-              {darkMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-              {darkMode ? "Dark Mode" : "Light Mode"}
-            </span>
-            <div className={`w-8 h-4 rounded-full transition-colors ${darkMode ? "bg-primary" : "bg-muted"} relative`}>
-              <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-primary-foreground transition-transform ${darkMode ? "left-4" : "left-0.5"}`} />
-            </div>
-          </button>
-          <Link to="/" className="flex items-center gap-2 px-3 py-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
-            ← Back to Home
-          </Link>
-        </div>
-      </aside>
+              <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
+                {sidebarItems.map((item) => (
+                  <Link
+                    key={item.path + item.label}
+                    to={item.path}
+                    className="flex items-center gap-2.5 px-3 py-2.5 text-xs text-secondary-foreground rounded-lg hover:bg-secondary transition-colors"
+                    onClick={() => setSidebarOpen(false)}
+                  >
+                    <item.icon className="w-4 h-4" />
+                    {item.label}
+                  </Link>
+                ))}
+              </nav>
 
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-background/60 backdrop-blur-sm lg:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
+              <div className="p-3 border-t border-border space-y-2">
+                <button
+                  onClick={toggleTheme}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs text-secondary-foreground rounded-lg hover:bg-secondary transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    {darkMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                    {darkMode ? "Dark Mode" : "Light Mode"}
+                  </span>
+                  <div className={`w-8 h-4 rounded-full transition-colors ${darkMode ? "bg-primary" : "bg-muted"} relative`}>
+                    <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-primary-foreground transition-transform ${darkMode ? "left-4" : "left-0.5"}`} />
+                  </div>
+                </button>
+                <Link to="/" className="flex items-center gap-2 px-3 py-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+                  ← Back to Home
+                </Link>
+              </div>
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-12 border-b border-border flex items-center justify-between px-4 bg-card/50">
-          <div className="flex items-center gap-3">
-            <button className="lg:hidden text-foreground" onClick={() => setSidebarOpen(true)}>
-              <Menu className="w-5 h-5" />
-            </button>
-            <img src={logo} alt="DNexus" className="h-5 lg:hidden" />
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-secondary rounded-lg transition-colors">
-                  {viewLabels[activeView]}
-                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-48">
-                {(Object.keys(viewLabels) as ViewMode[]).map(view => (
-                  <DropdownMenuItem
-                    key={view}
-                    onClick={() => setActiveView(view)}
-                    className={activeView === view ? "bg-primary/10 text-primary" : ""}
-                  >
-                    {viewLabels[view]}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${wsConnected ? "bg-buy/20 text-buy" : "bg-sell/20 text-sell"}`}>
-              {wsConnected ? (account ? "Connected" : "Live Data") : "Connecting..."}
-            </span>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {balance !== null && (
+        {/* Top bar: Balance LEFT, risk icon, view dropdown CENTER, hamburger RIGHT */}
+        <header className="h-12 border-b border-border flex items-center justify-between px-3 bg-card/50">
+          <div className="flex items-center gap-2">
+            {/* Logo/balance area */}
+            {balance !== null ? (
               <button
                 onClick={() => setTokenManagerOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1 bg-card rounded-lg border border-border hover:bg-secondary transition-colors cursor-pointer"
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-card rounded-lg border border-border hover:bg-secondary transition-colors"
               >
                 <Wallet className="w-3.5 h-3.5 text-muted-foreground" />
-                <span className="text-xs font-semibold text-foreground">
+                <span className="text-xs font-bold text-foreground">
                   {balance.toFixed(2)} {account?.currency || "USD"}
                 </span>
                 <ChevronDown className="w-3 h-3 text-muted-foreground" />
               </button>
-            )}
-            {!account && (
-              <button onClick={handleLogin} className="px-4 py-1.5 bg-gradient-brand text-primary-foreground text-xs font-medium rounded-lg">
-                Connect Account
-              </button>
+            ) : (
+              <div className="flex items-center gap-1.5">
+                <img src={logo} alt="DNexus" className="h-5" />
+                <span className="font-display text-xs font-bold">
+                  <span className="text-foreground">DN</span>
+                  <span className="text-primary">EXUS</span>
+                </span>
+              </div>
             )}
 
-            {isMobile && (
-              <Sheet open={mobileSheetOpen} onOpenChange={setMobileSheetOpen}>
-                <SheetTrigger asChild>
-                  <button className="lg:hidden px-3 py-1.5 bg-primary/10 text-primary text-xs font-medium rounded-lg flex items-center gap-1">
-                    <BarChart3 className="w-3.5 h-3.5" />
-                    Trade
-                  </button>
-                </SheetTrigger>
-                <SheetContent side="bottom" className="h-[85vh] p-0 bg-background border-t border-border rounded-t-2xl">
-                  <div className="h-full overflow-y-auto">
-                    <MobileTradingControls ws={ws} account={account} onLogin={handleLogin} />
-                  </div>
-                </SheetContent>
-              </Sheet>
+            {/* Risk awareness icon */}
+            <Link to="/risk" className="p-1.5 rounded-lg hover:bg-secondary transition-colors" title="Risk Disclosure">
+              <AlertTriangle className="w-4 h-4 text-warning" />
+            </Link>
+          </div>
+
+          {/* Center: View dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold text-foreground hover:bg-secondary rounded-lg transition-colors">
+                {viewLabels[activeView]}
+                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-48">
+              {(Object.keys(viewLabels) as ViewMode[]).map(view => (
+                <DropdownMenuItem
+                  key={view}
+                  onClick={() => setActiveView(view)}
+                  className={activeView === view ? "bg-primary/10 text-primary" : ""}
+                >
+                  {viewLabels[view]}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Right: connection + hamburger */}
+          <div className="flex items-center gap-2">
+            <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${wsConnected ? "bg-buy/20 text-buy" : "bg-sell/20 text-sell"}`}>
+              {wsConnected ? "●" : "○"}
+            </span>
+            {!account && !isMobile && (
+              <button onClick={handleLogin} className="px-3 py-1.5 bg-gradient-brand text-primary-foreground text-[10px] font-medium rounded-lg">
+                Connect
+              </button>
             )}
+            <button className="p-1.5 rounded-lg hover:bg-secondary transition-colors text-foreground" onClick={() => setSidebarOpen(true)}>
+              <Menu className="w-5 h-5" />
+            </button>
           </div>
         </header>
 
-        <main className="flex-1 overflow-hidden">
+        {/* Main area */}
+        <main className="flex-1 overflow-hidden pb-16 lg:pb-0">
           {activeView === "digit-edge" && <TradingPanel ws={ws} account={account} />}
+          {activeView === "dat" && (
+            <DATTab lastDigits={lastDigits} currentTick={currentTick} marketLabel={marketLabel} />
+          )}
           {activeView === "trading-view" && (
             <div className="flex h-full">
               <div className="flex-1 min-w-0">
@@ -361,7 +396,43 @@ const TradingHub = () => {
               )}
             </div>
           )}
+          {activeView === "transactions" && (
+            <div className="p-4 lg:p-6 overflow-y-auto h-full">
+              <div className="p-6 rounded-xl bg-card border border-border text-center">
+                <Wallet className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+                <h3 className="text-sm font-semibold text-foreground">Transactions</h3>
+                <p className="text-xs text-muted-foreground mt-1">Trade history is displayed inside the Digit Edge panel while the bot is active.</p>
+                <button onClick={() => setActiveView("digit-edge")} className="mt-4 px-4 py-2 bg-primary text-primary-foreground text-xs font-medium rounded-lg">
+                  Go to Digit Edge
+                </button>
+              </div>
+            </div>
+          )}
         </main>
+
+        {/* Mobile Bottom Nav */}
+        {isMobile && (
+          <div className="fixed bottom-0 left-0 right-0 z-30 bg-card/95 backdrop-blur-lg border-t border-border">
+            <div className="flex items-center justify-around py-2">
+              {[
+                { icon: Home, label: "Home", action: () => navigate("/") },
+                { icon: Search, label: "Explore", action: () => setActiveView("trading-view") },
+                { icon: Activity, label: "Trade", action: () => setActiveView("digit-edge") },
+                { icon: BarChart3, label: "Analyze", action: () => setActiveView("dat") },
+                { icon: User, label: "Profile", action: () => setTokenManagerOpen(true) },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  onClick={item.action}
+                  className="flex flex-col items-center gap-0.5 px-3 py-1 text-muted-foreground hover:text-primary transition-colors"
+                >
+                  <item.icon className="w-5 h-5" />
+                  <span className="text-[9px] font-medium">{item.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Token Manager Modal */}
@@ -530,31 +601,6 @@ const TradingSidebar = ({
         </span>
         <ChevronDown className="w-3.5 h-3.5 text-muted-foreground -rotate-90" />
       </button>
-    </div>
-  );
-};
-
-/* Mobile Trading Controls */
-const MobileTradingControls = ({ ws, account, onLogin }: { ws: DerivWebSocket | null; account: DerivAccount | null; onLogin: () => void }) => {
-  if (!account) {
-    return (
-      <div className="p-6 text-center space-y-4">
-        <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
-          <Wallet className="w-8 h-8 text-primary" />
-        </div>
-        <h3 className="text-lg font-bold text-foreground">Connect to Trade</h3>
-        <p className="text-sm text-muted-foreground">Connect your Deriv account to execute trades.</p>
-        <button onClick={onLogin} className="w-full py-3 bg-gradient-brand text-primary-foreground font-semibold rounded-lg">
-          Connect Deriv Account
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="p-4">
-      <p className="text-xs text-muted-foreground text-center mb-4">Trading controls available in side panel on desktop.</p>
-      <p className="text-xs text-muted-foreground text-center">Connected as: <span className="text-foreground font-medium">{account.loginid}</span></p>
     </div>
   );
 };

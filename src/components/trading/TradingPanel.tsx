@@ -167,9 +167,9 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       const quote = data.tick.quote;
       setCurrentTick(quote);
       
-      // Extract digit from raw string — NO toFixed
-      const quoteStr = quote.toString();
-      const digit = parseInt(quoteStr[quoteStr.length - 1], 10);
+      // Use toFixed(2) to preserve trailing zeros (e.g. 9602.50 → digit 0)
+      const formatted = Number(quote).toFixed(2);
+      const digit = parseInt(formatted[formatted.length - 1], 10);
       
       setLastDigits((prev) => {
         const next = [...prev.slice(-99), digit];
