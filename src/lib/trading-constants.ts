@@ -26,9 +26,8 @@ export const CONTRACT_TYPES = [
 export const DIGIT_BARRIERS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
 export const getLastDigit = (quote: number): number => {
-  // Extract last digit directly from string representation
-  // Do NOT use toFixed as it can create false trailing zeros
-  const str = quote.toString();
-  const lastChar = str[str.length - 1];
-  return parseInt(lastChar, 10);
+  // Use toFixed(2) to preserve trailing zeros (e.g. 9602.50 → "0" not "5")
+  // Volatility indices use 2 decimal places
+  const formatted = Number(quote).toFixed(2);
+  return parseInt(formatted[formatted.length - 1], 10);
 };
