@@ -1,11 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Wallet, List, Table, ChevronRight, Settings, TrendingUp, BarChart3, Shield, Zap } from "lucide-react";
+import { X, Wallet, List, Table, ChevronRight, Settings, TrendingUp, BarChart3, Shield, Zap, Activity, Flame, Target, AlertTriangle } from "lucide-react";
 import DerivWebSocket from "@/services/deriv-websocket";
 import { DerivAccount } from "@/services/deriv-auth";
 import { VOLATILITY_MARKETS, CONTRACT_TYPES, DIGIT_BARRIERS, getLastDigit } from "@/lib/trading-constants";
 import AnalysisTab from "@/components/trading/AnalysisTab";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 interface TradingPanelProps {
   ws: DerivWebSocket | null;
@@ -41,10 +42,22 @@ interface StrategyProfile {
   minimum_tick_history: number;
 }
 
+interface DigitPressure {
+  [digit: number]: number;
+}
+
+interface SignalDetails {
+  frequencyScore: number;
+  pressureScore: number;
+  streakScore: number;
+  patternScore: number;
+  volatilityScore: number;
+}
+
 const TradingPanel = ({ ws, account }: TradingPanelProps) => {
-  const [selectedMarket, setSelectedMarket] = useState<string>(VOLATILITY_MARKETS[0].symbol);
-  const [contractType, setContractType] = useState("DIGITEVEN");
-  const [stake, setStake] = useState("3");
+  const [selectedMarket, setSelectedMarket] = useState<string>(() => localStorage.getItem("dnx_market") || VOLATILITY_MARKETS[0].symbol);
+  const [contractType, setContractType] = useState(() => localStorage.getItem("dnx_contractType") || "DIGITEVEN");
+  const [stake, setStake] = useState(() => localStorage.getItem("dnx_stake") || "3");
   const [duration, setDuration] = useState(1);
   const [durationUnit, setDurationUnit] = useState("t");
   const [barrier, setBarrier] = useState("4");
@@ -70,8 +83,14 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [smartRisker, setSmartRisker] = useState(false);
   const [freqBasedTrading, setFreqBasedTrading] = useState(false);
   const [freqThreshold, setFreqThreshold] = useState(12);
-  const [strategyProfile, setStrategyProfile] = useState<"aggressive" | "balanced" | "conservative">("balanced");
+  const [strategyProfile, setStrategyProfile] = useState<"aggressive" | "balanced" | "conservative">(() => (localStorage.getItem("dnx_profile") as any) || "balanced");
   const [strategyVersion, setStrategyVersion] = useState<number | null>(null);
+
+  // Signal scoring
+  const [signalScore, setSignalScore] = useState(0);
+  const [signalDetails, setSignalDetails] = useState<SignalDetails>({ frequencyScore: 0, pressureScore: 0, streakScore: 0, patternScore: 0, volatilityScore: 0 });
+  const [digitPressure, setDigitPressure] = useState<DigitPressure>({ 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0 });
+  const [highestPressureDigit, setHighestPressureDigit] = useState(0);
 
   const [session, setSession] = useState<SessionStats>({
     totalTrades: 0, wins: 0, losses: 0, totalProfit: 0,
@@ -91,15 +110,25 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const prevMarketRef = useRef(selectedMarket);
   const botRunning = useRef(false);
   const consecutiveLosses = useRef(0);
-  const currentStake = useRef(parseFloat("3"));
+  const currentStake = useRef(parseFloat(stake));
   const partialProfitTaken = useRef(0);
   const openContracts = useRef(0);
   const proposalIdRef = useRef<string | null>(null);
   const isTradingRef = useRef(false);
   const sessionProfitRef = useRef(0);
   const lastDigitsRef = useRef<number[]>([]);
+  const tickBufferRef = useRef<{ quote: number; digit: number; epoch: number }[]>([]);
+  const digitPressureRef = useRef<DigitPressure>({ 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0 });
+  const tickIndexRef = useRef(0);
+  const lastTradeTimestampRef = useRef(0);
 
   const isLoggedIn = !!account;
+
+  // Persist settings
+  useEffect(() => { localStorage.setItem("dnx_market", selectedMarket); }, [selectedMarket]);
+  useEffect(() => { localStorage.setItem("dnx_contractType", contractType); }, [contractType]);
+  useEffect(() => { localStorage.setItem("dnx_stake", stake); }, [stake]);
+  useEffect(() => { localStorage.setItem("dnx_profile", strategyProfile); }, [strategyProfile]);
 
   // Keep refs in sync
   useEffect(() => { proposalIdRef.current = proposalId; }, [proposalId]);
@@ -140,6 +169,41 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     return () => clearInterval(interval);
   }, []);
 
+  // Local signal scoring (runs client-side for speed, mirrors backend logic)
+  const calculateLocalSignal = useCallback((digits: number[], pressure: DigitPressure, buffer: { quote: number }[]) => {
+    const total = digits.length;
+    if (total < 30) return { score: 0, details: { frequencyScore: 0, pressureScore: 0, streakScore: 0, patternScore: 0, volatilityScore: 0 } };
+
+    const freq = new Array(10).fill(0);
+    digits.forEach(d => freq[d]++);
+    let maxDev = 0;
+    freq.forEach(c => { maxDev = Math.max(maxDev, Math.abs((c / total) * 100 - 10)); });
+    const frequencyScore = Math.min(maxDev / 10, 1);
+
+    let maxP = 0;
+    for (let d = 0; d <= 9; d++) maxP = Math.max(maxP, pressure[d] || 0);
+    const pressureScore = Math.min(maxP / 20, 1);
+
+    let cs = 1, ms = 1;
+    for (let i = digits.length - 1; i > 0; i--) {
+      if (digits[i] === digits[i - 1]) { cs++; ms = Math.max(ms, cs); } else cs = 1;
+    }
+    const streakScore = Math.min(ms / 5, 1);
+
+    const last10 = digits.slice(-10);
+    const pats = new Set<string>();
+    for (let i = 0; i <= last10.length - 3; i++) pats.add(last10.slice(i, i + 3).join(""));
+    const patternScore = Math.min(pats.size / 8, 1);
+
+    const recent = buffer.slice(-20);
+    let vol = 0;
+    for (let i = 1; i < recent.length; i++) vol += Math.abs(recent[i].quote - recent[i - 1].quote);
+    const volatilityScore = Math.min(recent.length > 1 ? (vol / (recent.length - 1)) * 100 : 0, 1);
+
+    const score = frequencyScore * 0.25 + pressureScore * 0.30 + streakScore * 0.15 + patternScore * 0.15 + volatilityScore * 0.15;
+    return { score, details: { frequencyScore, pressureScore, streakScore, patternScore, volatilityScore } };
+  }, []);
+
   // Check if digit frequency condition is met for trading
   const isFreqConditionMet = useCallback((): boolean => {
     if (!freqBasedTrading || lastDigitsRef.current.length < 30) return true;
@@ -153,7 +217,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     return false;
   }, [freqBasedTrading, freqThreshold]);
 
-  // Subscribe to ticks — CRITICAL: filter msg_type === "tick" and read data.tick.quote
+  // Subscribe to ticks
   useEffect(() => {
     if (!ws) return;
     if (prevMarketRef.current !== selectedMarket) ws.unsubscribeTicks(prevMarketRef.current);
@@ -161,34 +225,98 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     ws.subscribeTicks(selectedMarket);
 
     const unsub = ws.on("tick", (data) => {
-      // Only process actual tick messages with valid quote
       if (!data.tick || typeof data.tick.quote !== "number") return;
-      
+
       const quote = data.tick.quote;
       setCurrentTick(quote);
-      
-      // Use toFixed(2) to preserve trailing zeros (e.g. 9602.50 → digit 0)
+
+      // Use toFixed(2) to preserve trailing zeros
       const formatted = Number(quote).toFixed(2);
       const digit = parseInt(formatted[formatted.length - 1], 10);
-      
+
+      // Update tick buffer (1000 max)
+      const tickData = { quote, digit, epoch: data.tick.epoch || Date.now() / 1000 };
+      tickBufferRef.current = [...tickBufferRef.current.slice(-999), tickData];
+
+      // Update digit pressure
+      tickIndexRef.current++;
+      const newPressure = { ...digitPressureRef.current };
+      newPressure[digit] = 0;
+      for (let d = 0; d <= 9; d++) {
+        if (d !== digit) newPressure[d] = (newPressure[d] || 0) + 1;
+      }
+      digitPressureRef.current = newPressure;
+      setDigitPressure(newPressure);
+
+      // Find highest pressure
+      let hpd = 0, hp = 0;
+      for (let d = 0; d <= 9; d++) {
+        if (newPressure[d] > hp) { hp = newPressure[d]; hpd = d; }
+      }
+      setHighestPressureDigit(hpd);
+
       setLastDigits((prev) => {
-        const next = [...prev.slice(-99), digit];
+        const next = [...prev.slice(-999), digit];
         lastDigitsRef.current = next;
         return next;
       });
 
-      // FAST MODE: fire trade immediately on tick
+      // Calculate signal score locally (fast, no network delay)
+      const sig = calculateLocalSignal(lastDigitsRef.current, newPressure, tickBufferRef.current);
+      setSignalScore(sig.score);
+      setSignalDetails(sig.details);
+
+      // FAST MODE: fire trade immediately on tick if signal is strong
       if (botRunning.current && !isTradingRef.current && proposalIdRef.current && executionSpeed === "Fast") {
-        executeTradeFast();
+        const now = Date.now();
+        // Rate limit: at least 1s between trades
+        if (now - lastTradeTimestampRef.current >= 1000) {
+          if (sig.score >= 0.15 || !freqBasedTrading) {
+            executeTradeFast();
+          }
+        }
       }
     });
     return () => { unsub(); };
-  }, [ws, selectedMarket, executionSpeed]);
+  }, [ws, selectedMarket, executionSpeed, calculateLocalSignal, freqBasedTrading]);
+
+  // Preload tick history
+  useEffect(() => {
+    if (!ws) return;
+    const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+    if (!projectId) return;
+    
+    // Fetch historical ticks via edge function
+    const fetchHistory = async () => {
+      try {
+        const res = await supabase.functions.invoke("deriv-proxy", {
+          body: { action: "tick_history", params: { symbol: selectedMarket, count: 1000 } },
+        });
+        if (res.data?.history?.prices) {
+          const prices = res.data.history.prices;
+          const digits = prices.map((p: number) => {
+            const f = Number(p).toFixed(2);
+            return parseInt(f[f.length - 1], 10);
+          });
+          setLastDigits(prev => {
+            if (prev.length < 50) {
+              lastDigitsRef.current = digits;
+              return digits;
+            }
+            return prev;
+          });
+          // Fill tick buffer
+          tickBufferRef.current = prices.map((p: number) => ({ quote: p, digit: getLastDigit(p), epoch: 0 }));
+        }
+      } catch {}
+    };
+    fetchHistory();
+  }, [ws, selectedMarket]);
 
   // Get proposal - continuously request proposals
   useEffect(() => {
     if (!ws || !isLoggedIn) return;
-    
+
     const requestProposal = () => {
       const needsBarrier = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
       const isRiseFall = contractType === "CALL" || contractType === "PUT";
@@ -203,7 +331,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     };
 
     requestProposal();
-    // Re-request proposal every 3 seconds to keep it fresh
     const proposalInterval = setInterval(requestProposal, 3000);
 
     const unsub = ws.on("proposal", (data) => {
@@ -224,13 +351,19 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     setTradeResult({ profit, won });
     openContracts.current = Math.max(0, openContracts.current - 1);
 
+    // Show notification
+    toast({
+      title: won ? "✅ Trade Won" : "❌ Trade Lost",
+      description: `${won ? "+" : ""}${profit.toFixed(2)} USD • ${marketLabel}`,
+    });
+
     setTransactions((prev) => [{
       id: contractId || Date.now().toString(),
       contractType,
       stake: tradeStake,
       profit,
       won,
-      description: `Win if ${marketLabel} is ${contractType.replace("DIGIT", "").toLowerCase()} after ${duration} ticks.`,
+      description: `${contractType.replace("DIGIT", "")} on ${marketLabel} • ${duration}${durationUnit}`,
     }, ...prev]);
 
     setSession((prev) => {
@@ -287,11 +420,13 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       setTpAmount(totalP);
       setShowTpModal(true);
       stopBot();
+      toast({ title: "🎉 Take Profit Hit!", description: `Profit: $${totalP.toFixed(2)}` });
     } else if (totalP <= -sl) {
       stopBot();
+      toast({ title: "⛔ Stop Loss Hit", description: `Loss limit reached: $${Math.abs(totalP).toFixed(2)}` });
     }
 
-    // CRITICAL: Mark trading as done IMMEDIATELY so next tick can fire
+    // CRITICAL: Mark trading as done IMMEDIATELY
     setIsTrading(false);
     isTradingRef.current = false;
 
@@ -313,20 +448,19 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   // FAST trade execution — non-blocking, uses one-time listeners
   const executeTradeFast = useCallback(() => {
     if (!ws || !proposalIdRef.current || isTradingRef.current || !isLoggedIn) return;
-    if (freqBasedTrading && !isFreqConditionMet()) return;
-    
+    if (openContracts.current >= 3) return; // Max concurrent trades guard
+
     const currentProposalId = proposalIdRef.current;
     const tradeStake = currentStake.current;
-    
-    // Lock immediately
+
     isTradingRef.current = true;
     setIsTrading(true);
     setTradeResult(null);
     openContracts.current++;
-    
+    lastTradeTimestampRef.current = Date.now();
+
     ws.buyContract(currentProposalId, tradeStake);
 
-    // Listen for buy response
     const unsubBuy = ws.on("buy", (data) => {
       unsubBuy();
       if (data.error) {
@@ -336,12 +470,10 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         return;
       }
       if (data.buy) {
-        // Subscribe to contract result
         ws.subscribeOpenContract();
       }
     });
 
-    // Listen for contract completion
     const unsubContract = ws.on("proposal_open_contract", (data) => {
       const poc = data.proposal_open_contract;
       if (poc && poc.is_sold) {
@@ -349,7 +481,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         handleTradeResult(poc.profit, poc.profit > 0, poc.contract_id, tradeStake);
       }
     });
-  }, [ws, isLoggedIn, freqBasedTrading, isFreqConditionMet, handleTradeResult]);
+  }, [ws, isLoggedIn, handleTradeResult]);
 
   const executeTrade = useCallback(() => {
     executeTradeFast();
@@ -357,10 +489,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
   const startBot = () => {
     if (!isLoggedIn) return;
-    if (mode === "Quick") {
-      executeTrade();
-      return;
-    }
+    if (mode === "Quick") { executeTrade(); return; }
     setShowSessionModal(true);
   };
 
@@ -373,6 +502,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     setShowSessionModal(false);
     setSoftwareStatus("ACTIVE");
     botRunning.current = true;
+    toast({ title: "▶ Bot Resumed", description: `${strategyProfile} profile • ${executionSpeed} mode` });
   };
 
   const confirmStart = () => {
@@ -387,6 +517,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     setIsTrading(false);
     setSession({ totalTrades: 0, wins: 0, losses: 0, totalProfit: 0, peakBalance: 0, maxDrawdown: 0, startBalance: 0, largestStake: 0, maxLossStreak: 0 });
     setTransactions([]);
+    toast({ title: "▶ Bot Started", description: `${strategyProfile} profile • ${executionSpeed} mode` });
   };
 
   const stopBot = () => {
@@ -394,6 +525,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     botRunning.current = false;
     isTradingRef.current = false;
     setIsTrading(false);
+    toast({ title: "⏹ Bot Stopped", description: `P/L: $${session.totalProfit.toFixed(2)}` });
   };
 
   // Normal mode auto-trade loop (4s interval)
@@ -411,19 +543,19 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const clearTransactions = () => setTransactions([]);
 
   // Compute digit frequencies for display
-  const digitFrequencies = DIGIT_BARRIERS.map((d) => {
+  const digitFrequencies = useMemo(() => DIGIT_BARRIERS.map((d) => {
     const num = parseInt(d);
     const count = lastDigits.filter((x) => x === num).length;
     const total = lastDigits.length;
     return { digit: num, count, pct: total > 0 ? (count / total) * 100 : 0 };
-  });
+  }), [lastDigits]);
 
   return (
     <div className="flex h-full">
-      {/* Left area - main content (70%) */}
+      {/* Left area - main content */}
       <div className="flex-1 overflow-y-auto p-4 lg:p-5">
         {/* Tab selector */}
-        <div className="flex items-center gap-4 mb-4">
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
           <div className="flex gap-1 p-1 bg-card rounded-lg border border-border">
             {(["trading", "analysis"] as const).map((tab) => (
               <button
@@ -439,6 +571,19 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
             <span className="text-[9px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
               Strategy v{strategyVersion} • {strategyProfile}
             </span>
+          )}
+          {/* Signal Score Badge */}
+          {lastDigits.length > 30 && (
+            <motion.span
+              key={signalScore.toFixed(2)}
+              initial={{ scale: 1.1 }}
+              animate={{ scale: 1 }}
+              className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
+                signalScore >= 0.3 ? "bg-buy/20 text-buy" : signalScore >= 0.15 ? "bg-warning/20 text-warning" : "bg-muted text-muted-foreground"
+              }`}
+            >
+              Signal: {(signalScore * 100).toFixed(0)}%
+            </motion.span>
           )}
           {currentTick !== null && (
             <div className="flex items-center gap-2 ml-auto">
@@ -491,6 +636,75 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                     </div>
                   </div>
                 </div>
+
+                {/* Signal Strength + Digit Pressure */}
+                {lastDigits.length > 30 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Signal Scoring */}
+                    <div className="p-4 rounded-xl bg-card border border-border">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Target className="w-4 h-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Signal Strength</h3>
+                      </div>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="flex-1 h-3 bg-secondary rounded-full overflow-hidden">
+                          <motion.div
+                            className={`h-full rounded-full ${signalScore >= 0.3 ? "bg-buy" : signalScore >= 0.15 ? "bg-warning" : "bg-muted-foreground"}`}
+                            animate={{ width: `${Math.min(signalScore * 100, 100)}%` }}
+                            transition={{ duration: 0.3 }}
+                          />
+                        </div>
+                        <span className="text-sm font-bold text-foreground">{(signalScore * 100).toFixed(0)}%</span>
+                      </div>
+                      <div className="grid grid-cols-5 gap-1">
+                        {[
+                          { label: "Freq", value: signalDetails.frequencyScore },
+                          { label: "Press", value: signalDetails.pressureScore },
+                          { label: "Strk", value: signalDetails.streakScore },
+                          { label: "Patt", value: signalDetails.patternScore },
+                          { label: "Vol", value: signalDetails.volatilityScore },
+                        ].map((s) => (
+                          <div key={s.label} className="text-center">
+                            <div className="h-10 bg-secondary rounded relative overflow-hidden">
+                              <motion.div
+                                className="absolute bottom-0 w-full bg-primary/40 rounded"
+                                animate={{ height: `${s.value * 100}%` }}
+                                transition={{ duration: 0.3 }}
+                              />
+                            </div>
+                            <span className="text-[8px] text-muted-foreground mt-0.5 block">{s.label}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Digit Pressure */}
+                    <div className="p-4 rounded-xl bg-card border border-border">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Flame className="w-4 h-4 text-sell" />
+                        <h3 className="text-sm font-semibold text-foreground">Digit Pressure</h3>
+                      </div>
+                      <div className="grid grid-cols-5 gap-2">
+                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => {
+                          const pressure = digitPressure[d] || 0;
+                          const isHigh = pressure >= 15;
+                          const isMed = pressure >= 10;
+                          return (
+                            <div key={d} className={`text-center p-1.5 rounded-lg border ${
+                              isHigh ? "border-sell/50 bg-sell/10" : isMed ? "border-warning/30 bg-warning/5" : "border-border"
+                            }`}>
+                              <p className={`text-sm font-bold ${d === highestPressureDigit ? "text-sell" : "text-foreground"}`}>{d}</p>
+                              <p className={`text-[9px] font-mono ${isHigh ? "text-sell" : isMed ? "text-warning" : "text-muted-foreground"}`}>{pressure}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="text-[9px] text-muted-foreground mt-2 text-center">
+                        Highest: Digit {highestPressureDigit} ({digitPressure[highestPressureDigit] || 0} ticks absent)
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Sign in prompt */}
                 {!isLoggedIn && (
@@ -562,7 +776,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
                 {/* Freq-based status */}
                 {freqBasedTrading && softwareStatus === "ACTIVE" && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: -5 }}
                     animate={{ opacity: 1, y: 0 }}
                     className={`p-3 rounded-lg text-center text-xs font-medium ${isFreqConditionMet() ? "bg-buy/10 text-buy" : "bg-warning/10 text-warning"}`}
@@ -580,8 +794,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                       { label: "Trades", value: session.totalTrades.toString(), color: "text-foreground" },
                       { label: "Max DD", value: `${session.maxDrawdown.toFixed(1)}%`, color: "text-sell" },
                     ].map((s) => (
-                      <motion.div 
-                        key={s.label} 
+                      <motion.div
+                        key={s.label}
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
                         className="p-3 rounded-lg bg-card border border-border text-center"
@@ -595,7 +809,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
                 {/* Smart Risker indicator */}
                 {smartRisker && session.totalProfit > 0 && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     className="p-3 rounded-lg bg-success/10 border border-success/20 text-center"
@@ -608,13 +822,13 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                 {!isLoggedIn && (
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     {[
-                      { icon: BarChart3, title: "Advanced Analytics", desc: "Detailed digit analysis and pattern recognition" },
-                      { icon: TrendingUp, title: "AI-Powered Bot", desc: "Automated trading with martingale recovery" },
+                      { icon: BarChart3, title: "Advanced Analytics", desc: "Digit analysis + pattern recognition" },
+                      { icon: TrendingUp, title: "AI-Powered Bot", desc: "Signal scoring + digit pressure" },
                       { icon: Zap, title: "Real-Time Updates", desc: "Live tick data and instant execution" },
                       { icon: Shield, title: "Risk Management", desc: "Stop loss, take profit, and stake control" },
                     ].map((item) => (
-                      <motion.div 
-                        key={item.title} 
+                      <motion.div
+                        key={item.title}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         className="p-4 rounded-xl bg-card border border-border"
@@ -775,7 +989,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           {/* Last trade result */}
           <AnimatePresence>
             {tradeResult && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
@@ -791,7 +1005,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       </div>
 
       {/* Floating transaction + profit icons */}
-      <div className="fixed bottom-4 right-4 flex flex-col gap-2 z-30">
+      <div className="fixed bottom-20 lg:bottom-4 right-4 flex flex-col gap-2 z-30">
         <button
           onClick={() => setShowTransactions(!showTransactions)}
           className="w-12 h-12 rounded-full bg-card border border-border shadow-lg flex items-center justify-center hover:bg-secondary transition-colors"
@@ -799,13 +1013,13 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         >
           <Wallet className="w-5 h-5 text-primary" />
         </button>
-        <motion.div 
+        <motion.div
           key={session.totalProfit}
           initial={{ scale: 1.2 }}
           animate={{ scale: 1 }}
           className={`px-3 py-1.5 rounded-full text-xs font-bold shadow-lg ${session.totalProfit >= 0 ? "bg-buy text-primary-foreground" : "bg-sell text-primary-foreground"}`}
         >
-          {session.totalProfit.toFixed(2)}
+          {session.totalProfit >= 0 ? "+" : ""}{session.totalProfit.toFixed(2)}
         </motion.div>
       </div>
 
@@ -819,59 +1033,55 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                 <button onClick={() => setShowRiskModal(false)}><X className="w-4 h-4 text-muted-foreground" /></button>
               </div>
               <div className="p-4 space-y-4">
-                <FormField label="Trade Differs" hint="Choose whether to trade differs first and switch to your chosen contract type when a loss is incurred.">
+                <FormField label="Trade Differs" hint="Trade differs first and switch contract type on loss.">
                   <select value={tradeDiffers ? "Yes" : "No"} onChange={(e) => setTradeDiffers(e.target.value === "Yes")} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground">
                     <option>No</option><option>Yes</option>
                   </select>
                 </FormField>
-                <FormField label="Take Profit" hint="This is the minimum profit limit you want achieved.">
+                <FormField label="Take Profit" hint="Minimum profit limit.">
                   <input type="number" value={takeProfit} onChange={(e) => setTakeProfit(e.target.value)} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                 </FormField>
-                <FormField label="Stop Loss" hint="This is the maximum loss limit you want incurred.">
+                <FormField label="Stop Loss" hint="Maximum loss limit.">
                   <input type="number" value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                 </FormField>
-                <FormField label="Trading Method" hint="Choose whether to use a stakelist or martingale.">
+                <FormField label="Trading Method" hint="Stakelist or martingale.">
                   <select value={martingale ? "Martingale" : "Flat"} onChange={(e) => setMartingale(e.target.value === "Martingale")} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground">
                     <option>Flat</option><option>Martingale</option>
                   </select>
                 </FormField>
                 {martingale && (
                   <>
-                    <FormField label="Martingale Multiplier" hint="This is the multiplier used on the stake in case a loss is incurred.">
+                    <FormField label="Martingale Multiplier" hint="Multiplier on loss.">
                       <input type="number" value={martingaleMultiplier} onChange={(e) => setMartingaleMultiplier(e.target.value)} step="0.1" className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                     </FormField>
-                    <FormField label="Max Martingale Level" hint="Max number of times Martingale is used on concurrent losses.">
+                    <FormField label="Max Martingale Level" hint="Max consecutive multiplications.">
                       <input type="number" value={maxMartingaleSteps} onChange={(e) => setMaxMartingaleSteps(parseInt(e.target.value) || 3)} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                     </FormField>
-                    <FormField label="Stop After Max Martingale Level" hint="Stop software after max level or reset and continue.">
+                    <FormField label="Stop After Max Level" hint="Stop or reset and continue.">
                       <select value={stopAfterMaxMartingale ? "Yes" : "No"} onChange={(e) => setStopAfterMaxMartingale(e.target.value === "Yes")} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground">
                         <option>Yes</option><option>No</option>
                       </select>
                     </FormField>
-                    <FormField label="Start Martingale After" hint="Number of losses before martingale kicks in.">
+                    <FormField label="Start Martingale After" hint="Losses before martingale kicks in.">
                       <input type="number" value={startMartingaleAfter} onChange={(e) => setStartMartingaleAfter(parseInt(e.target.value) || 1)} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                     </FormField>
                   </>
                 )}
-
-                {/* Smart Risker */}
                 <div className="border-t border-border pt-4">
-                  <FormField label="Smart Risker" hint="Automatically secures 50% partial profits and continues trading with base stake.">
+                  <FormField label="Smart Risker" hint="Auto-secure 50% partial profits.">
                     <select value={smartRisker ? "Yes" : "No"} onChange={(e) => setSmartRisker(e.target.value === "Yes")} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground">
                       <option>No</option><option>Yes</option>
                     </select>
                   </FormField>
                 </div>
-
-                {/* Frequency-based trading */}
                 <div className="border-t border-border pt-4">
-                  <FormField label="Frequency-Based Trading" hint="Only trades when a digit frequency imbalance is detected (digit appears more than threshold %).">
+                  <FormField label="Frequency-Based Trading" hint="Only trade on digit frequency imbalance.">
                     <select value={freqBasedTrading ? "Yes" : "No"} onChange={(e) => setFreqBasedTrading(e.target.value === "Yes")} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground">
                       <option>No</option><option>Yes</option>
                     </select>
                   </FormField>
                   {freqBasedTrading && (
-                    <FormField label="Frequency Threshold (%)" hint="Minimum digit frequency percentage to trigger a trade.">
+                    <FormField label="Frequency Threshold (%)" hint="Min digit frequency % to trigger trade.">
                       <input type="number" value={freqThreshold} onChange={(e) => setFreqThreshold(parseInt(e.target.value) || 12)} min="8" max="30" className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                     </FormField>
                   )}
@@ -925,9 +1135,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
             <div className="bg-background border border-border rounded-xl w-full max-w-md">
               <div className="p-6 space-y-4">
                 <h3 className="text-sm font-semibold text-foreground">Are you sure you want to start?</h3>
-                <p className="text-xs text-primary">
-                  Please ensure your settings are correct before starting. Below are your key settings:
-                </p>
+                <p className="text-xs text-primary">Ensure your settings are correct before starting.</p>
                 <table className="w-full text-xs">
                   <tbody className="divide-y divide-border">
                     {[
@@ -1005,6 +1213,15 @@ const FormField = ({ label, hint, children }: { label: string; hint: string; chi
   </div>
 );
 
+interface Transaction {
+  id: string;
+  contractType: string;
+  stake: number;
+  profit: number;
+  won: boolean;
+  description: string;
+}
+
 const TransactionView = ({
   transactions, session, winRate, txViewMode, setTxViewMode, clearTransactions, onClose,
 }: {
@@ -1075,8 +1292,8 @@ const TransactionView = ({
     ) : (
       <div className="space-y-3 max-h-[50vh] overflow-y-auto">
         {transactions.map((tx) => (
-          <motion.div 
-            key={tx.id} 
+          <motion.div
+            key={tx.id}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             className="flex items-start gap-3 p-3 rounded-lg bg-card border border-border"
@@ -1089,16 +1306,11 @@ const TransactionView = ({
               <p className="text-[10px] text-muted-foreground">{tx.description}</p>
               <div className="flex gap-4 mt-1">
                 <span className="text-[10px] text-muted-foreground">Stake: {tx.stake.toFixed(2)}</span>
-                <span className={`text-[10px] ${tx.won ? "text-buy" : "text-sell"}`}>
-                  {tx.won ? "+" : ""}{tx.profit.toFixed(2)}
-                </span>
+                <span className={`text-[10px] ${tx.won ? "text-buy" : "text-sell"}`}>{tx.won ? "+" : ""}{tx.profit.toFixed(2)}</span>
               </div>
             </div>
           </motion.div>
         ))}
-        {transactions.length === 0 && (
-          <p className="text-xs text-muted-foreground text-center py-8">No transactions yet</p>
-        )}
       </div>
     )}
   </div>
