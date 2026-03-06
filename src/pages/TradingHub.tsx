@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   Home, BarChart3, Users, TrendingUp, BookOpen, HelpCircle,
   Menu, X, Wallet, ChevronDown, Moon, Sun, Settings, Shield,
-  AlertTriangle, Search, Activity, User
+  AlertTriangle, Search, Activity, User, Clock
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { getActiveAccount, getStoredAccounts, clearAuth, setActiveAccount, parseCallbackParams, storeAccounts, type DerivAccount } from "@/services/deriv-auth";
@@ -15,7 +15,6 @@ import DATTab from "@/components/trading/DATTab";
 import ClientTokenManager from "@/components/trading/ClientTokenManager";
 import DerivWebSocket from "@/services/deriv-websocket";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +23,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { VOLATILITY_MARKETS, CONTRACT_TYPES } from "@/lib/trading-constants";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 const DERIV_APP_ID = "129344";
 
@@ -55,21 +56,60 @@ const TradingHub = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [ws, setWs] = useState<DerivWebSocket | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
-  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
-  const [activeView, setActiveView] = useState<ViewMode>("digit-edge");
-  const [selectedMarket, setSelectedMarket] = useState("R_10");
+  const [activeView, setActiveView] = useState<ViewMode>(() => (localStorage.getItem("dnx_view") as ViewMode) || "digit-edge");
+  const [selectedMarket, setSelectedMarket] = useState(() => localStorage.getItem("dnx_market") || "R_10");
   const [tokenManagerOpen, setTokenManagerOpen] = useState(false);
   const [tokenTab, setTokenTab] = useState<"demo" | "real" | "clients">("demo");
   const [lastDigits, setLastDigits] = useState<number[]>([]);
   const [currentTick, setCurrentTick] = useState<number | null>(null);
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
-      return document.documentElement.classList.contains("dark") || !document.documentElement.classList.contains("light");
+      const saved = localStorage.getItem("theme");
+      if (saved) return saved === "dark";
+      return false; // Default to light
     }
-    return true;
+    return false;
   });
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+
+  // Persist view selection
+  useEffect(() => { localStorage.setItem("dnx_view", activeView); }, [activeView]);
+
+  // Check platform auth
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsAuthenticated(!!user);
+      if (!user) {
+        // Allow viewing but restrict trading
+      }
+    };
+    checkAuth();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setIsAuthenticated(!!session?.user);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  // Clock
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Apply theme on mount
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add("dark");
+      document.documentElement.classList.remove("light");
+    } else {
+      document.documentElement.classList.add("light");
+      document.documentElement.classList.remove("dark");
+    }
+  }, []);
 
   // Handle OAuth callback params
   useEffect(() => {
@@ -108,14 +148,24 @@ const TradingHub = () => {
     setWs(wsInstance);
     wsInstance.connect().then(() => {
       setWsConnected(true);
+      toast({ title: "✅ Connected to Deriv", description: "WebSocket connected successfully" });
       wsInstance.subscribeTicks(selectedMarket);
       if (account) {
         wsInstance.authorize(account.token);
       }
-    }).catch(() => setWsConnected(false));
+    }).catch(() => {
+      setWsConnected(false);
+      toast({ title: "❌ Connection Failed", description: "Could not connect to Deriv. Retrying..." });
+    });
 
     wsInstance.on("connection", (data) => {
-      setWsConnected(data.status === "connected");
+      const connected = data.status === "connected";
+      setWsConnected(connected);
+      if (connected) {
+        toast({ title: "✅ Reconnected", description: "WebSocket reconnected" });
+      } else {
+        toast({ title: "⚠️ Disconnected", description: "Connection lost. Reconnecting..." });
+      }
     });
 
     wsInstance.on("authorize", (data) => {
@@ -197,6 +247,32 @@ const TradingHub = () => {
   const demoAccounts = accounts.filter(a => a.is_virtual);
   const realAccounts = accounts.filter(a => !a.is_virtual);
   const marketLabel = VOLATILITY_MARKETS.find(m => m.symbol === selectedMarket)?.label || selectedMarket;
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Africa/Nairobi" });
+  };
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+  };
+
+  // If not authenticated, show login prompt
+  if (isAuthenticated === false) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center space-y-6 max-w-md">
+          <img src={logo} alt="DNexus" className="h-12 mx-auto" />
+          <h1 className="text-2xl font-bold text-foreground">Sign in to DNexus</h1>
+          <p className="text-sm text-muted-foreground">You need a DNexus account to access the Trading Hub. Create one for free and get a 1-month free trial.</p>
+          <div className="flex flex-col gap-3">
+            <Link to="/auth" className="px-6 py-3 bg-gradient-brand text-primary-foreground font-semibold rounded-lg text-center">
+              Sign In / Create Account
+            </Link>
+            <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">← Back to Home</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -305,7 +381,6 @@ const TradingHub = () => {
         {/* Top bar: Balance LEFT, risk icon, view dropdown CENTER, hamburger RIGHT */}
         <header className="h-12 border-b border-border flex items-center justify-between px-3 bg-card/50">
           <div className="flex items-center gap-2">
-            {/* Logo/balance area */}
             {balance !== null ? (
               <button
                 onClick={() => setTokenManagerOpen(true)}
@@ -327,7 +402,6 @@ const TradingHub = () => {
               </div>
             )}
 
-            {/* Risk awareness icon */}
             <Link to="/risk" className="p-1.5 rounded-lg hover:bg-secondary transition-colors" title="Risk Disclosure">
               <AlertTriangle className="w-4 h-4 text-warning" />
             </Link>
@@ -371,7 +445,7 @@ const TradingHub = () => {
         </header>
 
         {/* Main area */}
-        <main className="flex-1 overflow-hidden pb-16 lg:pb-0">
+        <main className="flex-1 overflow-hidden pb-24 lg:pb-8">
           {activeView === "digit-edge" && <TradingPanel ws={ws} account={account} />}
           {activeView === "dat" && (
             <DATTab lastDigits={lastDigits} currentTick={currentTick} marketLabel={marketLabel} />
@@ -410,6 +484,18 @@ const TradingHub = () => {
           )}
         </main>
 
+        {/* Footer bar with time + theme */}
+        <div className="border-t border-border bg-card/50 px-4 py-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+          <div className="flex items-center gap-3">
+            <span>{formatDate(currentTime)}</span>
+            <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatTime(currentTime)} EAT</span>
+          </div>
+          <button onClick={toggleTheme} className="flex items-center gap-1.5 hover:text-foreground transition-colors">
+            {darkMode ? <Moon className="w-3 h-3" /> : <Sun className="w-3 h-3" />}
+            {darkMode ? "Dark" : "Light"}
+          </button>
+        </div>
+
         {/* Mobile Bottom Nav */}
         {isMobile && (
           <div className="fixed bottom-0 left-0 right-0 z-30 bg-card/95 backdrop-blur-lg border-t border-border">
@@ -417,14 +503,14 @@ const TradingHub = () => {
               {[
                 { icon: Home, label: "Home", action: () => navigate("/") },
                 { icon: Search, label: "Explore", action: () => setActiveView("trading-view") },
-                { icon: Activity, label: "Trade", action: () => setActiveView("digit-edge") },
-                { icon: BarChart3, label: "Analyze", action: () => setActiveView("dat") },
+                { icon: Activity, label: "Trade", action: () => setActiveView("digit-edge"), active: activeView === "digit-edge" },
+                { icon: BarChart3, label: "Analyze", action: () => setActiveView("dat"), active: activeView === "dat" },
                 { icon: User, label: "Profile", action: () => setTokenManagerOpen(true) },
               ].map((item) => (
                 <button
                   key={item.label}
                   onClick={item.action}
-                  className="flex flex-col items-center gap-0.5 px-3 py-1 text-muted-foreground hover:text-primary transition-colors"
+                  className={`flex flex-col items-center gap-0.5 px-3 py-1 transition-colors ${(item as any).active ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
                 >
                   <item.icon className="w-5 h-5" />
                   <span className="text-[9px] font-medium">{item.label}</span>
@@ -531,7 +617,7 @@ const TradingHub = () => {
   );
 };
 
-/* Shared Trading Sidebar */
+/* Shared Trading Sidebar for TradingView and Deriv Charts */
 const TradingSidebar = ({
   ws, account, selectedMarket, setSelectedMarket, onLogin
 }: {
@@ -544,7 +630,55 @@ const TradingSidebar = ({
   const [contractType, setContractType] = useState("DIGITEVEN");
   const [stake, setStake] = useState("3");
   const [duration, setDuration] = useState(1);
+  const [proposalId, setProposalId] = useState<string | null>(null);
+  const [payout, setPayout] = useState<number | null>(null);
+  const [isTrading, setIsTrading] = useState(false);
   const isLoggedIn = !!account;
+
+  // Get proposals for Trading View sidebar
+  useEffect(() => {
+    if (!ws || !isLoggedIn) return;
+    const needsBarrier = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
+    const isRiseFall = contractType === "CALL" || contractType === "PUT";
+    ws.getProposal({
+      amount: parseFloat(stake) || 3,
+      contractType,
+      symbol: selectedMarket,
+      duration: isRiseFall ? Math.max(duration, 5) : duration,
+      durationUnit: isRiseFall ? "t" : "t",
+    });
+    const unsub = ws.on("proposal", (data) => {
+      if (data.proposal) {
+        setProposalId(data.proposal.id);
+        setPayout(data.proposal.payout);
+      }
+    });
+    return () => { unsub(); };
+  }, [ws, contractType, stake, selectedMarket, duration, isLoggedIn]);
+
+  const executeTrade = () => {
+    if (!ws || !proposalId || isTrading || !isLoggedIn) return;
+    setIsTrading(true);
+    ws.buyContract(proposalId, parseFloat(stake));
+    const unsub = ws.on("buy", (data) => {
+      unsub();
+      if (data.buy) {
+        ws.subscribeOpenContract();
+        const unsubC = ws.on("proposal_open_contract", (d) => {
+          if (d.proposal_open_contract?.is_sold) {
+            unsubC();
+            setIsTrading(false);
+            toast({
+              title: d.proposal_open_contract.profit > 0 ? "✅ Trade Won" : "❌ Trade Lost",
+              description: `${d.proposal_open_contract.profit > 0 ? "+" : ""}${d.proposal_open_contract.profit.toFixed(2)} USD`,
+            });
+          }
+        });
+      } else {
+        setIsTrading(false);
+      }
+    });
+  };
 
   return (
     <div className="hidden lg:block w-[280px] border-l border-border bg-card/50 overflow-y-auto p-4 space-y-4">
@@ -572,35 +706,25 @@ const TradingSidebar = ({
         </div>
       </div>
 
-      <div className="text-center space-y-2">
-        <p className="text-[10px] text-muted-foreground">Software Status</p>
-        <p className="text-lg font-bold text-sell">INACTIVE</p>
-      </div>
+      {payout && (
+        <div className="text-center text-xs text-muted-foreground p-3 bg-secondary/50 rounded-lg">
+          <p>Payout: <span className="text-foreground font-medium">{payout.toFixed(2)} USD</span></p>
+        </div>
+      )}
 
       {!isLoggedIn ? (
         <button onClick={onLogin} className="w-full py-3 bg-gradient-brand text-primary-foreground font-semibold text-sm rounded-lg">
-          Connect to Start
+          Connect to Trade
         </button>
       ) : (
-        <button className="w-full py-3 border-2 border-primary text-primary font-bold text-sm rounded-lg hover:bg-primary/10 transition-colors">
-          Start
+        <button
+          onClick={executeTrade}
+          disabled={isTrading || !proposalId}
+          className="w-full py-3 border-2 border-buy text-buy font-bold text-sm rounded-lg hover:bg-buy/10 transition-colors disabled:opacity-50"
+        >
+          {isTrading ? "Executing..." : "▶ Execute Trade"}
         </button>
       )}
-
-      <div>
-        <label className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">Execution Speed <span className="text-primary text-xs">●</span></label>
-        <select className="mt-1 w-full px-3 py-2 bg-secondary border border-border rounded text-xs text-foreground">
-          <option>Fast</option>
-          <option>Normal</option>
-        </select>
-      </div>
-
-      <button className="w-full flex items-center justify-between px-3 py-2.5 bg-secondary border border-border rounded-lg text-xs text-foreground hover:bg-muted transition-colors">
-        <span className="flex items-center gap-2">
-          <span className="text-primary">🛡</span> Risk Management Settings
-        </span>
-        <ChevronDown className="w-3.5 h-3.5 text-muted-foreground -rotate-90" />
-      </button>
     </div>
   );
 };
