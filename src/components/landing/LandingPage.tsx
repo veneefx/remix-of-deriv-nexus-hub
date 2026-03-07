@@ -136,7 +136,95 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Hero Image Section - Will be added below */}
+      {/* Trade On Our - Next-Gen Platform Section */}
+      <section className="relative py-20 md:py-32 bg-black overflow-hidden">
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-1/2 right-1/4 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-br from-[#00d4ff]/20 via-transparent to-transparent rounded-full blur-[150px]" />
+        </div>
+        <div className="max-w-[1400px] mx-auto px-6 sm:px-8 relative">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            {/* Left: Illustration */}
+            <motion.div
+              className="hidden lg:flex justify-center"
+              initial={{ opacity: 0, x: -50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+            >
+              <div className="relative w-full max-w-[400px]">
+                <div className="absolute inset-0 bg-gradient-to-br from-[#00d4ff]/20 via-[#ff3333]/20 to-transparent rounded-full blur-[100px]" />
+                <img 
+                  src={derivGold} 
+                  alt="Trading Platform" 
+                  className="relative z-10 w-full object-contain"
+                />
+              </div>
+            </motion.div>
+
+            {/* Right: Content */}
+            <motion.div
+              className="space-y-8"
+              initial={{ opacity: 0, x: 50 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8 }}
+            >
+              <div>
+                <span className="text-sm text-[#ff3333] font-medium">Trade On Our</span>
+                <h2 className="text-5xl md:text-6xl font-black text-white mt-4 leading-tight">
+                  Next-Gen Trading Platform
+                </h2>
+              </div>
+              <p className="text-lg text-gray-300 leading-relaxed">
+                Experience the future of trading with our cutting-edge platform powered by advanced algorithms and AI. From lightning-fast high-frequency trading to sophisticated quantitative strategies, our tools give you the edge in today's competitive markets. Execute with precision, analyze with clarity, and trade with confidence.
+              </p>
+              <div className="space-y-4">
+                {[
+                  { icon: Zap, title: "High-Frequency Trading", desc: "Execute trades in microseconds" },
+                  { icon: TrendingUp, title: "Algorithmic Bots", desc: "Automate your trading strategies 24/7" },
+                  { icon: BarChart3, title: "Powerful Deriv Trading", desc: "Access global derivatives markets" },
+                  { icon: Brain, title: "AI-Powered Quant Trading", desc: "Machine learning models predict market movements" },
+                ].map((item, i) => (
+                  <motion.div
+                    key={item.title}
+                    className="flex items-start gap-4"
+                    initial={{ opacity: 0, x: 20 }}
+                    whileInView={{ opacity: 1, x: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: i * 0.1 }}
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-[#ff3333]/20 flex items-center justify-center flex-shrink-0 mt-1">
+                      <item.icon className="w-5 h-5 text-[#ff3333]" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-white">{item.title}</h3>
+                      <p className="text-sm text-gray-400">{item.desc}</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+              <div className="flex flex-col sm:flex-row gap-4 pt-4">
+                <Link 
+                  to="/trading" 
+                  className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-[#ff3333] text-white font-semibold rounded-lg hover:bg-[#ff4444] transition-colors"
+                >
+                  Access Trading Hub <ArrowRight className="w-5 h-5" />
+                </Link>
+                <a 
+                  href={DERIV_AFFILIATE_LINK} 
+                  target="_blank" 
+                  rel="noopener" 
+                  className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-[#ff3333] text-white font-semibold rounded-lg hover:bg-[#ff4444] transition-colors"
+                >
+                  Sync With Deriv <ArrowRight className="w-5 h-5" />
+                </a>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* Hero Image Section */}
       <section className="relative py-12 bg-black">
         <div className="w-full max-w-[1200px] mx-auto px-6 sm:px-8">
           <motion.div
