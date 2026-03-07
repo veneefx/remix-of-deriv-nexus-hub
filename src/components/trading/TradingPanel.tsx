@@ -836,18 +836,18 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                 {session.totalTrades > 0 && (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {[
-                      { label: "Win Rate", value: `${winRate}%`, color: "text-buy" },
-                      { label: "Total P/L", value: `${session.totalProfit >= 0 ? "+" : ""}${session.totalProfit.toFixed(2)}`, color: session.totalProfit >= 0 ? "text-buy" : "text-sell" },
-                      { label: "Trades", value: session.totalTrades.toString(), color: "text-foreground" },
-                      { label: "Max DD", value: `${session.maxDrawdown.toFixed(1)}%`, color: "text-sell" },
+                      { label: "Win Rate", value: `${winRate}%`, color: "text-emerald-400", icon: "📈" },
+                      { label: "Total P/L", value: `${session.totalProfit >= 0 ? "+" : ""}${session.totalProfit.toFixed(2)}`, color: "text-white", icon: "💰" },
+                      { label: "Trades", value: session.totalTrades.toString(), color: "text-foreground", icon: "📊" },
+                      { label: "Max DD", value: `${session.maxDrawdown.toFixed(1)}%`, color: "text-red-400", icon: "📉" },
                     ].map((s) => (
                       <motion.div
                         key={s.label}
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="p-3 rounded-lg bg-card border border-border text-center"
+                        className="p-3 rounded-lg bg-gradient-to-br from-emerald-900/20 to-emerald-800/10 border border-emerald-500/30 text-center hover:border-emerald-500/50 transition-colors"
                       >
-                        <p className="text-[10px] text-muted-foreground">{s.label}</p>
+                        <p className="text-[10px] text-muted-foreground mb-1">{s.label}</p>
                         <p className={`text-sm font-bold ${s.color}`}>{s.value}</p>
                       </motion.div>
                     ))}
@@ -1314,19 +1314,19 @@ const TransactionView = ({
   <div className="space-y-4">
     <div className="flex items-center justify-between">
       <button onClick={onClose} className="text-xs text-primary hover:underline">← Back to Digit Edge</button>
-      <button onClick={clearTransactions} className="px-3 py-1 text-xs border border-border rounded hover:bg-secondary transition-colors">Clear</button>
+      <button onClick={clearTransactions} className="px-3 py-1 text-xs font-semibold bg-gradient-to-r from-emerald-500 to-emerald-400 text-slate-900 rounded hover:from-emerald-400 hover:to-emerald-300 transition-all shadow-lg shadow-emerald-500/30">🗑 Clear</button>
     </div>
 
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
       {[
-        { label: "Total P/L", value: session.totalProfit.toFixed(2), color: session.totalProfit >= 0 ? "text-buy" : "text-sell" },
-        { label: "Trades", value: session.totalTrades.toString(), color: "text-foreground" },
-        { label: "Won", value: session.wins.toString(), color: "text-buy" },
-        { label: "Lost", value: session.losses.toString(), color: "text-sell" },
-        { label: "Max Stake", value: session.largestStake.toFixed(2), color: "text-warning" },
-        { label: "Loss Streak", value: `-${session.maxLossStreak}`, color: "text-sell" },
+        { label: "Total P/L", value: session.totalProfit.toFixed(2), color: "text-white", icon: "💚" },
+        { label: "Trades", value: session.totalTrades.toString(), color: "text-emerald-400", icon: "📊" },
+        { label: "Won", value: session.wins.toString(), color: "text-emerald-400", icon: "✅" },
+        { label: "Lost", value: session.losses.toString(), color: "text-red-400", icon: "❌" },
+        { label: "Max Stake", value: session.largestStake.toFixed(2), color: "text-amber-400", icon: "💵" },
+        { label: "Loss Streak", value: `-${session.maxLossStreak}`, color: "text-red-400", icon: "📉" },
       ].map((s) => (
-        <div key={s.label} className="text-center">
+        <div key={s.label} className="text-center p-2 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 border border-emerald-500/20">
           <p className="text-[10px] text-muted-foreground font-medium">{s.label}</p>
           <p className={`text-sm font-bold ${s.color}`}>{s.value}</p>
         </div>
@@ -1376,8 +1376,8 @@ const TransactionView = ({
             animate={{ opacity: 1, x: 0 }}
             className="flex items-start gap-3 p-3 rounded-lg bg-card border border-border"
           >
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${tx.won ? "bg-buy/20" : "bg-sell/20"}`}>
-              <span className={`text-sm ${tx.won ? "text-buy" : "text-sell"}`}>{tx.won ? "↗" : "↘"}</span>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${tx.won ? "bg-emerald-500/30 border border-emerald-500/50" : "bg-red-500/30 border border-red-500/50"}`}>
+              <span className={`text-sm font-bold ${tx.won ? "text-emerald-400" : "text-red-400"}`}>{tx.won ? "💚" : "❌"}</span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium text-foreground">{tx.contractType} • {tx.id}</p>
