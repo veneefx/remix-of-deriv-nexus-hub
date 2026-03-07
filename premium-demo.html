@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNexus Premium Access Control Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 40px 20px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        header p {
+            font-size: 1.1em;
+            color: #cbd5e1;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+        }
+
+        .toggle-btn {
+            padding: 12px 24px;
+            border: 2px solid #00ff88;
+            background: transparent;
+            color: #00ff88;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-btn:hover {
+            background: #00ff88;
+            color: #0f172a;
+            transform: translateY(-2px);
+        }
+
+        .toggle-btn.active {
+            background: #00ff88;
+            color: #0f172a;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+
+        .status-badge.premium {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            color: #1f2937;
+        }
+
+        .status-badge.standard {
+            background: rgba(107, 114, 128, 0.3);
+            color: #d1d5db;
+            border: 1px solid rgba(107, 114, 128, 0.5);
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .feature-card {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 12px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card:hover {
+            border-color: rgba(148, 163, 184, 0.4);
+            transform: translateY(-5px);
+        }
+
+        .feature-card.locked {
+            opacity: 0.7;
+        }
+
+        .feature-card h3 {
+            font-size: 1.3em;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .feature-icon {
+            font-size: 1.5em;
+        }
+
+        .feature-card p {
+            color: #cbd5e1;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+
+        .feature-card .features-list {
+            list-style: none;
+            margin: 15px 0;
+            padding: 0;
+        }
+
+        .feature-card .features-list li {
+            padding: 8px 0;
+            color: #a1a5b0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .feature-card .features-list li:before {
+            content: "✓";
+            color: #00ff88;
+            font-weight: bold;
+        }
+
+        .lock-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 15px;
+            backdrop-filter: blur(3px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            border-radius: 12px;
+        }
+
+        .feature-card.locked .lock-overlay {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .lock-icon {
+            font-size: 2.5em;
+        }
+
+        .lock-text {
+            color: #fff;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .unlock-btn {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%);
+            color: #0f172a;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .unlock-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease;
+            position: relative;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .modal-header h2 {
+            font-size: 1.8em;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #cbd5e1;
+            font-size: 1.5em;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+
+        .close-btn:hover {
+            color: #fff;
+        }
+
+        .modal-section {
+            margin-bottom: 30px;
+        }
+
+        .modal-section h3 {
+            font-size: 1.1em;
+            margin-bottom: 15px;
+            color: #fff;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .feature-item {
+            padding: 12px;
+            background: rgba(148, 163, 184, 0.1);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.95em;
+        }
+
+        .feature-item:before {
+            content: "✓";
+            color: #00ff88;
+            font-weight: bold;
+            font-size: 1.2em;
+            flex-shrink: 0;
+        }
+
+        .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .plan-card {
+            padding: 16px;
+            background: rgba(148, 163, 184, 0.1);
+            border: 2px solid rgba(148, 163, 184, 0.2);
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .plan-card:hover {
+            border-color: #00ff88;
+            background: rgba(0, 255, 136, 0.1);
+        }
+
+        .plan-card.popular {
+            border-color: #fbbf24;
+            background: rgba(251, 191, 36, 0.1);
+            transform: scale(1.05);
+        }
+
+        .plan-card .badge {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 4px 12px;
+            background: #fbbf24;
+            color: #1f2937;
+            font-size: 0.75em;
+            font-weight: 700;
+            border-radius: 12px;
+        }
+
+        .plan-card h4 {
+            font-size: 1em;
+            margin-bottom: 8px;
+        }
+
+        .plan-card .price {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #00ff88;
+            margin-bottom: 4px;
+        }
+
+        .plan-card .duration {
+            font-size: 0.85em;
+            color: #a1a5b0;
+        }
+
+        .payment-methods {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .payment-method {
+            padding: 12px;
+            background: rgba(148, 163, 184, 0.1);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .payment-method:hover {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.1);
+        }
+
+        .payment-method.active {
+            border-color: #00ff88;
+            background: rgba(0, 255, 136, 0.2);
+        }
+
+        .payment-details {
+            display: none;
+            padding: 16px;
+            background: rgba(148, 163, 184, 0.1);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .payment-details.active {
+            display: block;
+        }
+
+        .payment-details .detail-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+        }
+
+        .payment-details .detail-row:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .payment-details label {
+            font-size: 0.85em;
+            color: #a1a5b0;
+            min-width: 100px;
+        }
+
+        .payment-details input {
+            flex: 1;
+            padding: 8px 12px;
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 6px;
+            color: #e2e8f0;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+
+        .copy-btn {
+            padding: 6px 12px;
+            background: rgba(0, 255, 136, 0.2);
+            border: 1px solid #00ff88;
+            color: #00ff88;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: #00ff88;
+            color: #0f172a;
+        }
+
+        .info-box {
+            padding: 12px;
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 8px;
+            color: #93c5fd;
+            font-size: 0.9em;
+            margin-bottom: 20px;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 12px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary {
+            background: rgba(148, 163, 184, 0.1);
+            color: #cbd5e1;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(148, 163, 184, 0.2);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00ff88 0%, #00d4ff 100%);
+            color: #0f172a;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 255, 136, 0.3);
+        }
+
+        .comparison-table {
+            width: 100%;
+            margin-top: 30px;
+            border-collapse: collapse;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .comparison-table th {
+            background: rgba(148, 163, 184, 0.1);
+            font-weight: 600;
+        }
+
+        .comparison-table tr:hover {
+            background: rgba(148, 163, 184, 0.05);
+        }
+
+        .comparison-table .check {
+            color: #00ff88;
+            font-weight: bold;
+        }
+
+        .comparison-table .cross {
+            color: #ef4444;
+        }
+
+        .success-message {
+            display: none;
+            padding: 20px;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            border-radius: 8px;
+            color: #86efac;
+            margin-bottom: 20px;
+            text-align: center;
+            animation: slideUp 0.3s ease;
+        }
+
+        .success-message.active {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8em;
+            }
+
+            .demo-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .modal-content {
+                padding: 25px;
+            }
+
+            .comparison-table {
+                font-size: 0.9em;
+            }
+
+            .comparison-table th,
+            .comparison-table td {
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 DNexus Premium Access Control</h1>
+            <p>Interactive demonstration of the new premium features and upgrade flow</p>
+            <div class="controls">
+                <button class="toggle-btn active" onclick="setUserStatus('standard')">👤 Standard User</button>
+                <button class="toggle-btn" onclick="setUserStatus('premium')">⭐ Premium User</button>
+                <button class="toggle-btn" onclick="setUserStatus('admin')">🔐 Admin (Bypass)</button>
+            </div>
+            <div id="statusBadge" class="status-badge standard">Standard Account</div>
+        </header>
+
+        <div class="demo-grid">
+            <!-- Feature 1: Digit Edge Trading Bot -->
+            <div class="feature-card" id="digitEdgeCard">
+                <div class="feature-card-content">
+                    <h3><span class="feature-icon">🤖</span> Digit Edge Trading Bot</h3>
+                    <p>AI-powered automated trading with intelligent digit analysis and pattern recognition.</p>
+                    <ul class="features-list">
+                        <li>Real-time digit frequency analysis</li>
+                        <li>Martingale & risk management</li>
+                        <li>Multi-market support</li>
+                        <li>24/7 automated execution</li>
+                    </ul>
+                </div>
+                <div class="lock-overlay">
+                    <div class="lock-icon">🔒</div>
+                    <div class="lock-text">Premium Feature</div>
+                    <button class="unlock-btn" onclick="openUpgradeModal('Digit Edge Trading Bot')">Unlock Now</button>
+                </div>
+            </div>
+
+            <!-- Feature 2: DAT Analyzer -->
+            <div class="feature-card" id="datCard">
+                <div class="feature-card-content">
+                    <h3><span class="feature-icon">📊</span> DAT Analyzer</h3>
+                    <p>Advanced digit analysis tool with historical data and predictive insights.</p>
+                    <ul class="features-list">
+                        <li>100+ tick historical analysis</li>
+                        <li>Frequency distribution charts</li>
+                        <li>Streak detection</li>
+                        <li>Statistical predictions</li>
+                    </ul>
+                </div>
+                <div class="lock-overlay">
+                    <div class="lock-icon">🔒</div>
+                    <div class="lock-text">Premium Feature</div>
+                    <button class="unlock-btn" onclick="openUpgradeModal('DAT Analyzer')">Unlock Now</button>
+                </div>
+            </div>
+
+            <!-- Feature 3: AI Signals -->
+            <div class="feature-card" id="aiSignalsCard">
+                <div class="feature-card-content">
+                    <h3><span class="feature-icon">🧠</span> AI Signals & Analysis</h3>
+                    <p>Machine learning-powered trading signals with real-time market analysis.</p>
+                    <ul class="features-list">
+                        <li>RSI, MACD, Stochastic indicators</li>
+                        <li>Real-time signal generation</li>
+                        <li>Confidence scoring</li>
+                        <li>Multi-timeframe analysis</li>
+                    </ul>
+                </div>
+                <div class="lock-overlay">
+                    <div class="lock-icon">🔒</div>
+                    <div class="lock-text">Premium Feature</div>
+                    <button class="unlock-btn" onclick="openUpgradeModal('AI Signals & Analysis')">Unlock Now</button>
+                </div>
+            </div>
+
+            <!-- Feature 4: Market Tracker (Free) -->
+            <div class="feature-card">
+                <div class="feature-card-content">
+                    <h3><span class="feature-icon">📈</span> Market Tracker</h3>
+                    <p>Real-time market data and technical analysis for all Deriv volatility indices.</p>
+                    <ul class="features-list">
+                        <li>Live price feeds</li>
+                        <li>Technical ratings</li>
+                        <li>Currency pairs</li>
+                        <li>Market trends</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comparison Table -->
+        <div style="background: rgba(30, 41, 59, 0.8); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 12px; padding: 25px; margin-bottom: 40px;">
+            <h2 style="margin-bottom: 20px; font-size: 1.5em;">Feature Comparison</h2>
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>Standard</th>
+                        <th>Premium</th>
+                        <th>Admin</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Market Tracker</td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>Digit Edge Trading Bot</td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>DAT Analyzer</td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>AI Signals & Analysis</td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>Aggressive Bot Speed (1 trade/sec)</td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>Custom Risk Management</td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td>Priority Support</td>
+                        <td><span class="cross">✗</span></td>
+                        <td><span class="check">✓</span></td>
+                        <td><span class="check">✓</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Upgrade Modal -->
+    <div class="modal" id="upgradeModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><span style="font-size: 1.2em;">⭐</span> Upgrade to Premium</h2>
+                <button class="close-btn" onclick="closeUpgradeModal()">✕</button>
+            </div>
+
+            <div class="success-message" id="successMessage">
+                ✓ Payment received! Your account has been upgraded to Premium.
+            </div>
+
+            <div class="modal-section">
+                <p style="color: #cbd5e1; margin-bottom: 15px;">
+                    <span id="featureName">Advanced Trading Tools</span> is a premium feature. Upgrade your account to unlock it and access all advanced tools.
+                </p>
+            </div>
+
+            <div class="modal-section">
+                <h3>What You'll Unlock</h3>
+                <div class="features-grid">
+                    <div class="feature-item">Digit Edge Trading Bot</div>
+                    <div class="feature-item">DAT Analyzer</div>
+                    <div class="feature-item">AI Signals & Analysis</div>
+                    <div class="feature-item">Aggressive Bot Speed</div>
+                    <div class="feature-item">Custom Risk Management</div>
+                    <div class="feature-item">Priority Support</div>
+                </div>
+            </div>
+
+            <div class="modal-section">
+                <h3>Choose Your Plan</h3>
+                <div class="plans-grid">
+                    <div class="plan-card" onclick="selectPlan('Daily', '$7', '1 day')">
+                        <h4>Daily</h4>
+                        <div class="price">$7</div>
+                        <div class="duration">1 day</div>
+                    </div>
+                    <div class="plan-card" onclick="selectPlan('3 Days', '$17', '3 days')">
+                        <h4>3 Days</h4>
+                        <div class="price">$17</div>
+                        <div class="duration">3 days</div>
+                    </div>
+                    <div class="plan-card popular" onclick="selectPlan('Weekly', '$25.49', '7 days')">
+                        <div class="badge">Popular</div>
+                        <h4>Weekly</h4>
+                        <div class="price">$25.49</div>
+                        <div class="duration">7 days</div>
+                    </div>
+                    <div class="plan-card" onclick="selectPlan('Monthly', '$37', '30 days')">
+                        <h4>Monthly</h4>
+                        <div class="price">$37</div>
+                        <div class="duration">30 days</div>
+                    </div>
+                    <div class="plan-card" onclick="selectPlan('6 Months', '$199', '180 days')">
+                        <h4>6 Months</h4>
+                        <div class="price">$199</div>
+                        <div class="duration">180 days</div>
+                    </div>
+                    <div class="plan-card" onclick="selectPlan('Lifetime', '$570', 'Forever')">
+                        <h4>Lifetime</h4>
+                        <div class="price">$570</div>
+                        <div class="duration">Forever</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-section">
+                <h3>Payment Method</h3>
+                <div class="payment-methods">
+                    <div class="payment-method" onclick="selectPayment('mpesa')">
+                        <div style="font-size: 1.5em; margin-bottom: 5px;">💳</div>
+                        <div>M-Pesa</div>
+                    </div>
+                    <div class="payment-method" onclick="selectPayment('usdt')">
+                        <div style="font-size: 1.5em; margin-bottom: 5px;">₿</div>
+                        <div>USDT (Crypto)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="payment-details" id="mpesaDetails">
+                <div class="detail-row">
+                    <label>Paybill:</label>
+                    <input type="text" value="247247" readonly>
+                    <button class="copy-btn" onclick="copyToClipboard('247247')">Copy</button>
+                </div>
+                <div class="detail-row">
+                    <label>Account:</label>
+                    <input type="text" value="123456" readonly>
+                    <button class="copy-btn" onclick="copyToClipboard('123456')">Copy</button>
+                </div>
+                <div class="detail-row">
+                    <label>Amount:</label>
+                    <input type="text" id="mpesaAmount" value="$0" readonly>
+                </div>
+            </div>
+
+            <div class="payment-details" id="usdtDetails">
+                <div class="detail-row">
+                    <label>Address:</label>
+                    <input type="text" value="0x1234567890abcdef1234567890abcdef12345678" readonly>
+                    <button class="copy-btn" onclick="copyToClipboard('0x1234567890abcdef1234567890abcdef12345678')">Copy</button>
+                </div>
+                <div class="detail-row">
+                    <label>Network:</label>
+                    <input type="text" value="Tron (TRC20)" readonly>
+                </div>
+                <div class="detail-row">
+                    <label>Amount:</label>
+                    <input type="text" id="usdtAmount" value="$0" readonly>
+                </div>
+            </div>
+
+            <div class="info-box">
+                ℹ️ After payment, your account will be activated within 5-10 minutes. You can track your subscription status in the dashboard.
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeUpgradeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="completePayment()">I've Sent Payment</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUserStatus = 'standard';
+        let selectedPlan = null;
+        let selectedPayment = null;
+
+        function setUserStatus(status) {
+            currentUserStatus = status;
+            updateUI();
+
+            // Update button states
+            document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        function updateUI() {
+            const statusBadge = document.getElementById('statusBadge');
+            const digitEdgeCard = document.getElementById('digitEdgeCard');
+            const datCard = document.getElementById('datCard');
+            const aiSignalsCard = document.getElementById('aiSignalsCard');
+
+            if (currentUserStatus === 'premium') {
+                statusBadge.textContent = '⭐ Premium Account';
+                statusBadge.className = 'status-badge premium';
+                digitEdgeCard.classList.remove('locked');
+                datCard.classList.remove('locked');
+                aiSignalsCard.classList.remove('locked');
+            } else if (currentUserStatus === 'admin') {
+                statusBadge.textContent = '🔐 Admin Account (All Features Unlocked)';
+                statusBadge.className = 'status-badge premium';
+                digitEdgeCard.classList.remove('locked');
+                datCard.classList.remove('locked');
+                aiSignalsCard.classList.remove('locked');
+            } else {
+                statusBadge.textContent = '👤 Standard Account';
+                statusBadge.className = 'status-badge standard';
+                digitEdgeCard.classList.add('locked');
+                datCard.classList.add('locked');
+                aiSignalsCard.classList.add('locked');
+            }
+        }
+
+        function openUpgradeModal(featureName) {
+            if (currentUserStatus !== 'standard') return;
+            document.getElementById('featureName').textContent = featureName;
+            document.getElementById('upgradeModal').classList.add('active');
+            selectedPlan = null;
+            selectedPayment = null;
+            document.getElementById('successMessage').classList.remove('active');
+        }
+
+        function closeUpgradeModal() {
+            document.getElementById('upgradeModal').classList.remove('active');
+            selectedPlan = null;
+            selectedPayment = null;
+        }
+
+        function selectPlan(name, price, duration) {
+            selectedPlan = { name, price, duration };
+            document.querySelectorAll('.plan-card').forEach(card => card.style.opacity = '0.5');
+            event.target.closest('.plan-card').style.opacity = '1';
+            document.getElementById('mpesaAmount').value = price;
+            document.getElementById('usdtAmount').value = price;
+        }
+
+        function selectPayment(method) {
+            selectedPayment = method;
+            document.querySelectorAll('.payment-method').forEach(m => m.classList.remove('active'));
+            event.target.closest('.payment-method').classList.add('active');
+
+            document.getElementById('mpesaDetails').classList.remove('active');
+            document.getElementById('usdtDetails').classList.remove('active');
+
+            if (method === 'mpesa') {
+                document.getElementById('mpesaDetails').classList.add('active');
+            } else if (method === 'usdt') {
+                document.getElementById('usdtDetails').classList.add('active');
+            }
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text);
+            event.target.textContent = '✓ Copied';
+            setTimeout(() => {
+                event.target.textContent = 'Copy';
+            }, 2000);
+        }
+
+        function completePayment() {
+            if (!selectedPlan || !selectedPayment) {
+                alert('Please select a plan and payment method');
+                return;
+            }
+
+            document.getElementById('successMessage').classList.add('active');
+            setTimeout(() => {
+                currentUserStatus = 'premium';
+                updateUI();
+                closeUpgradeModal();
+            }, 2000);
+        }
+
+        // Initialize UI
+        updateUI();
+    </script>
+</body>
+</html>

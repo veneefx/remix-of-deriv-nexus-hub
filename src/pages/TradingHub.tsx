@@ -25,6 +25,8 @@ import { VOLATILITY_MARKETS, CONTRACT_TYPES } from "@/lib/trading-constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { usePremium } from "@/hooks/use-premium";
+import PremiumUpgradeModal from "@/components/trading/PremiumUpgradeModal";
 
 const DERIV_APP_ID = "129344";
 
@@ -74,6 +76,9 @@ const TradingHub = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const { isPremium, isAdmin } = usePremium();
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [premiumFeature, setPremiumFeature] = useState("");
 
   // Persist view selection
   useEffect(() => { localStorage.setItem("dnx_view", activeView); }, [activeView]);
@@ -142,7 +147,7 @@ const TradingHub = () => {
     });
   }, []);
 
-  // WebSocket connection
+  // WebSocket connection with auto-reconnect
   useEffect(() => {
     const wsInstance = new DerivWebSocket(DERIV_APP_ID);
     setWs(wsInstance);
@@ -157,6 +162,13 @@ const TradingHub = () => {
       setWsConnected(false);
       toast({ title: "❌ Connection Failed", description: "Could not connect to Deriv. Retrying..." });
     });
+
+    // Auto-reconnect if disconnected
+    const reconnectInterval = setInterval(() => {
+      if (!wsInstance.connected) {
+        wsInstance.connect().catch(() => {});
+      }
+    }, 5000);
 
     wsInstance.on("connection", (data) => {
       const connected = data.status === "connected";
@@ -197,7 +209,10 @@ const TradingHub = () => {
       setLastDigits(prev => [...prev.slice(-999), digit]);
     });
 
-    return () => { wsInstance.disconnect(); };
+    return () => {
+      clearInterval(reconnectInterval);
+      wsInstance.disconnect();
+    };
   }, [account]);
 
   // Fetch balances for non-active accounts
@@ -378,31 +393,32 @@ const TradingHub = () => {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar: Balance LEFT, risk icon, view dropdown CENTER, hamburger RIGHT */}
-        <header className="h-12 border-b border-border flex items-center justify-between px-3 bg-card/50">
-          <div className="flex items-center gap-2">
+        {/* Top bar: Logo/Balance LEFT, risk icon, view dropdown CENTER, hamburger RIGHT */}
+        <header className="h-14 border-b border-border flex items-center justify-between px-4 bg-card/50 gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            {/* Logo or Balance */}
             {balance !== null ? (
               <button
                 onClick={() => setTokenManagerOpen(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1 bg-card rounded-lg border border-border hover:bg-secondary transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-card rounded-lg border border-border hover:bg-secondary transition-colors whitespace-nowrap"
               >
-                <Wallet className="w-3.5 h-3.5 text-muted-foreground" />
+                <Wallet className="w-4 h-4 text-primary flex-shrink-0" />
                 <span className="text-xs font-bold text-foreground">
                   {balance.toFixed(2)} {account?.currency || "USD"}
                 </span>
-                <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                <ChevronDown className="w-3 h-3 text-muted-foreground flex-shrink-0" />
               </button>
             ) : (
-              <div className="flex items-center gap-1.5">
-                <img src={logo} alt="DNexus" className="h-5" />
-                <span className="font-display text-xs font-bold">
+              <div className="flex items-center gap-2">
+                <img src={logo} alt="DNexus" className="h-6" />
+                <span className="font-display text-sm font-bold">
                   <span className="text-foreground">DN</span>
                   <span className="text-primary">EXUS</span>
                 </span>
               </div>
             )}
 
-            <Link to="/risk" className="p-1.5 rounded-lg hover:bg-secondary transition-colors" title="Risk Disclosure">
+            <Link to="/risk" className="p-1.5 rounded-lg hover:bg-secondary transition-colors flex-shrink-0" title="Risk Disclosure">
               <AlertTriangle className="w-4 h-4 text-warning" />
             </Link>
           </div>
@@ -446,9 +462,30 @@ const TradingHub = () => {
 
         {/* Main area */}
         <main className="flex-1 overflow-hidden pb-24 lg:pb-8">
-          {activeView === "digit-edge" && <TradingPanel ws={ws} account={account} />}
+          {activeView === "digit-edge" && (
+            <TradingPanel ws={ws} account={account} />
+          )}
           {activeView === "dat" && (
-            <DATTab lastDigits={lastDigits} currentTick={currentTick} marketLabel={marketLabel} />
+            !isPremium && !isAdmin ? (
+              <div className="flex-1 flex items-center justify-center p-4">
+                <div className="text-center space-y-4 max-w-md">
+                  <Lock className="w-12 h-12 text-muted-foreground mx-auto" />
+                  <h3 className="text-lg font-semibold text-foreground">Premium Feature</h3>
+                  <p className="text-sm text-muted-foreground">DAT Analyzer is only available for premium members.</p>
+                  <button
+                    onClick={() => {
+                      setPremiumFeature("DAT Analyzer");
+                      setShowPremiumModal(true);
+                    }}
+                    className="px-6 py-2 bg-gradient-brand text-primary-foreground font-semibold rounded-lg hover-lift"
+                  >
+                    Upgrade to Premium
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <DATTab lastDigits={lastDigits} currentTick={currentTick} marketLabel={marketLabel} />
+            )
           )}
           {activeView === "trading-view" && (
             <div className="flex h-full">
@@ -485,7 +522,7 @@ const TradingHub = () => {
         </main>
 
         {/* Footer bar with time + theme */}
-        <div className="border-t border-border bg-card/50 px-4 py-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+        <div className="border-t border-border bg-card/50 px-4 py-2 flex items-center justify-between text-[10px] text-muted-foreground">
           <div className="flex items-center gap-3">
             <span>{formatDate(currentTime)}</span>
             <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatTime(currentTime)} EAT</span>
@@ -520,6 +557,13 @@ const TradingHub = () => {
           </div>
         )}
       </div>
+
+      {/* Premium Upgrade Modal */}
+      <PremiumUpgradeModal
+        isOpen={showPremiumModal}
+        onClose={() => setShowPremiumModal(false)}
+        featureName={premiumFeature}
+      />
 
       {/* Token Manager Modal */}
       {tokenManagerOpen && (

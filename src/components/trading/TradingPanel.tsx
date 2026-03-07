@@ -1,12 +1,15 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Wallet, List, Table, ChevronRight, Settings, TrendingUp, BarChart3, Shield, Zap, Activity, Flame, Target, AlertTriangle } from "lucide-react";
+import { X, Wallet, List, Table, ChevronRight, Settings, TrendingUp, BarChart3, Shield, Zap, Activity, Flame, Target, AlertTriangle, Lock } from "lucide-react";
 import DerivWebSocket from "@/services/deriv-websocket";
 import { DerivAccount } from "@/services/deriv-auth";
 import { VOLATILITY_MARKETS, CONTRACT_TYPES, DIGIT_BARRIERS, getLastDigit } from "@/lib/trading-constants";
 import AnalysisTab from "@/components/trading/AnalysisTab";
+import RiskPanel from "@/components/trading/RiskPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { usePremium } from "@/hooks/use-premium";
+import PremiumUpgradeModal from "@/components/trading/PremiumUpgradeModal";
 
 interface TradingPanelProps {
   ws: DerivWebSocket | null;
@@ -72,6 +75,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [mode, setMode] = useState<"Quick" | "Automated">("Automated");
   const [softwareStatus, setSoftwareStatus] = useState<"INACTIVE" | "ACTIVE">("INACTIVE");
   const [executionSpeed, setExecutionSpeed] = useState<"Fast" | "Normal">("Fast");
+  const [aggressiveMode, setAggressiveMode] = useState(false);
   const [takeProfit, setTakeProfit] = useState("1000");
   const [stopLoss, setStopLoss] = useState("100");
   const [martingale, setMartingale] = useState(true);
@@ -101,6 +105,10 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [showTransactions, setShowTransactions] = useState(false);
   const [txViewMode, setTxViewMode] = useState<"list" | "table">("list");
   const [showRiskModal, setShowRiskModal] = useState(false);
+  const [showRiskPanel, setShowRiskPanel] = useState(false);
+  const { isPremium, isAdmin } = usePremium();
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [premiumFeature, setPremiumFeature] = useState("");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showSessionModal, setShowSessionModal] = useState(false);
   const [showTpModal, setShowTpModal] = useState(false);
@@ -540,6 +548,19 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     return () => clearInterval(timer);
   }, [softwareStatus, mode, executionSpeed, executeTradeFast]);
 
+  // Aggressive mode auto-trade loop (1s interval - 1 trade per second)
+  useEffect(() => {
+    if (softwareStatus !== "ACTIVE" || !botRunning.current || mode !== "Automated" || executionSpeed !== "Fast") return;
+
+    const timer = setInterval(() => {
+      if (botRunning.current && proposalIdRef.current) {
+        // In aggressive mode, execute immediately without waiting for previous trade to close
+        executeTradeFast();
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [softwareStatus, mode, executionSpeed, executeTradeFast]);
+
   const clearTransactions = () => setTransactions([]);
 
   // Compute digit frequencies for display
@@ -594,7 +615,26 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         </div>
 
         {activeTab === "analysis" ? (
-          <AnalysisTab lastDigits={lastDigits} session={session} marketLabel={marketLabel} />
+          !isPremium && !isAdmin ? (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 bg-card border border-border rounded-xl">
+              <Lock className="w-12 h-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold text-foreground">Premium Analysis</h3>
+              <p className="text-sm text-muted-foreground text-center max-w-xs mt-2">
+                Advanced analysis tools are only available for premium members.
+              </p>
+              <button
+                onClick={() => {
+                  setPremiumFeature("Analysis Tools");
+                  setShowPremiumModal(true);
+                }}
+                className="mt-6 px-6 py-2 bg-gradient-brand text-primary-foreground font-semibold rounded-lg hover-lift"
+              >
+                Upgrade to Premium
+              </button>
+            </div>
+          ) : (
+            <AnalysisTab lastDigits={lastDigits} session={session} marketLabel={marketLabel} />
+          )
         ) : (
           <div className="space-y-4">
             {showTransactions ? (
@@ -639,7 +679,24 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
                 {/* Signal Strength + Digit Pressure */}
                 {lastDigits.length > 30 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 relative">
+                    {!isPremium && !isAdmin && (
+                      <div className="absolute inset-0 z-10 bg-background/60 backdrop-blur-[2px] rounded-xl flex items-center justify-center">
+                        <div className="text-center p-4">
+                          <Lock className="w-8 h-8 text-primary mx-auto mb-2" />
+                          <p className="text-xs font-bold text-foreground">Premium Signals Locked</p>
+                          <button
+                            onClick={() => {
+                              setPremiumFeature("AI Signals & Pressure Analysis");
+                              setShowPremiumModal(true);
+                            }}
+                            className="mt-2 text-[10px] text-primary hover:underline font-bold"
+                          >
+                            Unlock Now
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     {/* Signal Scoring */}
                     <div className="p-4 rounded-xl bg-card border border-border">
                       <div className="flex items-center gap-2 mb-3">
@@ -966,8 +1023,20 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
               <div>
                 <label className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">Execution Speed <span className="text-primary text-xs">●</span></label>
-                <select value={executionSpeed} onChange={(e) => setExecutionSpeed(e.target.value as any)} className="mt-1 w-full px-3 py-2 bg-secondary border border-border rounded text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
-                  <option value="Fast">⚡ Fast (Per Tick)</option>
+                <select
+                  value={executionSpeed}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "Fast" && !isPremium && !isAdmin) {
+                      setPremiumFeature("Aggressive Execution Mode");
+                      setShowPremiumModal(true);
+                      return;
+                    }
+                    setExecutionSpeed(val as any);
+                  }}
+                  className="mt-1 w-full px-3 py-2 bg-secondary border border-border rounded text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="Fast">🚀 Aggressive (1 trade/sec) {!isPremium && !isAdmin ? "🔒" : ""}</option>
                   <option value="Normal">🐢 Normal (4s delay)</option>
                 </select>
               </div>
@@ -976,12 +1045,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
           {/* Risk Management Settings button */}
           <button
-            onClick={() => setShowRiskModal(true)}
+            onClick={() => setShowRiskPanel(true)}
             className="w-full flex items-center justify-between px-3 py-2.5 bg-secondary border border-border rounded-lg text-xs text-foreground hover:bg-muted transition-colors"
           >
             <div className="flex items-center gap-2">
               <Settings className="w-4 h-4 text-primary" />
-              <span>Risk Management Settings</span>
+              <span>Risk Management</span>
             </div>
             <ChevronRight className="w-4 h-4 text-muted-foreground" />
           </button>
@@ -1005,23 +1074,42 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       </div>
 
       {/* Floating transaction + profit icons */}
-      <div className="fixed bottom-20 lg:bottom-4 right-4 flex flex-col gap-2 z-30">
+      <div className="fixed bottom-32 lg:bottom-8 right-4 flex flex-col gap-3 z-30">
         <button
           onClick={() => setShowTransactions(!showTransactions)}
-          className="w-12 h-12 rounded-full bg-card border border-border shadow-lg flex items-center justify-center hover:bg-secondary transition-colors"
+          className="w-14 h-14 rounded-full bg-card border-2 border-border shadow-xl flex items-center justify-center hover:bg-secondary transition-colors hover:scale-110"
           title="Transactions"
         >
-          <Wallet className="w-5 h-5 text-primary" />
+          <Wallet className="w-6 h-6 text-primary" />
         </button>
         <motion.div
           key={session.totalProfit}
           initial={{ scale: 1.2 }}
           animate={{ scale: 1 }}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold shadow-lg ${session.totalProfit >= 0 ? "bg-buy text-primary-foreground" : "bg-sell text-primary-foreground"}`}
+          className={`px-4 py-2 rounded-full text-sm font-bold shadow-xl ${session.totalProfit >= 0 ? "bg-buy text-primary-foreground" : "bg-sell text-primary-foreground"}`}
         >
           {session.totalProfit >= 0 ? "+" : ""}{session.totalProfit.toFixed(2)}
         </motion.div>
       </div>
+
+      {/* Premium Upgrade Modal */}
+      <PremiumUpgradeModal
+        isOpen={showPremiumModal}
+        onClose={() => setShowPremiumModal(false)}
+        featureName={premiumFeature}
+      />
+
+      {/* Risk Management Side Panel */}
+      <RiskPanel
+        isOpen={showRiskPanel}
+        onClose={() => setShowRiskPanel(false)}
+        takeProfit={takeProfit}
+        stopLoss={stopLoss}
+        maxDrawdown={session.maxDrawdown}
+        dailyTarget={session.totalProfit}
+        onTakeProfitChange={setTakeProfit}
+        onStopLossChange={setStopLoss}
+      />
 
       {/* Risk Management Modal */}
       <AnimatePresence>

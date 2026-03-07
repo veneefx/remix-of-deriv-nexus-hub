@@ -1,0 +1,14 @@
+// Add this after the Normal mode auto-trade loop (around line 543)
+
+  // Aggressive mode auto-trade loop (1s interval - 1 trade per second)
+  useEffect(() => {
+    if (softwareStatus !== "ACTIVE" || !botRunning.current || mode !== "Automated" || executionSpeed !== "Fast") return;
+
+    const timer = setInterval(() => {
+      if (botRunning.current && proposalIdRef.current) {
+        // In aggressive mode, execute immediately without waiting for previous trade to close
+        executeTradeFast();
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [softwareStatus, mode, executionSpeed, executeTradeFast]);
