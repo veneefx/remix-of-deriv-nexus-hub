@@ -4,6 +4,7 @@ import { X, Wallet, List, Table, ChevronRight, Settings, TrendingUp, BarChart3, 
 import DerivWebSocket from "@/services/deriv-websocket";
 import { DerivAccount } from "@/services/deriv-auth";
 import { VOLATILITY_MARKETS, CONTRACT_TYPES, DIGIT_BARRIERS, getLastDigit } from "@/lib/trading-constants";
+import { tradingEngine } from "@/services/trading-engine";
 import AnalysisTab from "@/components/trading/AnalysisTab";
 import RiskPanel from "@/components/trading/RiskPanel";
 import { supabase } from "@/integrations/supabase/client";
@@ -238,48 +239,24 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       const quote = data.tick.quote;
       setCurrentTick(quote);
 
-      // Use toFixed(2) to preserve trailing zeros
-      const formatted = Number(quote).toFixed(2);
-      const digit = parseInt(formatted[formatted.length - 1], 10);
-
-      // Update tick buffer (1000 max)
-      const tickData = { quote, digit, epoch: data.tick.epoch || Date.now() / 1000 };
+      // Reliable Digit Extraction
+      const quoteStr = quote.toString();
+      const lastDigit = parseInt(quoteStr.charAt(quoteStr.length - 1), 10);
+      
+      const tickData = { quote, digit: lastDigit, epoch: data.tick.epoch || Date.now() / 1000 };
+      
+      // Update local refs and state
+      setCurrentTick(quote);
+      setLastDigits(prev => [...prev.slice(-999), lastDigit]);
+      lastDigitsRef.current = [...lastDigitsRef.current.slice(-999), lastDigit];
       tickBufferRef.current = [...tickBufferRef.current.slice(-999), tickData];
 
-      // Update digit pressure
-      tickIndexRef.current++;
-      const newPressure = { ...digitPressureRef.current };
-      newPressure[digit] = 0;
-      for (let d = 0; d <= 9; d++) {
-        if (d !== digit) newPressure[d] = (newPressure[d] || 0) + 1;
-      }
-      digitPressureRef.current = newPressure;
-      setDigitPressure(newPressure);
-
-      // Find highest pressure
-      let hpd = 0, hp = 0;
-      for (let d = 0; d <= 9; d++) {
-        if (newPressure[d] > hp) { hp = newPressure[d]; hpd = d; }
-      }
-      setHighestPressureDigit(hpd);
-
-      setLastDigits((prev) => {
-        const next = [...prev.slice(-999), digit];
-        lastDigitsRef.current = next;
-        return next;
-      });
-
-      // Calculate signal score locally (fast, no network delay)
-      const sig = calculateLocalSignal(lastDigitsRef.current, newPressure, tickBufferRef.current);
-      setSignalScore(sig.score);
-      setSignalDetails(sig.details);
-
-      // FAST MODE: fire trade immediately on tick if signal is strong
-      if (botRunning.current && !isTradingRef.current && proposalIdRef.current && executionSpeed === "Fast") {
+      // Fast Execution Logic
+      if (botRunning.current && !isTradingRef.current && proposalIdRef.current) {
         const now = Date.now();
-        // Rate limit: at least 1s between trades
         if (now - lastTradeTimestampRef.current >= 1000) {
-          if (sig.score >= 0.15 || !freqBasedTrading) {
+          const sig = calculateLocalSignal(lastDigitsRef.current, digitPressureRef.current, tickBufferRef.current);
+          if (sig.score >= 0.15 || aggressiveMode) {
             executeTradeFast();
           }
         }
@@ -453,21 +430,34 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     }
   }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, stopAfterMaxMartingale, smartRisker, selectedMarket]);
 
-  // FAST trade execution — non-blocking, uses one-time listeners
+  // FAST trade execution — non-blocking, uses one-time listener
   const executeTradeFast = useCallback(() => {
-    if (!ws || !proposalIdRef.current || isTradingRef.current || !isLoggedIn) return;
-    if (openContracts.current >= 3) return; // Max concurrent trades guard
+    if (!ws || !proposalIdRef.current || !isLoggedIn) return;
+    
+    // Check if aggressive mode or not trading
+    if (!aggressiveMode && isTradingRef.current) return;
+    if (openContracts.current >= (aggressiveMode ? 10 : 3)) return; // Max concurrent trades guard
 
     const currentProposalId = proposalIdRef.current;
-    const tradeStake = currentStake.current;
+    
+    // Ensure stake is correct: use martingale stake if in recovery, else use user input stake
+    const tradeStake = consecutiveLosses.current > 0 ? currentStake.current : parseFloat(stake);
 
     isTradingRef.current = true;
     setIsTrading(true);
     setTradeResult(null);
     openContracts.current++;
-    lastTradeTimestampRef.current = Date.now();
 
+    lastTradeTimestampRef.current = Date.now();
     ws.buyContract(currentProposalId, tradeStake);
+    
+    // Reset isTrading immediately in aggressive mode to allow parallel trades
+    if (aggressiveMode) {
+      setTimeout(() => {
+        isTradingRef.current = false;
+        setIsTrading(false);
+      }, 500);
+    }
 
     const unsubBuy = ws.on("buy", (data) => {
       unsubBuy();

@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Upgrade & Payment Modals Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px 0;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #00d4ff, #0099ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        header p {
+            font-size: 1.1em;
+            color: #a0a0a0;
+        }
+
+        .demo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .demo-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 12px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .demo-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(0, 212, 255, 0.6);
+            transform: translateY(-5px);
+        }
+
+        .demo-card h3 {
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            color: #00d4ff;
+        }
+
+        .demo-card p {
+            font-size: 0.95em;
+            color: #b0b0b0;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #00d4ff, #0099ff);
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1em;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 600px;
+            width: 90%;
+            animation: slideUp 0.3s ease;
+            position: relative;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: #e0e0e0;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.5em;
+            transition: all 0.3s ease;
+        }
+
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: #00d4ff;
+        }
+
+        .modal h2 {
+            font-size: 1.8em;
+            margin-bottom: 10px;
+            color: #00d4ff;
+        }
+
+        .modal-subtitle {
+            color: #a0a0a0;
+            margin-bottom: 30px;
+            font-size: 0.95em;
+        }
+
+        /* Premium Upgrade Modal */
+        .features-list {
+            background: rgba(0, 212, 255, 0.05);
+            border-left: 3px solid #00d4ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+
+        .features-list h4 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            color: #b0b0b0;
+        }
+
+        .feature-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .feature-icon {
+            color: #00d4ff;
+            font-weight: bold;
+        }
+
+        .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .plan-option {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .plan-option:hover {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.1);
+        }
+
+        .plan-option.selected {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.2);
+        }
+
+        .plan-option-name {
+            font-weight: 600;
+            color: #00d4ff;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        .plan-option-price {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #e0e0e0;
+        }
+
+        .plan-option-duration {
+            font-size: 0.8em;
+            color: #a0a0a0;
+            margin-top: 5px;
+        }
+
+        /* Payment Modal */
+        .payment-methods {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .payment-method {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .payment-method:hover {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.1);
+        }
+
+        .payment-method.selected {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.2);
+        }
+
+        .payment-icon {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .payment-name {
+            font-weight: 600;
+            color: #00d4ff;
+            margin-bottom: 5px;
+        }
+
+        .payment-details {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(0, 212, 255, 0.2);
+        }
+
+        .payment-detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+        }
+
+        .payment-detail-row:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .payment-detail-label {
+            color: #a0a0a0;
+            font-size: 0.95em;
+        }
+
+        .payment-detail-value {
+            color: #00d4ff;
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            word-break: break-all;
+        }
+
+        .copy-btn {
+            background: rgba(0, 212, 255, 0.2);
+            border: 1px solid #00d4ff;
+            color: #00d4ff;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8em;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: rgba(0, 212, 255, 0.3);
+        }
+
+        .success-message {
+            display: none;
+            background: rgba(0, 200, 100, 0.2);
+            border: 1px solid #00c864;
+            color: #00c864;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+
+        .success-message.show {
+            display: block;
+            animation: slideUp 0.3s ease;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 15px;
+        }
+
+        .modal-actions button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1em;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d4ff, #0099ff);
+            color: #000;
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: #e0e0e0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .info-box {
+            background: rgba(0, 212, 255, 0.1);
+            border-left: 3px solid #00d4ff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            color: #b0b0b0;
+        }
+
+        .step-indicator {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .step-indicator::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: rgba(0, 212, 255, 0.2);
+            z-index: -1;
+        }
+
+        .step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(0, 212, 255, 0.2);
+            border: 2px solid rgba(0, 212, 255, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #00d4ff;
+        }
+
+        .step.active .step-number {
+            background: rgba(0, 212, 255, 0.4);
+            border-color: #00d4ff;
+        }
+
+        .step-label {
+            font-size: 0.8em;
+            color: #a0a0a0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💎 Premium Upgrade & Payment Modals</h1>
+            <p>Interactive demonstration of the new premium features flow</p>
+        </header>
+
+        <div class="demo-grid">
+            <div class="demo-card">
+                <h3>🔓 Upgrade Modal</h3>
+                <p>Shows when users try to access premium features like Digit Edge analysis or aggressive trading mode.</p>
+                <button class="btn" onclick="openUpgradeModal()">View Upgrade Modal</button>
+            </div>
+
+            <div class="demo-card">
+                <h3>💳 Payment Modal</h3>
+                <p>Displays payment options with M-Pesa and USDT wallet support for subscription processing.</p>
+                <button class="btn" onclick="openPaymentModal()">View Payment Modal</button>
+            </div>
+
+            <div class="demo-card">
+                <h3>📊 Full Flow</h3>
+                <p>Experience the complete upgrade journey from feature lock to successful payment.</p>
+                <button class="btn" onclick="openUpgradeModal()">Start Full Flow</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upgrade Modal -->
+    <div class="modal-overlay" id="upgradeOverlay">
+        <div class="modal">
+            <button class="modal-close" onclick="closeUpgradeModal()">✕</button>
+            
+            <div class="step-indicator">
+                <div class="step active" id="step1">
+                    <div class="step-number">1</div>
+                    <div class="step-label">Select Plan</div>
+                </div>
+                <div class="step" id="step2">
+                    <div class="step-number">2</div>
+                    <div class="step-label">Payment</div>
+                </div>
+                <div class="step" id="step3">
+                    <div class="step-number">3</div>
+                    <div class="step-label">Confirm</div>
+                </div>
+            </div>
+
+            <h2>Unlock Premium Features</h2>
+            <p class="modal-subtitle" id="upgradeSubtitle">Choose your subscription plan to access all advanced tools</p>
+
+            <div class="features-list">
+                <h4>✨ What You'll Get:</h4>
+                <div class="feature-item">
+                    <span class="feature-icon">✓</span>
+                    <span>Advanced Digit Edge Analysis</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✓</span>
+                    <span>AI-Powered Trading Signals</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✓</span>
+                    <span>Real-Time Market Updates</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✓</span>
+                    <span>Aggressive Execution Mode (1 trade/sec)</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✓</span>
+                    <span>Advanced Risk Management</span>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">✓</span>
+                    <span>Priority Support</span>
+                </div>
+            </div>
+
+            <div id="upgradeContent">
+                <h4 style="color: #00d4ff; margin-bottom: 15px;">Choose Your Plan:</h4>
+                <div class="plans-grid">
+                    <div class="plan-option" onclick="selectPlan('daily', '$7', '1 day')">
+                        <div class="plan-option-name">Daily</div>
+                        <div class="plan-option-price">$7</div>
+                        <div class="plan-option-duration">1 day</div>
+                    </div>
+                    <div class="plan-option" onclick="selectPlan('3days', '$17', '3 days')">
+                        <div class="plan-option-name">3 Days</div>
+                        <div class="plan-option-price">$17</div>
+                        <div class="plan-option-duration">3 days</div>
+                    </div>
+                    <div class="plan-option" onclick="selectPlan('weekly', '$25.49', '7 days')">
+                        <div class="plan-option-name">Weekly</div>
+                        <div class="plan-option-price">$25.49</div>
+                        <div class="plan-option-duration">7 days</div>
+                    </div>
+                    <div class="plan-option" onclick="selectPlan('monthly', '$37', '30 days')">
+                        <div class="plan-option-name">Monthly</div>
+                        <div class="plan-option-price">$37</div>
+                        <div class="plan-option-duration">30 days</div>
+                    </div>
+                    <div class="plan-option" onclick="selectPlan('6months', '$199', '180 days')">
+                        <div class="plan-option-name">6 Months</div>
+                        <div class="plan-option-price">$199</div>
+                        <div class="plan-option-duration">180 days</div>
+                    </div>
+                    <div class="plan-option" onclick="selectPlan('lifetime', '$570', 'Forever')">
+                        <div class="plan-option-name">Lifetime</div>
+                        <div class="plan-option-price">$570</div>
+                        <div class="plan-option-duration">Forever</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="closeUpgradeModal()">Cancel</button>
+                <button class="btn-primary" onclick="proceedToPayment()">Continue to Payment</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div class="modal-overlay" id="paymentOverlay">
+        <div class="modal">
+            <button class="modal-close" onclick="closePaymentModal()">✕</button>
+
+            <div class="step-indicator">
+                <div class="step" id="payStep1">
+                    <div class="step-number">1</div>
+                    <div class="step-label">Select Plan</div>
+                </div>
+                <div class="step active" id="payStep2">
+                    <div class="step-number">2</div>
+                    <div class="step-label">Payment</div>
+                </div>
+                <div class="step" id="payStep3">
+                    <div class="step-number">3</div>
+                    <div class="step-label">Confirm</div>
+                </div>
+            </div>
+
+            <h2>Complete Payment</h2>
+            <p class="modal-subtitle">Select your preferred payment method</p>
+
+            <div class="payment-details">
+                <div class="payment-detail-row">
+                    <span class="payment-detail-label">Plan:</span>
+                    <span class="payment-detail-value" id="paymentPlanName">Weekly Plan</span>
+                </div>
+                <div class="payment-detail-row">
+                    <span class="payment-detail-label">Amount:</span>
+                    <span class="payment-detail-value" id="paymentAmount">$25.49</span>
+                </div>
+                <div class="payment-detail-row">
+                    <span class="payment-detail-label">Duration:</span>
+                    <span class="payment-detail-value" id="paymentDuration">7 days</span>
+                </div>
+            </div>
+
+            <div class="info-box">
+                ℹ️ After payment, your premium access will be activated immediately. You'll receive a confirmation email.
+            </div>
+
+            <h4 style="color: #00d4ff; margin-bottom: 15px;">Choose Payment Method:</h4>
+            <div class="payment-methods">
+                <div class="payment-method" onclick="selectPaymentMethod('mpesa')">
+                    <div class="payment-icon">📱</div>
+                    <div class="payment-name">M-Pesa</div>
+                    <div style="font-size: 0.8em; color: #a0a0a0;">Mobile Money</div>
+                </div>
+                <div class="payment-method" onclick="selectPaymentMethod('usdt')">
+                    <div class="payment-icon">💰</div>
+                    <div class="payment-name">USDT</div>
+                    <div style="font-size: 0.8em; color: #a0a0a0;">Crypto Wallet</div>
+                </div>
+            </div>
+
+            <div id="paymentMethodDetails" style="display: none;">
+                <div class="success-message" id="copySuccess">✓ Copied to clipboard!</div>
+
+                <div id="mpesaDetails" style="display: none;">
+                    <h4 style="color: #00d4ff; margin-bottom: 15px;">M-Pesa Payment Details:</h4>
+                    <div class="payment-detail-row" style="background: rgba(0, 212, 255, 0.05); padding: 15px; border-radius: 8px; border: none; margin-bottom: 15px;">
+                        <div>
+                            <div class="payment-detail-label">Paybill Number:</div>
+                            <div class="payment-detail-value">247247</div>
+                        </div>
+                        <button class="copy-btn" onclick="copyToClipboard('247247', 'Paybill')">Copy</button>
+                    </div>
+                    <div class="payment-detail-row" style="background: rgba(0, 212, 255, 0.05); padding: 15px; border-radius: 8px; border: none;">
+                        <div>
+                            <div class="payment-detail-label">Account Number:</div>
+                            <div class="payment-detail-value">123456</div>
+                        </div>
+                        <button class="copy-btn" onclick="copyToClipboard('123456', 'Account')">Copy</button>
+                    </div>
+                    <div class="info-box" style="margin-top: 15px;">
+                        📲 Send the amount to the Paybill number using your M-Pesa account. Use the account number as the reference.
+                    </div>
+                </div>
+
+                <div id="usdtDetails" style="display: none;">
+                    <h4 style="color: #00d4ff; margin-bottom: 15px;">USDT Payment Details:</h4>
+                    <div class="payment-detail-row" style="background: rgba(0, 212, 255, 0.05); padding: 15px; border-radius: 8px; border: none; margin-bottom: 15px;">
+                        <div>
+                            <div class="payment-detail-label">Network:</div>
+                            <div class="payment-detail-value">Tron (TRC20)</div>
+                        </div>
+                    </div>
+                    <div class="payment-detail-row" style="background: rgba(0, 212, 255, 0.05); padding: 15px; border-radius: 8px; border: none;">
+                        <div>
+                            <div class="payment-detail-label">Wallet Address:</div>
+                            <div class="payment-detail-value">TQn9jFHHhWV2vKqhTCqvT9qJ8vK2mL3nP4</div>
+                        </div>
+                        <button class="copy-btn" onclick="copyToClipboard('TQn9jFHHhWV2vKqhTCqvT9qJ8vK2mL3nP4', 'Wallet')">Copy</button>
+                    </div>
+                    <div class="info-box" style="margin-top: 15px;">
+                        🔗 Send USDT to the wallet address above on the Tron network. Ensure you're using the correct network to avoid loss of funds.
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-actions" style="margin-top: 30px;">
+                <button class="btn-secondary" onclick="closePaymentModal()">Cancel</button>
+                <button class="btn-primary" onclick="completePayment()">Confirm Payment</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedPlan = null;
+        let selectedPaymentMethod = null;
+
+        function openUpgradeModal() {
+            document.getElementById('upgradeOverlay').classList.add('active');
+        }
+
+        function closeUpgradeModal() {
+            document.getElementById('upgradeOverlay').classList.remove('active');
+            resetUpgradeModal();
+        }
+
+        function resetUpgradeModal() {
+            selectedPlan = null;
+            document.querySelectorAll('.plan-option').forEach(el => el.classList.remove('selected'));
+        }
+
+        function selectPlan(planId, price, duration) {
+            selectedPlan = { id: planId, price, duration };
+            document.querySelectorAll('.plan-option').forEach(el => el.classList.remove('selected'));
+            event.target.closest('.plan-option').classList.add('selected');
+        }
+
+        function proceedToPayment() {
+            if (!selectedPlan) {
+                alert('Please select a plan first');
+                return;
+            }
+
+            // Update step indicators
+            document.getElementById('step1').classList.remove('active');
+            document.getElementById('step2').classList.add('active');
+
+            // Update payment modal details
+            const planNames = {
+                'daily': 'Daily Plan',
+                '3days': '3 Days Plan',
+                'weekly': 'Weekly Plan',
+                'monthly': 'Monthly Plan',
+                '6months': '6 Months Plan',
+                'lifetime': 'Lifetime Plan'
+            };
+
+            document.getElementById('paymentPlanName').textContent = planNames[selectedPlan.id];
+            document.getElementById('paymentAmount').textContent = selectedPlan.price;
+            document.getElementById('paymentDuration').textContent = selectedPlan.duration;
+
+            closeUpgradeModal();
+            openPaymentModal();
+        }
+
+        function openPaymentModal() {
+            document.getElementById('paymentOverlay').classList.add('active');
+        }
+
+        function closePaymentModal() {
+            document.getElementById('paymentOverlay').classList.remove('active');
+            resetPaymentModal();
+        }
+
+        function resetPaymentModal() {
+            selectedPaymentMethod = null;
+            document.querySelectorAll('.payment-method').forEach(el => el.classList.remove('selected'));
+            document.getElementById('paymentMethodDetails').style.display = 'none';
+            document.getElementById('mpesaDetails').style.display = 'none';
+            document.getElementById('usdtDetails').style.display = 'none';
+        }
+
+        function selectPaymentMethod(method) {
+            selectedPaymentMethod = method;
+            document.querySelectorAll('.payment-method').forEach(el => el.classList.remove('selected'));
+            event.target.closest('.payment-method').classList.add('selected');
+
+            document.getElementById('paymentMethodDetails').style.display = 'block';
+            document.getElementById('mpesaDetails').style.display = method === 'mpesa' ? 'block' : 'none';
+            document.getElementById('usdtDetails').style.display = method === 'usdt' ? 'block' : 'none';
+        }
+
+        function copyToClipboard(text, label) {
+            navigator.clipboard.writeText(text).then(() => {
+                const successMsg = document.getElementById('copySuccess');
+                successMsg.textContent = `✓ ${label} copied to clipboard!`;
+                successMsg.classList.add('show');
+                setTimeout(() => {
+                    successMsg.classList.remove('show');
+                }, 2000);
+            });
+        }
+
+        function completePayment() {
+            if (!selectedPaymentMethod) {
+                alert('Please select a payment method');
+                return;
+            }
+
+            // Update step indicators
+            document.getElementById('payStep2').classList.remove('active');
+            document.getElementById('payStep3').classList.add('active');
+
+            // Show success message
+            const successMsg = document.getElementById('copySuccess');
+            successMsg.textContent = '✓ Payment submitted successfully!';
+            successMsg.classList.add('show');
+
+            setTimeout(() => {
+                alert('Payment received! Your premium access is now active. Enjoy all premium features!');
+                closePaymentModal();
+            }, 2000);
+        }
+    </script>
+</body>
+</html>

@@ -23,13 +23,13 @@ const PaymentModal = ({ isOpen, onClose, plan }: PaymentModalProps) => {
   };
 
   const mpesaDetails = {
-    paybill: "247247",
-    account: "123456",
+    paybill: "522522",
+    account: "1316780252",
     amount: plan?.price.replace("$", "") || "0",
   };
 
   const usdtDetails = {
-    address: "0x1234567890abcdef1234567890abcdef12345678",
+    address: "Coming Soon",
     network: "Tron (TRC20)",
     amount: plan?.price.replace("$", "") || "0",
   };

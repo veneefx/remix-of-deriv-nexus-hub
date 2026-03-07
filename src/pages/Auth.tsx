@@ -32,11 +32,11 @@ const Auth = () => {
           password,
           options: {
             data: { display_name: displayName },
-            emailRedirectTo: window.location.origin,
           },
         });
         if (error) throw error;
-        setSuccess("Check your email to confirm your account before signing in.");
+        setSuccess("Account created successfully! You can now sign in.");
+        setIsLogin(true);
       }
     } catch (err: any) {
       setError(err.message);

@@ -27,6 +27,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { usePremium } from "@/hooks/use-premium";
 import PremiumUpgradeModal from "@/components/trading/PremiumUpgradeModal";
+import AdminDashboard from "@/components/trading/AdminDashboard";
 
 const DERIV_APP_ID = "129344";
 
@@ -78,6 +79,7 @@ const TradingHub = () => {
   const isMobile = useIsMobile();
   const { isPremium, isAdmin } = usePremium();
   const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [showAdminDashboard, setShowAdminDashboard] = useState(false);
   const [premiumFeature, setPremiumFeature] = useState("");
 
   // Persist view selection
@@ -393,32 +395,15 @@ const TradingHub = () => {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar: Logo/Balance LEFT, risk icon, view dropdown CENTER, hamburger RIGHT */}
+        {/* Top bar: Logo LEFT, view dropdown CENTER, balance/connect RIGHT */}
         <header className="h-14 border-b border-border flex items-center justify-between px-4 bg-card/50 gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            {/* Logo or Balance */}
-            {balance !== null ? (
-              <button
-                onClick={() => setTokenManagerOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-card rounded-lg border border-border hover:bg-secondary transition-colors whitespace-nowrap"
-              >
-                <Wallet className="w-4 h-4 text-primary flex-shrink-0" />
-                <span className="text-xs font-bold text-foreground">
-                  {balance.toFixed(2)} {account?.currency || "USD"}
-                </span>
-                <ChevronDown className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-              </button>
-            ) : (
-              <div className="flex items-center gap-2">
-                <img src={logo} alt="DNexus" className="h-6" />
-                <span className="font-display text-sm font-bold">
-                  <span className="text-foreground">DN</span>
-                  <span className="text-primary">EXUS</span>
-                </span>
-              </div>
-            )}
-
-            <Link to="/risk" className="p-1.5 rounded-lg hover:bg-secondary transition-colors flex-shrink-0" title="Risk Disclosure">
+          <div className="flex items-center gap-2">
+            <img src={logo} alt="DNexus" className="h-6" />
+            <span className="font-display text-sm font-bold hidden sm:inline">
+              <span className="text-foreground">DN</span>
+              <span className="text-primary">EXUS</span>
+            </span>
+            <Link to="/risk" className="p-1.5 rounded-lg hover:bg-secondary transition-colors" title="Risk Disclosure">
               <AlertTriangle className="w-4 h-4 text-warning" />
             </Link>
           </div>
@@ -444,14 +429,36 @@ const TradingHub = () => {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Right: connection + hamburger */}
+          {/* Right: Balance/Connect + hamburger */}
           <div className="flex items-center gap-2">
             <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${wsConnected ? "bg-buy/20 text-buy" : "bg-sell/20 text-sell"}`}>
               {wsConnected ? "●" : "○"}
             </span>
-            {!account && !isMobile && (
-              <button onClick={handleLogin} className="px-3 py-1.5 bg-gradient-brand text-primary-foreground text-[10px] font-medium rounded-lg">
-                Connect
+            
+            {balance !== null ? (
+              <button
+                onClick={() => setTokenManagerOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-card rounded-lg border border-border hover:bg-secondary transition-colors whitespace-nowrap"
+              >
+                <Wallet className="w-4 h-4 text-primary flex-shrink-0" />
+                <span className="text-xs font-bold text-foreground">
+                  {balance.toFixed(2)} {account?.currency || "USD"}
+                </span>
+                <ChevronDown className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+              </button>
+            ) : (
+              <button onClick={handleLogin} className="px-4 py-1.5 bg-gradient-brand text-primary-foreground text-xs font-semibold rounded-lg hover-lift glow-red">
+                Connect Account
+              </button>
+            )}
+
+            {isAdmin && (
+              <button 
+                onClick={() => setShowAdminDashboard(true)}
+                className="p-1.5 rounded-lg hover:bg-secondary transition-colors text-primary"
+                title="Admin Dashboard"
+              >
+                <Shield className="w-5 h-5" />
               </button>
             )}
             <button className="p-1.5 rounded-lg hover:bg-secondary transition-colors text-foreground" onClick={() => setSidebarOpen(true)}>
@@ -563,6 +570,10 @@ const TradingHub = () => {
         isOpen={showPremiumModal}
         onClose={() => setShowPremiumModal(false)}
         featureName={premiumFeature}
+      />
+      <AdminDashboard 
+        isOpen={showAdminDashboard} 
+        onClose={() => setShowAdminDashboard(false)} 
       />
 
       {/* Token Manager Modal */}
