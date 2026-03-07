@@ -51,12 +51,12 @@ const LandingPage = () => {
 
             {/* Main Heading */}
             <motion.h1 
-              className="text-6xl sm:text-7xl md:text-8xl font-bold leading-[1.1] tracking-[-2px] text-white max-w-4xl"
+              className="text-7xl sm:text-8xl md:text-9xl font-black leading-[1.0] tracking-[-3px] text-white max-w-5xl uppercase"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.1 }}
             >
-              Trading made easier
+              <span className="text-[1.2em]">T</span>rading made easier
             </motion.h1>
 
             {/* Subheading */}
