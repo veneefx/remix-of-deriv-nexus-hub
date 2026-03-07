@@ -16,7 +16,7 @@ const navItems = [
     ],
   },
   { label: "Education", path: "/education" },
-  { label: "Market Tracker", path: "/signals" },
+  { label: "Market Tracker", path: "/#market-tracker" },
   { label: "Charts", path: "/signals" },
   {
     label: "Account",
@@ -31,7 +31,16 @@ const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -51,50 +60,62 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="sticky top-0 z-50 py-3 px-4">
-      <div className="max-w-[1400px] mx-auto">
-        <div className="flex h-[60px] items-center justify-between px-6 sm:px-8 bg-card/70 backdrop-blur-md border border-border/50 rounded-full shadow-lg shadow-black/10">
-          <Link to="/" className="flex items-center gap-2">
-            <img src={logo} alt="DNexus" className="h-7" />
-            <span className="font-display text-base font-bold">
-              <span className="text-foreground">DN</span>
-              <span className="text-primary">EXUS</span>
+    <nav className={`fixed top-0 left-0 right-0 z-[60] transition-all duration-300 ${scrolled ? "py-4" : "py-6"}`}>
+      <div className="max-w-[1400px] mx-auto px-6 sm:px-8">
+        <div className={`flex h-[72px] items-center justify-between px-8 bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl transition-all duration-300 ${scrolled ? "shadow-black/40" : ""}`}>
+          <Link to="/" className="flex items-center gap-3 group">
+            <img src={logo} alt="DNexus" className="h-9 transition-transform duration-300 group-hover:scale-110" />
+            <span className="font-bold text-xl tracking-tight text-white uppercase">
+              DNexus
             </span>
           </Link>
 
-          <div className="hidden lg:flex items-center gap-0.5">
+          <div className="hidden lg:flex items-center gap-2">
             {navItems.map((item) => (
-              <div key={item.label} className="relative">
+              <div key={item.label} className="relative group/nav">
                 {item.children ? (
-                  <button
-                    className={`flex items-center gap-1 px-3.5 py-2 text-[13px] font-medium transition-colors hover:text-foreground rounded-full ${
-                      item.children.some((c) => c.path === location.pathname) ? "text-primary" : "text-secondary-foreground"
-                    }`}
+                  <div
+                    className="relative"
                     onMouseEnter={() => setOpenDropdown(item.label)}
                     onMouseLeave={() => setOpenDropdown(null)}
                   >
-                    {item.label}
-                    <ChevronDown className="w-3 h-3" />
+                    <button
+                      className={`flex items-center gap-1.5 px-4 py-2 text-sm font-bold uppercase tracking-wider transition-all hover:text-[#e41f28] ${
+                        item.children.some((c) => c.path === location.pathname) ? "text-[#e41f28]" : "text-gray-300"
+                      }`}
+                    >
+                      {item.label}
+                      <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${openDropdown === item.label ? "rotate-180" : ""}`} />
+                    </button>
                     <AnimatePresence>
                       {openDropdown === item.label && (
                         <motion.div
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 8 }}
-                          transition={{ duration: 0.15 }}
-                          className="absolute top-full left-0 mt-2 w-48 bg-card/95 backdrop-blur-xl border border-border/50 rounded-xl shadow-2xl shadow-black/20 overflow-hidden z-50"
+                          initial={{ opacity: 0, y: 15, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 15, scale: 0.95 }}
+                          transition={{ duration: 0.2, ease: "easeOut" }}
+                          className="absolute top-full left-0 mt-3 w-56 bg-black/90 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50 p-2"
                         >
                           {item.children.map((child) => (
-                            <Link key={child.path} to={child.path} className="block px-4 py-2.5 text-[13px] text-secondary-foreground hover:bg-secondary hover:text-primary transition-colors">
+                            <Link 
+                              key={child.path} 
+                              to={child.path} 
+                              className="block px-4 py-3 text-sm font-bold text-gray-400 hover:bg-[#e41f28]/10 hover:text-[#e41f28] rounded-xl transition-all uppercase tracking-wider"
+                            >
                               {child.label}
                             </Link>
                           ))}
                         </motion.div>
                       )}
                     </AnimatePresence>
-                  </button>
+                  </div>
                 ) : (
-                  <Link to={item.path} className={`px-3.5 py-2 text-[13px] font-medium transition-colors hover:text-foreground rounded-full ${location.pathname === item.path ? "text-primary" : "text-secondary-foreground"}`}>
+                  <Link 
+                    to={item.path} 
+                    className={`px-4 py-2 text-sm font-bold uppercase tracking-wider transition-all hover:text-[#e41f28] ${
+                      location.pathname === item.path ? "text-[#e41f28]" : "text-gray-300"
+                    }`}
+                  >
                     {item.label}
                   </Link>
                 )}
@@ -102,79 +123,126 @@ const Navbar = () => {
             ))}
           </div>
 
-          <div className="hidden lg:flex items-center gap-3">
+          <div className="hidden lg:flex items-center gap-4">
             {isAuthenticated ? (
-              <>
-                <Link to="/trading" className="flex items-center gap-2 h-10 px-5 bg-gradient-brand text-primary-foreground font-semibold text-[13px] rounded-lg hover-lift glow-red">
+              <div className="flex items-center gap-3">
+                <Link 
+                  to="/trading" 
+                  className="flex items-center gap-2 h-12 px-8 bg-[#e41f28] text-white font-bold text-sm rounded-xl hover:bg-[#ff3333] transition-all transform hover:scale-105 shadow-lg shadow-[#e41f28]/20 uppercase tracking-widest"
+                >
                   Trading Hub
-                  <TrendingUp className="w-3.5 h-3.5" />
+                  <TrendingUp className="w-4 h-4" />
                 </Link>
                 <button
                   onClick={handleSignOut}
-                  className="flex items-center gap-2 h-10 px-5 border border-border text-foreground font-medium text-[13px] rounded-lg hover:bg-secondary transition-colors"
+                  className="flex items-center justify-center w-12 h-12 border border-white/10 text-white rounded-xl hover:bg-white/10 transition-all"
+                  title="Sign Out"
                 >
-                  <LogOut className="w-3.5 h-3.5" />
-                  Sign Out
+                  <LogOut className="w-5 h-5" />
                 </button>
-              </>
+              </div>
             ) : (
-              <>
-                <Link to="/auth" className="flex items-center gap-2 h-10 px-5 border border-border text-foreground font-medium text-[13px] rounded-lg hover:bg-secondary transition-colors">
+              <div className="flex items-center gap-3">
+                <Link 
+                  to="/auth" 
+                  className="px-6 py-2 text-sm font-bold text-white hover:text-[#e41f28] transition-all uppercase tracking-widest"
+                >
                   Login
                 </Link>
-                <Link to="/trading" className="flex items-center gap-2 h-10 px-5 bg-gradient-brand text-primary-foreground font-semibold text-[13px] rounded-lg hover-lift glow-red">
+                <Link 
+                  to="/trading" 
+                  className="flex items-center gap-2 h-12 px-8 bg-[#e41f28] text-white font-bold text-sm rounded-xl hover:bg-[#ff3333] transition-all transform hover:scale-105 shadow-lg shadow-[#e41f28]/20 uppercase tracking-widest"
+                >
                   Trading Hub
-                  <TrendingUp className="w-3.5 h-3.5" />
+                  <TrendingUp className="w-4 h-4" />
                 </Link>
-              </>
+              </div>
             )}
           </div>
 
-          <button className="lg:hidden text-foreground" onClick={() => setMobileOpen(!mobileOpen)}>
-            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          <button 
+            className="lg:hidden w-12 h-12 flex items-center justify-center text-white bg-white/5 rounded-xl border border-white/10" 
+            onClick={() => setMobileOpen(!mobileOpen)}
+          >
+            {mobileOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
         </div>
       </div>
 
       <AnimatePresence>
         {mobileOpen && (
-          <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="lg:hidden mt-2 mx-4 bg-card/95 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl overflow-hidden">
-            <div className="p-4 space-y-1">
+          <motion.div 
+            initial={{ opacity: 0, x: 100 }} 
+            animate={{ opacity: 1, x: 0 }} 
+            exit={{ opacity: 0, x: 100 }} 
+            className="fixed inset-0 z-[70] lg:hidden bg-black/95 backdrop-blur-2xl p-8"
+          >
+            <div className="flex justify-between items-center mb-12">
+              <Link to="/" className="flex items-center gap-3" onClick={() => setMobileOpen(false)}>
+                <img src={logo} alt="DNexus" className="h-9" />
+                <span className="font-bold text-xl text-white uppercase">DNexus</span>
+              </Link>
+              <button className="w-12 h-12 flex items-center justify-center text-white bg-white/5 rounded-xl" onClick={() => setMobileOpen(false)}>
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-6">
               {navItems.map((item) => (
-                <div key={item.label}>
+                <div key={item.label} className="space-y-4">
                   {item.children ? (
                     <>
-                      <p className="px-3 py-2 text-xs text-muted-foreground font-medium uppercase tracking-wider">{item.label}</p>
-                      {item.children.map((child) => (
-                        <Link key={child.path} to={child.path} className="block pl-6 py-2 text-sm text-secondary-foreground hover:text-primary rounded-lg" onClick={() => setMobileOpen(false)}>
-                          {child.label}
-                        </Link>
-                      ))}
+                      <p className="text-xs text-[#e41f28] font-bold uppercase tracking-[0.2em]">{item.label}</p>
+                      <div className="grid grid-cols-1 gap-4 pl-4">
+                        {item.children.map((child) => (
+                          <Link 
+                            key={child.path} 
+                            to={child.path} 
+                            className="text-2xl font-bold text-white hover:text-[#e41f28] transition-all uppercase" 
+                            onClick={() => setMobileOpen(false)}
+                          >
+                            {child.label}
+                          </Link>
+                        ))}
+                      </div>
                     </>
                   ) : (
-                    <Link to={item.path} className="block px-3 py-2 text-sm text-secondary-foreground hover:text-primary rounded-lg" onClick={() => setMobileOpen(false)}>
+                    <Link 
+                      to={item.path} 
+                      className="block text-3xl font-bold text-white hover:text-[#e41f28] transition-all uppercase" 
+                      onClick={() => setMobileOpen(false)}
+                    >
                       {item.label}
                     </Link>
                   )}
                 </div>
               ))}
-              {isAuthenticated ? (
-                <>
-                  <Link to="/trading" className="block text-center mt-3 px-5 py-2.5 bg-gradient-brand text-primary-foreground font-semibold text-sm rounded-xl" onClick={() => setMobileOpen(false)}>
-                    Trading Hub →
-                  </Link>
+              
+              <div className="pt-12 flex flex-col gap-4">
+                <Link 
+                  to="/trading" 
+                  className="w-full py-5 bg-[#e41f28] text-white font-bold text-center rounded-2xl text-xl shadow-xl shadow-[#e41f28]/20 uppercase tracking-widest" 
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Trading Hub
+                </Link>
+                {isAuthenticated ? (
                   <button
                     onClick={() => { handleSignOut(); setMobileOpen(false); }}
-                    className="block w-full text-center mt-2 px-5 py-2.5 border border-border text-foreground font-semibold text-sm rounded-xl hover:bg-secondary transition-colors"
+                    className="w-full py-5 border-2 border-white/10 text-white font-bold rounded-2xl text-xl uppercase tracking-widest"
                   >
                     Sign Out
                   </button>
-                </>
-              ) : (
-                <Link to="/trading" className="block text-center mt-3 px-5 py-2.5 bg-gradient-brand text-primary-foreground font-semibold text-sm rounded-xl" onClick={() => setMobileOpen(false)}>
-                  Trading Hub →
-                </Link>
-              )}
+                ) : (
+                  <Link 
+                    to="/auth" 
+                    className="w-full py-5 border-2 border-white/10 text-white font-bold text-center rounded-2xl text-xl uppercase tracking-widest" 
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Login
+                  </Link>
+                )}
+              </div>
             </div>
           </motion.div>
         )}
