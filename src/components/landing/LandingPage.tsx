@@ -4,11 +4,16 @@ import { Link } from "react-router-dom";
 import MarketTracker from "@/components/trading/MarketTracker";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import derivRiseFall from "@/assets/deriv-risefall.webp";
-import derivAccumulators from "@/assets/deriv-accumulators.webp";
-import derivGold from "@/assets/deriv-gold.webp";
-import traderNight from "@/assets/trader-night.webp";
-import partnerNetwork from "@/assets/partner-network.png";
+
+// Reference images from the site
+const tradeOnImg = "https://dtnexusapp.com/_next/static/media/trade_on2.b04695d6.png";
+const partnersImg = "https://dtnexusapp.com/_next/static/media/partners-portrait.9046d76e.png";
+const aiImg = "https://dtnexusapp.com/_next/static/media/ai-portrait.8d2ce3d6.png";
+const signalsImg = "https://dtnexusapp.com/_next/static/media/signals-portrait.1893b487.png";
+const heroMobileImg = "https://dtnexusapp.com/_next/static/media/hero_mobile.8dca3f44.png";
+const whyTradeImg = "https://dtnexusapp.com/_next/static/media/why_trade.249cb2ad.png";
+const worldwideImg = "https://dtnexusapp.com/_next/static/media/ig-portrait.44c3f5f9.png";
+const faqImg = "https://dtnexusapp.com/_next/static/media/faq.0a41727c.png";
 
 const DERIV_AFFILIATE_LINK = "https://deriv.com/?t=xA1buvJrGeASmsCwn5r1F2Nd7ZgqdRLk&utm_source=affiliate_187242&utm_medium=affiliate&utm_campaign=MyAffiliates&utm_content=&referrer=";
 
@@ -19,411 +24,248 @@ const fadeUp = {
   transition: { duration: 0.6 },
 };
 
-const features = [
-  { icon: Brain, title: "AI Trading", desc: "Advanced machine learning algorithms" },
-  { icon: BarChart3, title: "Premium Signals", desc: "Expert-curated trading opportunities" },
-  { icon: Users, title: "Partners Program", desc: "Earn commissions with our affiliate network" },
-];
-
 const LandingPage = () => {
   return (
-    <div className="min-h-screen bg-[#141414] flex flex-col font-['Poppins']" style={{ colorScheme: "dark" }}>
+    <div className="min-h-screen bg-[#141414] flex flex-col font-['Poppins'] text-[#b6b6b6]">
       <Navbar />
 
-      {/* Hero Section - Exact Centered Design */}
-      <section className="relative overflow-hidden min-h-[90vh] flex items-center justify-center bg-[#141414]">
-        {/* Grid Background */}
-        <div className="absolute inset-0 z-0 opacity-20" 
-             style={{ backgroundImage: 'radial-gradient(#333 1px, transparent 1px)', backgroundSize: '40px 40px' }}>
+      {/* Hero Section */}
+      <section className="relative pt-32 pb-20 overflow-hidden bg-[#141414]">
+        <div className="absolute inset-0 z-0 opacity-10" 
+             style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '60px 60px' }}>
         </div>
-
-        {/* Background gradient effect */}
-        <div className="absolute inset-0 opacity-30 z-0">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-br from-[#e41f28]/20 via-transparent to-transparent rounded-full blur-[150px]" />
-        </div>
-
-        <div className="w-full max-w-[1200px] mx-auto px-6 sm:px-8 relative py-20 lg:py-0 z-10">
-          <div className="flex flex-col items-center text-center space-y-8">
-            {/* Badge */}
+        
+        <div className="max-w-[1320px] mx-auto px-6 relative z-10">
+          <div className="flex flex-col items-center text-center">
             <motion.div 
-              className="inline-block px-4 py-2 rounded-full border border-[#00d4ff]/30 bg-[#00d4ff]/5"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#00d4ff]/10 border border-[#00d4ff]/20 mb-8"
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
             >
-              <span className="text-xs font-medium text-[#00d4ff]">🚀 Next-Gen Trading Platform</span>
+              <span className="text-xs font-bold text-[#00d4ff] uppercase tracking-wider">🚀 Next-Gen Trading Platform</span>
             </motion.div>
 
-            {/* Main Heading */}
             <motion.h1 
-              className="text-5xl sm:text-7xl md:text-8xl font-bold leading-[1.1] tracking-tight text-white max-w-5xl"
-              initial={{ opacity: 0, y: 30 }}
+              className="text-5xl md:text-7xl lg:text-[72px] font-bold text-white leading-[1.2] mb-8 max-w-[900px] font-['Open_Sans']"
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.1 }}
+              transition={{ delay: 0.2 }}
             >
               Trading made easier
             </motion.h1>
 
-            {/* Subheading */}
             <motion.p 
-              className="text-base sm:text-lg text-gray-300 leading-relaxed max-w-[750px]"
-              initial={{ opacity: 0, y: 30 }}
+              className="text-lg md:text-xl text-[#b6b6b6] max-w-[800px] mb-12 leading-relaxed"
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.2 }}
+              transition={{ delay: 0.3 }}
             >
               Experience AI-powered analytics, automated trading strategies, professional signals, and secure account management - all in one unified platform.
             </motion.p>
 
-            {/* CTA Buttons */}
             <motion.div 
-              className="flex flex-col sm:flex-row gap-4 justify-center pt-4"
-              initial={{ opacity: 0, y: 30 }}
+              className="flex flex-wrap justify-center gap-4 mb-20"
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.3 }}
+              transition={{ delay: 0.4 }}
             >
-              <Link 
-                to="/trading" 
-                className="inline-flex items-center justify-center gap-2 h-[56px] px-8 bg-[#e41f28] text-white font-semibold rounded-xl hover:bg-[#ff3333] transition-all transform hover:scale-105 text-lg"
-              >
+              <Link to="/trading" className="px-8 py-4 bg-[#e41f28] text-white font-bold rounded-xl hover:bg-[#ff3333] transition-all flex items-center gap-2">
                 Start Trading Now <ArrowRight className="w-5 h-5" />
               </Link>
-              <a 
-                href={DERIV_AFFILIATE_LINK} 
-                target="_blank" 
-                rel="noopener" 
-                className="inline-flex items-center justify-center gap-2 h-[56px] px-8 bg-[#e41f28] text-white font-semibold rounded-xl hover:bg-[#ff3333] transition-all transform hover:scale-105 text-lg"
-              >
+              <a href={DERIV_AFFILIATE_LINK} target="_blank" rel="noopener" className="px-8 py-4 bg-[#e41f28] text-white font-bold rounded-xl hover:bg-[#ff3333] transition-all">
                 Create Free Deriv Account
               </a>
             </motion.div>
 
-            {/* Feature Icons */}
-            <motion.div 
-              className="flex flex-wrap gap-8 sm:gap-16 justify-center pt-12"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7, delay: 0.4 }}
-            >
-              {features.map((f) => (
-                <div key={f.title} className="flex flex-col items-center gap-3">
-                  <div className="w-[64px] h-[64px] rounded-2xl bg-[#1a2332]/60 flex items-center justify-center border border-[#00d4ff]/20">
-                    <f.icon className="w-7 h-7 text-[#00d4ff]" />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-[1000px] mb-20">
+              {[
+                { icon: Brain, title: "AI Trading", desc: "Advanced machine learning algorithms" },
+                { icon: BarChart3, title: "Premium Signals", desc: "Expert-curated trading opportunities" },
+                { icon: Users, title: "Partners Program", desc: "Earn commissions with our affiliate network" }
+              ].map((f, i) => (
+                <motion.div key={i} className="flex flex-col items-center p-6 rounded-2xl bg-white/5 border border-white/10" {...fadeUp}>
+                  <div className="w-12 h-12 rounded-xl bg-[#00d4ff]/10 flex items-center justify-center mb-4">
+                    <f.icon className="w-6 h-6 text-[#00d4ff]" />
                   </div>
-                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">{f.title}</h3>
-                  <p className="text-xs text-gray-400 text-center max-w-[140px] leading-relaxed">{f.desc}</p>
-                </div>
+                  <h3 className="text-white font-bold mb-2 uppercase tracking-wider text-sm">{f.title}</h3>
+                  <p className="text-sm text-[#b6b6b6]">{f.desc}</p>
+                </motion.div>
               ))}
-            </motion.div>
+            </div>
 
-            {/* Video Preview Button */}
-            <motion.div
-              className="pt-12 flex flex-col items-center gap-4"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6 }}
-            >
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                   <div className="absolute inset-0 bg-[#e41f28] rounded-full animate-ping opacity-20"></div>
-                   <button className="w-12 h-12 rounded-full bg-[#e41f28] flex items-center justify-center relative z-10">
-                     <Play className="w-5 h-5 text-white fill-white" />
-                   </button>
-                </div>
-                <div className="text-left">
-                  <p className="text-white font-medium">Let's See how</p>
-                  <p className="text-gray-400 text-sm">we did it</p>
-                </div>
+            <motion.div className="flex items-center gap-4" {...fadeUp}>
+              <div className="w-12 h-12 rounded-full bg-[#e41f28] flex items-center justify-center animate-pulse">
+                <Play className="w-5 h-5 text-white fill-white" />
+              </div>
+              <div className="text-left">
+                <p className="text-white font-bold">Let's See how</p>
+                <p className="text-sm text-[#b6b6b6]">we did it</p>
               </div>
             </motion.div>
           </div>
         </div>
       </section>
 
-      {/* Next-Gen Platform Section */}
-      <section className="py-24 bg-[#141414] relative overflow-hidden">
-        <div className="max-w-[1200px] mx-auto px-6 sm:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            {/* Left side - Rocket Illustration & Charts */}
-            <motion.div
-              className="relative flex justify-center lg:justify-start"
-              initial={{ opacity: 0, x: -40 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8 }}
-            >
-              <div className="relative w-full max-w-[500px]">
-                <div className="absolute inset-0 bg-gradient-to-r from-[#e41f28]/10 to-transparent blur-3xl rounded-full"></div>
-                <img 
-                  src={derivRiseFall} 
-                  alt="Next-Gen Trading Platform" 
-                  className="relative z-10 w-full"
-                />
-              </div>
+      {/* Trade On Our Platform */}
+      <section className="py-32 bg-black relative">
+        <div className="max-w-[1320px] mx-auto px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+            <motion.div {...fadeUp}>
+              <img src={tradeOnImg} alt="Platform" className="w-full rounded-3xl shadow-2xl" />
             </motion.div>
-
-            {/* Right side - Content */}
-            <motion.div
-              className="space-y-8"
-              initial={{ opacity: 0, x: 40 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8 }}
-            >
+            <motion.div {...fadeUp} className="space-y-8">
               <div>
-                <span className="text-[#e41f28] font-bold text-sm uppercase tracking-[0.2em]">Trade On Our</span>
-                <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mt-4 leading-tight">Next-Gen Trading Platform</h2>
+                <span className="text-[#e41f28] font-bold uppercase tracking-[0.2em] text-sm">Trade On Our</span>
+                <h2 className="text-4xl md:text-6xl font-bold text-white mt-4 font-['Open_Sans']">Next-Gen Trading Platform</h2>
               </div>
-
-              <p className="text-gray-400 leading-relaxed text-lg">
+              <p className="text-lg leading-relaxed">
                 Experience the future of trading with our cutting-edge platform powered by advanced algorithms and AI. From lightning-fast high-frequency trading to sophisticated quantitative strategies, our tools give you the edge in today's competitive markets.
               </p>
-
-              <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 {[
                   { title: "High-Frequency Trading", desc: "Execute trades in microseconds" },
                   { title: "Algorithmic Bots", desc: "Automate your trading strategies 24/7" },
                   { title: "Powerful Deriv Trading", desc: "Access global derivatives markets" },
-                  { title: "AI-Powered Quant Trading", desc: "Machine learning models predict market movements" },
-                ].map((item, idx) => (
-                  <div key={idx} className="flex gap-4 items-start group">
-                    <div className="w-10 h-10 rounded-xl bg-[#e41f28]/10 flex items-center justify-center flex-shrink-0 mt-1 group-hover:bg-[#e41f28]/20 transition-colors">
-                      <Zap className="w-5 h-5 text-[#e41f28]" />
-                    </div>
+                  { title: "AI-Powered Quant Trading", desc: "Machine learning models predict market movements" }
+                ].map((item, i) => (
+                  <div key={i} className="flex gap-4">
+                    <Zap className="w-6 h-6 text-[#e41f28] shrink-0" />
                     <div>
-                      <p className="font-bold text-white text-lg">{item.title}</p>
-                      <p className="text-gray-400">{item.desc}</p>
+                      <h4 className="text-white font-bold mb-1">{item.title}</h4>
+                      <p className="text-sm">{item.desc}</p>
                     </div>
                   </div>
                 ))}
               </div>
-
-              <div className="flex flex-col sm:flex-row gap-4 pt-6">
-                <Link 
-                  to="/trading" 
-                  className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-[#e41f28] text-white font-bold rounded-xl hover:bg-[#ff3333] transition-all transform hover:translate-y-[-2px]"
-                >
-                  Access Trading Hub <ArrowRight className="w-5 h-5" />
-                </Link>
-                <a 
-                  href={DERIV_AFFILIATE_LINK} 
-                  target="_blank" 
-                  rel="noopener" 
-                  className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-[#e41f28] text-white font-bold rounded-xl hover:bg-[#ff3333] transition-all transform hover:translate-y-[-2px]"
-                >
-                  Sync With Deriv <ArrowRight className="w-5 h-5" />
-                </a>
+              <div className="flex gap-4 pt-4">
+                <Link to="/trading" className="px-8 py-4 bg-[#e41f28] text-white font-bold rounded-xl hover:bg-[#ff3333] transition-all">Access Trading Hub</Link>
+                <a href={DERIV_AFFILIATE_LINK} target="_blank" rel="noopener" className="px-8 py-4 border border-[#e41f28] text-white font-bold rounded-xl hover:bg-[#e41f28] transition-all">Sync With Deriv</a>
               </div>
             </motion.div>
           </div>
         </div>
       </section>
 
-      {/* Our Platform Section (Stats & Cards) */}
-      <section className="py-24 bg-[#f5a5a5]">
-        <div className="max-w-[1400px] mx-auto px-6 sm:px-8">
-          <motion.div className="text-center mb-16" {...fadeUp}>
-            <span className="text-sm text-[#e41f28] font-bold uppercase tracking-[0.3em]">Our Platform</span>
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mt-6 max-w-3xl mx-auto leading-tight">
-              Access our comprehensive suite of trading tools
-            </h2>
-            <p className="text-gray-700 mt-6 text-lg max-w-2xl mx-auto">
-              From AI-powered analytics to professional signals and secure account management.
-            </p>
-          </motion.div>
+      {/* Our Platform (Pink Section) */}
+      <section className="py-32 bg-[#f38589] text-black">
+        <div className="max-w-[1320px] mx-auto px-6">
+          <div className="text-center mb-20">
+            <span className="font-bold uppercase tracking-[0.2em] text-sm">Our Platform</span>
+            <h2 className="text-4xl md:text-6xl font-bold mt-4 font-['Open_Sans']">Access our comprehensive suite of trading tools</h2>
+          </div>
 
-          {/* Stats Section */}
-          <motion.div className="p-10 rounded-[2rem] bg-gray-900 mb-20 shadow-2xl" {...fadeUp}>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
-              {[
-                { icon: Activity, value: "12K+", label: "Active Traders" },
-                { icon: Zap, value: "99.9%", label: "Uptime" },
-                { icon: Star, value: "4.9/5", label: "User Rating" },
-                { icon: Lock, value: "256-bit", label: "Encryption" },
-              ].map((s) => (
-                <div key={s.label} className="flex flex-col items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-[#e41f28]/20 flex items-center justify-center mb-2">
-                    <s.icon className="w-6 h-6 text-[#e41f28]" />
-                  </div>
-                  <p className="text-3xl font-bold text-white">{s.value}</p>
-                  <p className="text-sm text-gray-400 uppercase tracking-widest">{s.label}</p>
-                </div>
-              ))}
-            </div>
-          </motion.div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-20">
+            {[
+              { val: "12K+", label: "Active Traders" },
+              { val: "99.9%", label: "Uptime" },
+              { val: "4.9/5", label: "User Rating" },
+              { val: "256-bit", label: "Encryption" }
+            ].map((s, i) => (
+              <div key={i} className="text-center p-8 rounded-3xl bg-black/5">
+                <div className="text-3xl md:text-5xl font-bold mb-2 font-['Open_Sans']">{s.val}</div>
+                <div className="font-medium text-black/60 uppercase tracking-wider text-xs">{s.label}</div>
+              </div>
+            ))}
+          </div>
 
-          {/* Platform Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              {
-                title: "Partners Program",
-                icon: Users,
-                badge: "Popular",
-                desc: "Partner with DNexus and earn competitive commissions while helping traders succeed. Access advanced tracking, real-time analytics, and dedicated support.",
-                features: ["Competitive commission rates", "Real-time tracking dashboard", "Advanced analytics & reporting", "Dedicated partner support", "Marketing materials & tools"],
-              },
-              {
-                title: "AI Trading Assistant",
-                icon: Brain,
-                badge: "New",
-                desc: "Our AI system analyzes market patterns, predicts trends, and provides intelligent trading recommendations. Get real-time insights and automated strategy execution.",
-                features: ["Market pattern recognition", "Predictive analytics", "Automated strategy execution", "Risk management AI", "Real-time market insights"],
-              },
-              {
-                title: "Premium Signals",
-                icon: BarChart3,
-                badge: "Premium",
-                desc: "Access professional-grade trading signals with high accuracy rates. Our expert analysts provide detailed analysis and entry/exit points for optimal trading performance.",
-                features: ["High-accuracy signals", "Real-time notifications", "Detailed analysis reports", "Risk-reward ratios", "24/7 market coverage"],
-              },
-            ].map((card, i) => (
-              <motion.div
-                key={card.title}
-                className="p-8 rounded-[2rem] bg-white border border-gray-100 shadow-xl hover:shadow-2xl transition-all group"
-                {...fadeUp}
-                transition={{ delay: i * 0.1 }}
-              >
-                <div className="flex items-center justify-between mb-8">
-                  <div className="w-16 h-16 rounded-2xl bg-[#e41f28]/10 flex items-center justify-center group-hover:bg-[#e41f28] transition-colors">
-                    <card.icon className="w-8 h-8 text-[#e41f28] group-hover:text-white transition-colors" />
+              { title: "Partners Program", img: partnersImg, badge: "Popular", color: "bg-blue-500" },
+              { title: "AI Trading Assistant", img: aiImg, badge: "New", color: "bg-green-500" },
+              { title: "Premium Signals", img: signalsImg, badge: "Premium", color: "bg-purple-500" }
+            ].map((p, i) => (
+              <motion.div key={i} className="bg-white rounded-[32px] overflow-hidden flex flex-col" {...fadeUp}>
+                <div className="p-8 pb-0">
+                  <div className="flex justify-between items-start mb-4">
+                    <h3 className="text-2xl font-bold font-['Open_Sans']">{p.title}</h3>
+                    <span className={`${p.color} text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase`}>{p.badge}</span>
                   </div>
-                  <span className="text-xs font-bold text-[#e41f28] bg-[#e41f28]/10 px-4 py-1.5 rounded-full uppercase tracking-wider">{card.badge}</span>
+                  <p className="text-sm text-black/60 mb-8 leading-relaxed">Join our affiliate network and earn competitive commissions while helping traders succeed.</p>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">{card.title}</h3>
-                <p className="text-gray-600 mb-8 leading-relaxed">{card.desc}</p>
-                <ul className="space-y-4 mb-10">
-                  {card.features.map((f) => (
-                    <li key={f} className="flex items-start gap-3 text-sm text-gray-600">
-                      <span className="text-[#e41f28] font-bold">✓</span> {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link 
-                  to="/trading" 
-                  className="inline-flex items-center justify-center w-full px-6 py-4 bg-[#e41f28] text-white font-bold rounded-xl hover:bg-[#ff3333] transition-all"
-                >
-                  Access Platform <ArrowRight className="w-5 h-5 ml-2" />
-                </Link>
+                <div className="mt-auto px-8 pb-8">
+                   <Link to="/trading" className="w-full py-4 bg-black text-white font-bold rounded-2xl flex items-center justify-center gap-2 hover:bg-black/80 transition-all">Access Platform</Link>
+                </div>
+                <img src={p.img} alt={p.title} className="w-full h-auto object-cover" />
               </motion.div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Account Management Section */}
-      <section className="py-24 bg-[#f5a5a5]">
-        <div className="max-w-[1200px] mx-auto px-6 sm:px-8">
-          <motion.div
-            className="bg-gray-900 rounded-[3rem] p-12 md:p-16 shadow-2xl relative overflow-hidden"
-            initial={{ opacity: 0, y: 40 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-          >
-            <div className="absolute top-0 right-0 w-64 h-64 bg-[#00d4ff]/10 blur-[100px] rounded-full -mr-32 -mt-32"></div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
+      {/* Why Trade Section */}
+      <section className="py-32 bg-[#f38589] text-black">
+        <div className="max-w-[1320px] mx-auto px-6">
+          <div className="bg-[#141414] rounded-[40px] p-8 md:p-20 text-white relative overflow-hidden">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-10">
               <div className="space-y-8">
-                <h3 className="text-4xl md:text-5xl font-bold text-white leading-tight">Centralized Account Management</h3>
-                <p className="text-gray-400 text-lg leading-relaxed">
-                  Manage your account, billing, and preferences from one secure dashboard. Access all DNexus services with single sign-on authentication.
+                <div>
+                  <span className="text-[#e41f28] font-bold uppercase tracking-[0.2em] text-sm">Why Trade With DNexus</span>
+                  <h2 className="text-4xl md:text-6xl font-bold mt-4 font-['Open_Sans']">Experience lightning-fast execution</h2>
+                </div>
+                <p className="text-lg text-[#b6b6b6] leading-relaxed">
+                  Our platform combines cutting-edge technology with proven strategies to elevate your trading performance. Experience lightning-fast execution, advanced automation, and data-driven insights at zero cost.
                 </p>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <Link 
-                    to="/trading" 
-                    className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-[#e41f28] text-white font-bold rounded-xl hover:bg-[#ff3333] transition-all"
-                  >
-                    Account Dashboard
-                  </Link>
-                  <Link 
-                    to="/trading" 
-                    className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-transparent border-2 border-gray-700 text-white font-bold rounded-xl hover:bg-gray-800 transition-all"
-                  >
-                    Billing & Subscriptions
-                  </Link>
-                </div>
+                <Link to="/trading" className="inline-flex px-8 py-4 bg-[#e41f28] text-white font-bold rounded-xl hover:bg-[#ff3333] transition-all">Learn More</Link>
               </div>
-              <motion.div
-                className="bg-white/5 backdrop-blur-sm rounded-3xl p-10 border border-white/10"
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.8 }}
-              >
-                <div className="w-16 h-16 rounded-2xl bg-[#00d4ff]/20 flex items-center justify-center mb-6">
-                  <Shield className="w-8 h-8 text-[#00d4ff]" />
-                </div>
-                <h4 className="text-2xl font-bold text-white mb-4">Enterprise Security</h4>
-                <p className="text-gray-400 text-lg leading-relaxed">Bank-level encryption & compliance to keep your assets and data safe 24/7.</p>
-              </motion.div>
+              <img src={whyTradeImg} alt="Why Trade" className="w-full rounded-3xl" />
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
-      {/* Market Tracker Section */}
-      <section className="py-24 bg-[#141414]" id="market-tracker">
-        <div className="max-w-[1400px] mx-auto px-6 sm:px-8">
-          <motion.div
-            className="text-center mb-16"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
-            <span className="text-sm text-[#e41f28] font-bold uppercase tracking-[0.3em]">Live Markets</span>
-            <h2 className="text-4xl md:text-5xl font-bold text-white mt-6 leading-tight">Comprehensive Currency Market Tracker</h2>
-            <p className="text-gray-400 mt-6 text-lg">Real-time market data and technical analysis at your fingertips</p>
-          </motion.div>
-          <div className="rounded-[2rem] overflow-hidden border border-gray-800 shadow-2xl bg-gray-900/50 p-4">
-            <MarketTracker />
+      {/* Trading Reimagined */}
+      <section className="py-32 bg-[#e41f28] text-white">
+        <div className="max-w-[1320px] mx-auto px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+            <img src={worldwideImg} alt="Reimagined" className="w-full rounded-3xl shadow-2xl" />
+            <div className="space-y-8">
+              <h2 className="text-4xl md:text-6xl font-bold font-['Open_Sans']">Trading Reimagined</h2>
+              <p className="text-xl leading-relaxed opacity-90">
+                DNexus leverages AI and machine learning to deliver expert signals and quantitative analysis that professionals trust. Our comprehensive free learning materials help you master the markets while our automation tools execute with precision.
+              </p>
+              <Link to="/trading" className="inline-flex px-8 py-4 bg-white text-[#e41f28] font-bold rounded-xl hover:bg-gray-100 transition-all">Learn More</Link>
+            </div>
           </div>
+        </div>
+      </section>
+
+      {/* Market Tracker */}
+      <section className="py-32 bg-black">
+        <div className="max-w-[1320px] mx-auto px-6">
+          <div className="text-center mb-16">
+            <span className="text-[#e41f28] font-bold uppercase tracking-[0.2em] text-sm">Live Markets</span>
+            <h2 className="text-4xl md:text-6xl font-bold text-white mt-4 font-['Open_Sans']">Comprehensive Currency Market Tracker</h2>
+          </div>
+          <MarketTracker />
         </div>
       </section>
 
       {/* FAQ Section */}
-      <section className="py-24 bg-[#141414]">
-        <div className="max-w-[900px] mx-auto px-6 sm:px-8">
-          <motion.div
-            className="text-center mb-16"
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
-            <span className="text-[#e41f28] font-bold text-sm uppercase tracking-[0.3em]">Faq’s</span>
-            <h2 className="text-4xl md:text-5xl font-bold text-white mt-6">Frequently Asked Questions</h2>
-          </motion.div>
-
-          <div className="space-y-4">
-            {[
-              { q: "What is trading?", a: "Trading is the buying and selling of financial instruments to generate profit." },
-              { q: "How can I get started with trading?", a: "Create a free Deriv account, fund it, and start trading on our platform." },
-              { q: "Who is Deriv?", a: "Deriv is a regulated online broker offering derivatives trading services." },
-              { q: "Who is DTNexus?", a: "DNexus is a next-gen trading platform built on top of Deriv's infrastructure." },
-              { q: "What tools do you offer for market analysis?", a: "We offer AI-powered analytics, premium signals, and real-time market tracking." },
-              { q: "How does DTNexus link to Deriv?", a: "DNexus integrates with Deriv's API to provide seamless trading execution." },
-              { q: "What trading options are available on Deriv?", a: "Forex, Commodities, Indices, Cryptocurrencies, and more." },
-              { q: "Is there a demo account available for testing purposes?", a: "Yes, Deriv offers a free demo account with virtual funds." },
-              { q: "Are profits guaranteed?", a: "No, trading involves risk. Past performance is not indicative of future results." },
-              { q: "Is trading suitable for everyone?", a: "Trading requires knowledge and risk management. Please educate yourself first." },
-              { q: "How does DTNexus differ from other platforms?", a: "We combine AI, automation, and professional signals for a unique trading experience." },
-            ].map((item, i) => (
-              <motion.details
-                key={i}
-                className="group border border-gray-800 rounded-2xl p-6 cursor-pointer hover:border-[#e41f28]/50 bg-gray-900/30 transition-all"
-                initial={{ opacity: 0, y: 10 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: (i % 3) * 0.1 }}
-              >
-                <summary className="flex items-center justify-between font-bold text-white text-lg list-none">
-                  {item.q}
-                  <div className="w-8 h-8 rounded-full border border-gray-700 flex items-center justify-center group-open:rotate-180 transition-transform">
-                    <ChevronDown className="w-5 h-5 text-gray-400" />
+      <section className="py-32 bg-[#141414]">
+        <div className="max-w-[1320px] mx-auto px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-20">
+            <div>
+              <span className="text-[#e41f28] font-bold uppercase tracking-[0.2em] text-sm">Faq's</span>
+              <h2 className="text-4xl md:text-6xl font-bold text-white mt-4 mb-12 font-['Open_Sans']">Frequently Asked Questions</h2>
+              <div className="space-y-4">
+                {[
+                  "What is trading?",
+                  "How can I get started with trading?",
+                  "Who is Deriv?",
+                  "Who is DTNexus?",
+                  "What tools do you offer for market analysis?",
+                  "How does DTNexus link to Deriv?"
+                ].map((q, i) => (
+                  <div key={i} className="p-6 rounded-2xl bg-white/5 border border-white/10 flex justify-between items-center group cursor-pointer hover:bg-white/10 transition-all">
+                    <span className="text-white font-bold">{q}</span>
+                    <ChevronDown className="w-5 h-5 text-[#e41f28] group-hover:rotate-180 transition-all" />
                   </div>
-                </summary>
-                <p className="text-gray-400 mt-6 leading-relaxed">{item.a}</p>
-              </motion.details>
-            ))}
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center justify-center">
+              <img src={faqImg} alt="FAQ" className="w-full max-w-[500px]" />
+            </div>
           </div>
         </div>
       </section>
