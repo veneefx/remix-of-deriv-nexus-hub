@@ -9,6 +9,7 @@ import derivAccumulators from "@/assets/deriv-accumulators.webp";
 import derivGold from "@/assets/deriv-gold.webp";
 import traderNight from "@/assets/trader-night.webp";
 import partnerNetwork from "@/assets/partner-network.png";
+import heroMobile from "@/assets/hero-mobile.png";
 
 const DERIV_AFFILIATE_LINK = "https://deriv.com/?t=xA1buvJrGeASmsCwn5r1F2Nd7ZgqdRLk&utm_source=affiliate_187242&utm_medium=affiliate&utm_campaign=MyAffiliates&utm_content=&referrer=";
 
@@ -30,15 +31,17 @@ const LandingPage = () => {
     <div className="min-h-screen bg-black flex flex-col" style={{ colorScheme: "dark" }}>
       <Navbar />
 
-      {/* Hero Section - Exact Centered Design */}
+      {/* Hero Section - Left Text + Right Image */}
       <section className="relative overflow-hidden min-h-[85vh] flex items-center justify-center bg-black">
         {/* Background gradient effect */}
         <div className="absolute inset-0 opacity-30">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-br from-[#ff3333]/20 via-transparent to-transparent rounded-full blur-[150px]" />
+          <div className="absolute top-1/2 left-1/4 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-br from-[#ff3333]/20 via-transparent to-transparent rounded-full blur-[150px]" />
         </div>
 
-        <div className="w-full max-w-[1200px] mx-auto px-6 sm:px-8 relative py-20 lg:py-0">
-          <div className="flex flex-col items-center text-center space-y-8">
+        <div className="w-full max-w-[1400px] mx-auto px-6 sm:px-8 relative py-20 lg:py-0">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            {/* Left Content */}
+            <div className="flex flex-col items-start text-left space-y-8">
             {/* Badge */}
             <motion.div 
               className="inline-block px-4 py-2 rounded-full border border-[#00d4ff]/30 bg-[#00d4ff]/5"
@@ -51,7 +54,7 @@ const LandingPage = () => {
 
             {/* Main Heading */}
             <motion.h1 
-              className="text-7xl sm:text-8xl md:text-9xl font-black leading-[1.0] tracking-[-3px] text-white max-w-5xl uppercase"
+              className="text-6xl sm:text-7xl md:text-8xl font-black leading-[1.0] tracking-[-3px] text-white uppercase"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.1 }}
@@ -61,7 +64,7 @@ const LandingPage = () => {
 
             {/* Subheading */}
             <motion.p 
-              className="text-base sm:text-lg text-gray-300 leading-relaxed max-w-[700px]"
+              className="text-base sm:text-lg text-gray-300 leading-relaxed"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.2 }}
@@ -71,7 +74,7 @@ const LandingPage = () => {
 
             {/* CTA Buttons */}
             <motion.div 
-              className="flex flex-col sm:flex-row gap-4 justify-center pt-4"
+              className="flex flex-col sm:flex-row gap-4 pt-4"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.3 }}
@@ -94,20 +97,40 @@ const LandingPage = () => {
 
             {/* Feature Icons */}
             <motion.div 
-              className="flex flex-wrap gap-8 sm:gap-16 justify-center pt-12"
+              className="flex flex-wrap gap-8 sm:gap-12 pt-8"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.4 }}
             >
               {features.map((f) => (
-                <div key={f.title} className="flex flex-col items-center gap-3">
-                  <div className="w-[56px] h-[56px] rounded-full bg-[#1a2332]/60 flex items-center justify-center border border-[#00d4ff]/20">
-                    <f.icon className="w-6 h-6 text-[#00d4ff]" />
+                <div key={f.title} className="flex flex-col items-start gap-2">
+                  <div className="w-[48px] h-[48px] rounded-full bg-[#1a2332]/60 flex items-center justify-center border border-[#00d4ff]/20">
+                    <f.icon className="w-5 h-5 text-[#00d4ff]" />
                   </div>
                   <h3 className="text-sm font-semibold text-white">{f.title}</h3>
-                  <p className="text-xs text-gray-400 text-center max-w-[120px]">{f.desc}</p>
+                  <p className="text-xs text-gray-400 max-w-[140px]">{f.desc}</p>
                 </div>
               ))}
+            </motion.div>
+            </div>
+
+            {/* Right Image */}
+            <motion.div
+              className="hidden lg:flex justify-center items-center"
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            >
+              <div className="relative">
+                {/* Glow effect behind image */}
+                <div className="absolute -inset-4 bg-gradient-to-br from-[#00d4ff]/30 via-[#ff3333]/20 to-transparent rounded-[3rem] blur-3xl" />
+                {/* Mobile image */}
+                <img
+                  src={heroMobile}
+                  alt="DNexus mobile trading app"
+                  className="relative z-10 w-full max-w-[320px] rounded-[2.5rem] shadow-2xl object-contain"
+                />
+              </div>
             </motion.div>
           </div>
         </div>
