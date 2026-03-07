@@ -1,8 +1,9 @@
 import { Link, useLocation } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, Menu, X, TrendingUp } from "lucide-react";
+import { ChevronDown, Menu, X, TrendingUp, LogOut } from "lucide-react";
 import logo from "@/assets/logo.png";
+import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   { label: "Home", path: "/" },
@@ -29,7 +30,25 @@ const navItems = [
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const location = useLocation();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setIsAuthenticated(!!user);
+    };
+    checkAuth();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setIsAuthenticated(!!session?.user);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setIsAuthenticated(false);
+  };
 
   return (
     <nav className="sticky top-0 z-50 py-3 px-4">
@@ -84,13 +103,31 @@ const Navbar = () => {
           </div>
 
           <div className="hidden lg:flex items-center gap-3">
-            <Link to="/auth" className="flex items-center gap-2 h-10 px-5 border border-border text-foreground font-medium text-[13px] rounded-lg hover:bg-secondary transition-colors">
-              Login
-            </Link>
-            <Link to="/trading" className="flex items-center gap-2 h-10 px-5 bg-gradient-brand text-primary-foreground font-semibold text-[13px] rounded-lg hover-lift glow-red">
-              Trading Hub
-              <TrendingUp className="w-3.5 h-3.5" />
-            </Link>
+            {isAuthenticated ? (
+              <>
+                <Link to="/trading" className="flex items-center gap-2 h-10 px-5 bg-gradient-brand text-primary-foreground font-semibold text-[13px] rounded-lg hover-lift glow-red">
+                  Trading Hub
+                  <TrendingUp className="w-3.5 h-3.5" />
+                </Link>
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center gap-2 h-10 px-5 border border-border text-foreground font-medium text-[13px] rounded-lg hover:bg-secondary transition-colors"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link to="/auth" className="flex items-center gap-2 h-10 px-5 border border-border text-foreground font-medium text-[13px] rounded-lg hover:bg-secondary transition-colors">
+                  Login
+                </Link>
+                <Link to="/trading" className="flex items-center gap-2 h-10 px-5 bg-gradient-brand text-primary-foreground font-semibold text-[13px] rounded-lg hover-lift glow-red">
+                  Trading Hub
+                  <TrendingUp className="w-3.5 h-3.5" />
+                </Link>
+              </>
+            )}
           </div>
 
           <button className="lg:hidden text-foreground" onClick={() => setMobileOpen(!mobileOpen)}>
@@ -121,9 +158,23 @@ const Navbar = () => {
                   )}
                 </div>
               ))}
-              <Link to="/trading" className="block text-center mt-3 px-5 py-2.5 bg-gradient-brand text-primary-foreground font-semibold text-sm rounded-xl" onClick={() => setMobileOpen(false)}>
-                Trading Hub →
-              </Link>
+              {isAuthenticated ? (
+                <>
+                  <Link to="/trading" className="block text-center mt-3 px-5 py-2.5 bg-gradient-brand text-primary-foreground font-semibold text-sm rounded-xl" onClick={() => setMobileOpen(false)}>
+                    Trading Hub →
+                  </Link>
+                  <button
+                    onClick={() => { handleSignOut(); setMobileOpen(false); }}
+                    className="block w-full text-center mt-2 px-5 py-2.5 border border-border text-foreground font-semibold text-sm rounded-xl hover:bg-secondary transition-colors"
+                  >
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <Link to="/trading" className="block text-center mt-3 px-5 py-2.5 bg-gradient-brand text-primary-foreground font-semibold text-sm rounded-xl" onClick={() => setMobileOpen(false)}>
+                  Trading Hub →
+                </Link>
+              )}
             </div>
           </motion.div>
         )}
