@@ -472,55 +472,24 @@ const TradingHub = () => {
             <TradingPanel ws={ws} account={account} />
           )}
           {activeView === "dat" && (
-            !isPremium && !isAdmin ? (
-              <div className="flex-1 flex items-center justify-center p-4">
-                <div className="text-center space-y-4 max-w-md">
-                  <Lock className="w-12 h-12 text-muted-foreground mx-auto" />
-                  <h3 className="text-lg font-semibold text-foreground">Premium Feature</h3>
-                  <p className="text-sm text-muted-foreground">DAT Analyzer is only available for premium members.</p>
-                  <button
-                    onClick={() => {
-                      setPremiumFeature("DAT Analyzer");
-                      setShowPremiumModal(true);
-                    }}
-                    className="px-6 py-2 bg-gradient-brand text-primary-foreground font-semibold rounded-lg hover-lift"
-                  >
-                    Upgrade to Premium
-                  </button>
-                </div>
-              </div>
-            ) : (
+            <PremiumGate isPremium={isPremium} isAdmin={isAdmin} featureName="DAT Analyzer" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
               <DATTab ws={ws} selectedMarket={selectedMarket} onMarketChange={setSelectedMarket} />
-            )
-          )}
-          {activeView === "trading-view" && (
-            <div className="flex h-full">
-              <div className="flex-1 min-w-0">
-                <TradingViewChart ws={ws} selectedMarket={selectedMarket} />
-              </div>
-              {!isMobile && (
-                <TradingSidebar ws={ws} account={account} selectedMarket={selectedMarket} setSelectedMarket={setSelectedMarket} onLogin={handleLogin} />
-              )}
-            </div>
-          )}
-          {activeView === "deriv-charts" && (
-            <div className="flex h-full">
-              <div className="flex-1 min-w-0">
-                <DerivChart ws={ws} selectedMarket={selectedMarket} />
-              </div>
-              {!isMobile && (
-                <TradingSidebar ws={ws} account={account} selectedMarket={selectedMarket} setSelectedMarket={setSelectedMarket} onLogin={handleLogin} />
-              )}
-            </div>
+            </PremiumGate>
           )}
           {activeView === "strategy-lab" && (
-            <StrategyLab />
+            <PremiumGate isPremium={isPremium} isAdmin={isAdmin} featureName="Strategy Lab" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
+              <StrategyLab />
+            </PremiumGate>
           )}
           {activeView === "market-scanner" && (
-            <MarketScannerView />
+            <PremiumGate isPremium={isPremium} isAdmin={isAdmin} featureName="Market Scanner" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
+              <MarketScannerView />
+            </PremiumGate>
           )}
           {activeView === "forex-ai" && (
-            <ForexAITab />
+            <PremiumGate isPremium={isPremium} isAdmin={isAdmin} featureName="Forex AI" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
+              <ForexAITab />
+            </PremiumGate>
           )}
           {activeView === "transactions" && (
             <div className="p-4 lg:p-6 overflow-y-auto h-full">
