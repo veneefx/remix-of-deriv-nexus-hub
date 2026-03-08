@@ -1439,7 +1439,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                       ["Take Profit:", takeProfit],
                       ["Stop Loss:", stopLoss],
                       ["Market:", marketLabel],
-                      ["Speed:", executionSpeed === "Fast" ? "Continuous" : "Normal"],
+                      ["Speed:", executionSpeed === "Turbo" ? "Turbo (5/sec)" : executionSpeed === "Fast" ? "Fast (1/sec)" : "Normal (4s)"],
                       ["Smart Risker:", smartRisker ? "On" : "Off"],
                     ].map(([k, v]) => (
                       <tr key={k}>
