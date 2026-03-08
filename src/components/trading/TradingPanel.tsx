@@ -169,6 +169,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [mode, setMode] = useState<"Quick" | "Automated">("Automated");
   const [softwareStatus, setSoftwareStatus] = useState<"INACTIVE" | "ACTIVE">("INACTIVE");
   const [executionSpeed, setExecutionSpeed] = useState<"Normal" | "Fast" | "Turbo">("Fast");
+  const [tradesPerSecond, setTradesPerSecond] = useState(0);
   const [aggressiveMode, setAggressiveMode] = useState(false);
   const [takeProfit, setTakeProfit] = useState("1000");
   const [stopLoss, setStopLoss] = useState("100");
@@ -749,7 +750,14 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       }
     }, intervalMs);
 
-    return () => clearInterval(timer);
+    // TPS counter — update every 500ms
+    const tpsTimer = setInterval(() => {
+      const now = Date.now();
+      const recentTrades = tradeTimestamps.current.filter(t => t > now - 1000);
+      setTradesPerSecond(recentTrades.length);
+    }, 500);
+
+    return () => { clearInterval(timer); clearInterval(tpsTimer); };
   }, [softwareStatus, mode, executionSpeed, executeTradeContinuous, strategyProfile]);
 
   const clearTransactions = () => setTransactions([]);
@@ -1052,12 +1060,13 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
                 {/* Session stats */}
                 {session.totalTrades > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                     {[
                       { label: "Win Rate", value: `${winRate}%`, color: "text-buy" },
                       { label: "Total P/L", value: `${session.totalProfit >= 0 ? "+" : ""}${session.totalProfit.toFixed(2)}`, color: session.totalProfit >= 0 ? "text-buy" : "text-sell" },
                       { label: "Trades", value: session.totalTrades.toString(), color: "text-foreground" },
                       { label: "Max DD", value: `${session.maxDrawdown.toFixed(1)}%`, color: "text-sell" },
+                      ...(softwareStatus === "ACTIVE" ? [{ label: "TPS", value: tradesPerSecond.toString(), color: tradesPerSecond > 0 ? "text-primary" : "text-muted-foreground" }] : []),
                     ].map((s) => (
                       <motion.div
                         key={s.label}
