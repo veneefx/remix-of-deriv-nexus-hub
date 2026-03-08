@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      commission_ledger: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          rate: number
+          trade_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          rate?: number
+          trade_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          rate?: number
+          trade_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commission_ledger_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "trade_logs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       global_strategy: {
         Row: {
           active: boolean
@@ -53,6 +88,45 @@ export type Database = {
         }
         Relationships: []
       }
+      payments: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          method: string
+          plan_type: string
+          reference: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          id?: string
+          method: string
+          plan_type: string
+          reference?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          method?: string
+          plan_type?: string
+          reference?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -86,6 +160,45 @@ export type Database = {
           is_premium?: boolean
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      trade_logs: {
+        Row: {
+          contract_id: string
+          contract_type: string
+          created_at: string
+          executed_at: string
+          id: string
+          profit: number
+          stake: number
+          symbol: string
+          user_id: string
+          won: boolean
+        }
+        Insert: {
+          contract_id: string
+          contract_type: string
+          created_at?: string
+          executed_at?: string
+          id?: string
+          profit: number
+          stake: number
+          symbol: string
+          user_id: string
+          won?: boolean
+        }
+        Update: {
+          contract_id?: string
+          contract_type?: string
+          created_at?: string
+          executed_at?: string
+          id?: string
+          profit?: number
+          stake?: number
+          symbol?: string
+          user_id?: string
+          won?: boolean
         }
         Relationships: []
       }

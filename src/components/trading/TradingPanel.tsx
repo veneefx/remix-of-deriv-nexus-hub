@@ -524,6 +524,31 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       description: `${won ? "+" : ""}${profit.toFixed(2)} USD • ${marketLabel}`,
     });
 
+    // ── LOG TRADE TO BACKEND ──
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.functions.invoke("trade-engine", {
+            body: {
+              action: "log-trade",
+              params: {
+                userId: user.id,
+                contractId: contractId || Date.now().toString(),
+                contractType,
+                symbol: selectedMarket,
+                stake: tradeStake,
+                profit,
+                won,
+              },
+            },
+          });
+        }
+      } catch (e) {
+        console.warn("[TradeLog] Failed to persist trade:", e);
+      }
+    })();
+
     setTransactions((prev) => [{
       id: contractId || Date.now().toString(),
       contractType,
