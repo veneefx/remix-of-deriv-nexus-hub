@@ -590,13 +590,13 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         {/* Tab selector */}
         <div className="flex items-center gap-3 mb-4 flex-wrap">
           <div className="flex gap-1 p-1 bg-card rounded-lg border border-border">
-            {(["trading", "analysis"] as const).map((tab) => (
+            {(["trading", "advanced", "analysis"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors capitalize ${activeTab === tab ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
               >
-                {tab === "trading" ? "Digit Edge" : "Analysis"}
+                {tab === "trading" ? "Digit Edge" : tab === "advanced" ? "Advanced" : "Analysis"}
               </button>
             ))}
           </div>
