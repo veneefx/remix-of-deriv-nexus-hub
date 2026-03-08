@@ -10,7 +10,7 @@ const Privacy = () => (
         <p>Last Updated: February 2026</p>
 
         <h2 className="text-lg font-semibold text-foreground mt-8">1. Introduction</h2>
-        <p>DTNexus ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy describes how we collect, use, disclose, and safeguard your information when you use our trading platform, website, and associated services (collectively, the "Services"). Please read this policy carefully. By using our Services, you consent to the practices described herein.</p>
+        <p>DNexus ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy describes how we collect, use, disclose, and safeguard your information when you use our trading platform, website, and associated services (collectively, the "Services"). Please read this policy carefully. By using our Services, you consent to the practices described herein.</p>
 
         <h2 className="text-lg font-semibold text-foreground mt-8">2. Information We Collect</h2>
         <p>We collect information in the following ways:</p>
@@ -80,7 +80,7 @@ const Privacy = () => (
         <p>We may update this Privacy Policy from time to time. We will notify you of any material changes by posting the updated policy on our platform with a revised "Last Updated" date. We encourage you to review this policy periodically.</p>
 
         <h2 className="text-lg font-semibold text-foreground mt-8">10. Contact Us</h2>
-        <p>If you have any questions or concerns about this Privacy Policy or our data practices, please contact us through our Help Center or email us at privacy@dtnexus.com.</p>
+        <p>If you have any questions or concerns about this Privacy Policy or our data practices, please contact us through our Help Center or email us at privacy@dnexus.com.</p>
       </div>
     </div>
     <Footer />

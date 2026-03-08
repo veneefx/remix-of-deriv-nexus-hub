@@ -15,19 +15,19 @@ const fadeUp = {
 const CATEGORIES = [
   { icon: Zap, title: "Getting Started", articles: [
     { q: "How do I create a Deriv account?", a: "Visit deriv.com and sign up for a free account. You can start with a demo account that comes with $10,000 in virtual funds for practice trading. Once comfortable, you can switch to a real account." },
-    { q: "How do I connect my Deriv account to DTNexus?", a: "Click the 'Connect Account' button in the Trading Hub. You'll be redirected to Deriv's secure OAuth2 login page. After signing in, you'll be automatically redirected back to DTNexus with your account connected." },
-    { q: "Is DTNexus free to use?", a: "Yes! DTNexus is free to use. We apply a small 3% commission on trades executed through our platform. All educational content, signals, and analytics tools are available at no additional cost." },
-    { q: "What markets can I trade on DTNexus?", a: "DTNexus supports all Deriv Volatility Indices including Volatility 10, 25, 50, 75, 100, 150, 200, and 250 — both standard and 1-second variants. We specialize in digit trading contracts." },
+    { q: "How do I connect my Deriv account to DNexus?", a: "Click the 'Connect Account' button in the Trading Hub. You'll be redirected to Deriv's secure OAuth2 login page. After signing in, you'll be automatically redirected back to DNexus with your account connected." },
+    { q: "Is DNexus free to use?", a: "Yes! DNexus is free to use. We apply a small 3% commission on trades executed through our platform. All educational content, signals, and analytics tools are available at no additional cost." },
+    { q: "What markets can I trade on DNexus?", a: "DNexus supports all Deriv Volatility Indices including Volatility 10, 25, 50, 75, 100, 150, 200, and 250 — both standard and 1-second variants. We specialize in digit trading contracts." },
   ]},
   { icon: Shield, title: "Account & Security", articles: [
-    { q: "Is my Deriv account safe when using DTNexus?", a: "Absolutely. DTNexus uses Deriv's official OAuth2 authentication. We never see or store your Deriv password. Your authentication tokens are stored in session storage and cleared when you close your browser." },
-    { q: "Can DTNexus withdraw money from my account?", a: "No. DTNexus can only execute trades on your behalf when you explicitly initiate them. We have no ability to make withdrawals or transfers from your Deriv account." },
-    { q: "How do I disconnect my account?", a: "Click the Logout button in the Trading Hub sidebar. This will clear your session and disconnect your Deriv account from DTNexus immediately." },
+    { q: "Is my Deriv account safe when using DNexus?", a: "Absolutely. DNexus uses Deriv's official OAuth2 authentication. We never see or store your Deriv password. Your authentication tokens are stored in session storage and cleared when you close your browser." },
+    { q: "Can DNexus withdraw money from my account?", a: "No. DNexus can only execute trades on your behalf when you explicitly initiate them. We have no ability to make withdrawals or transfers from your Deriv account." },
+    { q: "How do I disconnect my account?", a: "Click the Logout button in the Trading Hub sidebar. This will clear your session and disconnect your Deriv account from DNexus immediately." },
   ]},
   { icon: BookOpen, title: "Trading & Tools", articles: [
     { q: "What are digit trading contracts?", a: "Digit contracts predict the last digit (0-9) of a market tick. Options include Over/Under (predicting if the digit will be above/below a number), Even/Odd, and Matches/Differs. These are 1-tick contracts with instant results." },
     { q: "How does the AI bot work?", a: "Our AI bot analyzes the last 100+ ticks to identify statistical patterns, digit frequency imbalances, and streak patterns. It uses mean reversion logic and probability-based recovery strategies to find high-probability trade setups." },
-    { q: "What is the Martingale feature?", a: "Martingale is a staking strategy where you increase your stake after a loss to recover previous losses when you win. DTNexus allows you to set a custom multiplier and maximum steps to control risk." },
+    { q: "What is the Martingale feature?", a: "Martingale is a staking strategy where you increase your stake after a loss to recover previous losses when you win. DNexus allows you to set a custom multiplier and maximum steps to control risk." },
     { q: "How do I use Premium Signals?", a: "Navigate to the Signals page to view real-time technical indicators. The gauges show overall market sentiment based on oscillators and moving averages. Use these signals alongside your own analysis for better trading decisions." },
   ]},
   { icon: Users, title: "Partners Program", articles: [
@@ -73,7 +73,7 @@ const Help = () => {
               { icon: Zap, label: "Quick Start Guide", link: "/education" },
               { icon: MessageCircle, label: "Contact Support", link: "#contact" },
               { icon: BookOpen, label: "eLearning Academy", link: "/education" },
-              { icon: Mail, label: "Email Us", link: "mailto:support@dtnexus.com" },
+              { icon: Mail, label: "Email Us", link: "mailto:support@dnexus.com" },
             ].map((item) => (
               <Link key={item.label} to={item.link} className="p-4 rounded-xl bg-card border border-border hover:border-primary/30 transition-colors text-center">
                 <item.icon className="w-6 h-6 text-primary mx-auto mb-2" />
@@ -128,10 +128,10 @@ const Help = () => {
               Our support team is available 24/7 to assist you with any questions or issues.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center mt-6">
-              <a href="mailto:support@dtnexus.com" className="px-6 py-3 bg-gradient-brand text-primary-foreground font-semibold rounded-lg">
+              <a href="mailto:support@dnexus.com" className="px-6 py-3 bg-gradient-brand text-primary-foreground font-semibold rounded-lg">
                 📧 Email Support
               </a>
-              <a href="https://t.me/dtnexus" target="_blank" rel="noopener" className="px-6 py-3 border border-border text-foreground font-semibold rounded-lg hover:bg-secondary transition-colors">
+              <a href="https://t.me/dnexus" target="_blank" rel="noopener" className="px-6 py-3 border border-border text-foreground font-semibold rounded-lg hover:bg-secondary transition-colors">
                 💬 Telegram Community
               </a>
             </div>
