@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { Activity, Gauge, BarChart3, Scan, RefreshCw, Target, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Activity, Gauge, BarChart3, Scan, RefreshCw, Target, TrendingUp, TrendingDown, Minus, Radar } from "lucide-react";
 
 interface SessionStats {
   totalTrades: number;
@@ -18,11 +18,22 @@ interface TickData {
   epoch: number;
 }
 
+interface SignalDetails {
+  frequencyScore: number;
+  pressureScore: number;
+  streakScore: number;
+  patternScore: number;
+  volatilityScore: number;
+}
+
 interface AnalysisTabProps {
   lastDigits: number[];
   session: SessionStats;
   marketLabel: string;
   tickBuffer: TickData[];
+  signalScore?: number;
+  signalDetails?: SignalDetails;
+  digitPressure?: { [digit: number]: number };
 }
 
 // ── Module 1: Volatility Scanner ──────────────────────────────────
