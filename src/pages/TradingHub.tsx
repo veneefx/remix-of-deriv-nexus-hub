@@ -12,6 +12,7 @@ import TradingPanel from "@/components/trading/TradingPanel";
 import TradingViewChart from "@/components/trading/TradingViewChart";
 import DerivChart from "@/components/trading/DerivChart";
 import DATTab from "@/components/trading/DATTab";
+import MarketScannerView from "@/components/trading/MarketScannerView";
 import ClientTokenManager from "@/components/trading/ClientTokenManager";
 import DerivWebSocket from "@/services/deriv-websocket";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -41,13 +42,14 @@ const sidebarItems = [
   { icon: Settings, label: "Settings", path: "/risk" },
 ];
 
-type ViewMode = "digit-edge" | "trading-view" | "deriv-charts" | "dat" | "transactions";
+type ViewMode = "digit-edge" | "trading-view" | "deriv-charts" | "dat" | "market-scanner" | "transactions";
 
 const viewLabels: Record<ViewMode, string> = {
   "digit-edge": "Digit Edge",
   "trading-view": "Trading View",
   "deriv-charts": "Deriv Charts",
   "dat": "DAT",
+  "market-scanner": "Market Scanner",
   "transactions": "Transactions",
 };
 
