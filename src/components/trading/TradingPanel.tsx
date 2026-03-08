@@ -626,7 +626,15 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           )}
         </div>
 
-        {activeTab === "analysis" ? (
+        {activeTab === "advanced" ? (
+          <DigitAnalysisDashboard
+            lastDigits={lastDigits}
+            tickBuffer={tickBufferRef.current}
+            digitPressure={digitPressure}
+            signalScore={signalScore}
+            signalDetails={signalDetails}
+          />
+        ) : activeTab === "analysis" ? (
           !isPremium && !isAdmin ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 bg-card border border-border rounded-xl">
               <Lock className="w-12 h-12 text-muted-foreground mb-4" />
