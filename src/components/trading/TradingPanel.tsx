@@ -6,6 +6,7 @@ import { DerivAccount } from "@/services/deriv-auth";
 import { VOLATILITY_MARKETS, CONTRACT_TYPES, DIGIT_BARRIERS, getLastDigit } from "@/lib/trading-constants";
 import { tradingEngine } from "@/services/trading-engine";
 import AnalysisTab from "@/components/trading/AnalysisTab";
+import DigitAnalysisDashboard from "@/components/trading/DigitAnalysisDashboard";
 import RiskPanel from "@/components/trading/RiskPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -115,7 +116,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [showTpModal, setShowTpModal] = useState(false);
   const [tpAmount, setTpAmount] = useState(0);
 
-  const [activeTab, setActiveTab] = useState<"trading" | "analysis">("trading");
+  const [activeTab, setActiveTab] = useState<"trading" | "analysis" | "advanced">("trading");
   const prevMarketRef = useRef(selectedMarket);
   const botRunning = useRef(false);
   const consecutiveLosses = useRef(0);
@@ -589,13 +590,13 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         {/* Tab selector */}
         <div className="flex items-center gap-3 mb-4 flex-wrap">
           <div className="flex gap-1 p-1 bg-card rounded-lg border border-border">
-            {(["trading", "analysis"] as const).map((tab) => (
+            {(["trading", "advanced", "analysis"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors capitalize ${activeTab === tab ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
               >
-                {tab === "trading" ? "Digit Edge" : "Analysis"}
+                {tab === "trading" ? "Digit Edge" : tab === "advanced" ? "Advanced" : "Analysis"}
               </button>
             ))}
           </div>
@@ -625,7 +626,15 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           )}
         </div>
 
-        {activeTab === "analysis" ? (
+        {activeTab === "advanced" ? (
+          <DigitAnalysisDashboard
+            lastDigits={lastDigits}
+            tickBuffer={tickBufferRef.current}
+            digitPressure={digitPressure}
+            signalScore={signalScore}
+            signalDetails={signalDetails}
+          />
+        ) : activeTab === "analysis" ? (
           !isPremium && !isAdmin ? (
             <div className="flex-1 flex flex-col items-center justify-center p-8 bg-card border border-border rounded-xl">
               <Lock className="w-12 h-12 text-muted-foreground mb-4" />
