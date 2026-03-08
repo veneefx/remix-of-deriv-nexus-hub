@@ -439,7 +439,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         }
 
         if (shouldTrade) {
-          const tradeCount = bulkMode ? Math.min(bulkCount, MAX_CONCURRENT - openContracts.current) : 1;
+          const tradeCount = bulkModeRef.current ? Math.min(bulkCountRef.current, MAX_CONCURRENT - openContracts.current) : 1;
           const remaining = MAX_TRADES_PER_SEC - tradeTimestamps.current.length;
           const actualCount = Math.min(tradeCount, remaining);
           for (let i = 0; i < actualCount; i++) {
