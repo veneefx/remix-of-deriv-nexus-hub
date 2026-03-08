@@ -232,16 +232,21 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const partialProfitTaken = useRef(0);
   const openContracts = useRef(0);
   const proposalIdRef = useRef<string | null>(null);
+  const proposalReady = useRef(false);
   const isTradingRef = useRef(false);
   const sessionProfitRef = useRef(0);
   const lastDigitsRef = useRef<number[]>([]);
   const tickBufferRef = useRef<{ quote: number; digit: number; epoch: number }[]>([]);
   const digitPressureRef = useRef<DigitPressure>({ 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0 });
   const tickIndexRef = useRef(0);
+  // Pending trades map: contractId -> { stake, resolved }
+  const pendingTrades = useRef<Map<string, { stake: number; resolved: boolean }>>(new Map());
   // Trade queue for continuous mode
   const tradeQueueRef = useRef<number>(0);
   const MAX_TRADES_PER_SEC = 10;
   const MAX_CONCURRENT = 15;
+  // Latest signal ref for decoupled decision loop
+  const latestSignalRef = useRef<{ score: number; elitScore: number }>({ score: 0, elitScore: 0 });
 
   const isLoggedIn = !!account;
 
