@@ -32,6 +32,7 @@ import { toast } from "@/hooks/use-toast";
 import { usePremium } from "@/hooks/use-premium";
 import PremiumUpgradeModal from "@/components/trading/PremiumUpgradeModal";
 import AdminDashboard from "@/components/trading/AdminDashboard";
+import PremiumGate from "@/components/trading/PremiumGate";
 
 const DERIV_APP_ID = "129344";
 
