@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   Home, BarChart3, Users, TrendingUp, BookOpen, HelpCircle,
   Menu, X, Wallet, ChevronDown, Moon, Sun, Settings, Shield,
-  AlertTriangle, Search, Activity, User, Clock
+  AlertTriangle, Search, Activity, User, Clock, Lock
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { getActiveAccount, getStoredAccounts, clearAuth, setActiveAccount, parseCallbackParams, storeAccounts, type DerivAccount } from "@/services/deriv-auth";

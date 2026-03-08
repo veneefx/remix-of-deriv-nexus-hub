@@ -1,5 +1,16 @@
 import { EventEmitter } from "events";
-import { DigitPressure, SignalDetails } from "@/components/trading/TradingPanel";
+
+export interface DigitPressure {
+  [digit: number]: number;
+}
+
+export interface SignalDetails {
+  frequencyScore: number;
+  pressureScore: number;
+  streakScore: number;
+  patternScore: number;
+  volatilityScore: number;
+}
 
 export interface Tick {
   quote: number;
