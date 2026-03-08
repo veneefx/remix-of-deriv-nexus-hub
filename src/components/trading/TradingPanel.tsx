@@ -1084,74 +1084,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         </div>
       </div>
 
-      {/* Mobile Bottom Trade Engine Bar */}
-      <div className="lg:hidden fixed bottom-16 left-0 right-0 z-20 bg-card/95 backdrop-blur-lg border-t border-border">
-        {/* Compact summary row */}
-        <div className="flex items-center gap-1 px-3 py-1.5 text-[9px] text-muted-foreground border-b border-border/50 overflow-x-auto whitespace-nowrap">
-          <span className="bg-secondary px-1.5 py-0.5 rounded font-medium text-foreground">{stake}</span>
-          <span>Stake</span>
-          <span className="mx-0.5">•</span>
-          <span className="bg-secondary px-1.5 py-0.5 rounded font-medium text-foreground">{duration}</span>
-          <span>Duration</span>
-          <span className="mx-0.5">•</span>
-          <span className="bg-secondary px-1.5 py-0.5 rounded font-medium text-foreground">{durationUnit === "t" ? "t" : durationUnit}</span>
-          <span>D. Unit</span>
-          <span className="mx-0.5">•</span>
-          <span className="bg-secondary px-1.5 py-0.5 rounded font-medium text-foreground">{contractType.replace("DIGIT", "")}</span>
-          <span>Contract</span>
-          <span className="mx-0.5">•</span>
-          <span className="bg-secondary px-1.5 py-0.5 rounded font-medium text-foreground">{executionSpeed}</span>
-          <span>Speed</span>
-        </div>
-        {/* Action row */}
-        <div className="flex items-center gap-2 px-3 py-2">
-          <button
-            onClick={() => setShowRiskModal(true)}
-            className="flex items-center gap-1 px-3 py-2 bg-secondary rounded-lg text-xs text-muted-foreground hover:text-foreground transition-colors shrink-0"
-          >
-            <Settings className="w-3.5 h-3.5" />
-            Risk Mgt
-          </button>
-          {mode === "Automated" ? (
-            <button
-              onClick={softwareStatus === "ACTIVE" ? stopBot : startBot}
-              disabled={!isLoggedIn}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 font-bold text-sm rounded-lg transition-all disabled:opacity-50 ${
-                softwareStatus === "ACTIVE"
-                  ? "bg-sell text-white"
-                  : "bg-buy text-white"
-              }`}
-            >
-              <Zap className="w-4 h-4" />
-              {!isLoggedIn ? "Connect" : softwareStatus === "ACTIVE" ? "Stop" : "Run"}
-            </button>
-          ) : (
-            <button
-              onClick={executeTrade}
-              disabled={isTrading || !proposalId || !isLoggedIn}
-              className="flex-1 py-2.5 bg-buy text-white font-bold text-sm rounded-lg disabled:opacity-50 transition-all"
-            >
-              {isLoggedIn ? "Execute" : "Connect"}
-            </button>
-          )}
-          <div className={`px-2 py-1 rounded text-[9px] font-medium shrink-0 ${
-            softwareStatus === "ACTIVE" ? "bg-buy/10 text-buy" : "bg-secondary text-muted-foreground"
-          }`}>
-            {softwareStatus === "ACTIVE" ? "Bot running" : "Bot is not running"}
-          </div>
-        </div>
-        {/* Signal strength mini bar */}
-        <div className="px-3 pb-1.5">
-          <div className="h-1 bg-secondary rounded-full overflow-hidden">
-            <motion.div
-              className={`h-full rounded-full ${signalScore >= 0.5 ? "bg-buy" : signalScore >= 0.25 ? "bg-warning" : "bg-sell"}`}
-              animate={{ width: `${Math.min(signalScore * 100, 100)}%` }}
-              transition={{ duration: 0.3 }}
-            />
-          </div>
-        </div>
-      </div>
-
+      {/* Floating transaction + profit icons */}
       <div className="fixed bottom-32 lg:bottom-8 right-4 flex flex-col gap-3 z-30">
         <button
           onClick={() => setShowTransactions(!showTransactions)}
