@@ -645,7 +645,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
               </button>
             </div>
           ) : (
-            <AnalysisTab lastDigits={lastDigits} session={session} marketLabel={marketLabel} />
+            <AnalysisTab lastDigits={lastDigits} session={session} marketLabel={marketLabel} tickBuffer={tickBufferRef.current} />
           )
         ) : (
           <div className="space-y-4">
