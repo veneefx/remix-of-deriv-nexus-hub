@@ -168,7 +168,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   // Bot engine state
   const [mode, setMode] = useState<"Quick" | "Automated">("Automated");
   const [softwareStatus, setSoftwareStatus] = useState<"INACTIVE" | "ACTIVE">("INACTIVE");
-  const [executionSpeed, setExecutionSpeed] = useState<"Fast" | "Normal">("Fast");
+  const [executionSpeed, setExecutionSpeed] = useState<"Normal" | "Fast" | "Turbo">("Fast");
   const [aggressiveMode, setAggressiveMode] = useState(false);
   const [takeProfit, setTakeProfit] = useState("1000");
   const [stopLoss, setStopLoss] = useState("100");
@@ -232,16 +232,21 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const partialProfitTaken = useRef(0);
   const openContracts = useRef(0);
   const proposalIdRef = useRef<string | null>(null);
+  const proposalReady = useRef(false);
   const isTradingRef = useRef(false);
   const sessionProfitRef = useRef(0);
   const lastDigitsRef = useRef<number[]>([]);
   const tickBufferRef = useRef<{ quote: number; digit: number; epoch: number }[]>([]);
   const digitPressureRef = useRef<DigitPressure>({ 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0 });
   const tickIndexRef = useRef(0);
+  // Pending trades map: contractId -> { stake, resolved }
+  const pendingTrades = useRef<Map<string, { stake: number; resolved: boolean }>>(new Map());
   // Trade queue for continuous mode
   const tradeQueueRef = useRef<number>(0);
   const MAX_TRADES_PER_SEC = 10;
   const MAX_CONCURRENT = 15;
+  // Latest signal ref for decoupled decision loop
+  const latestSignalRef = useRef<{ score: number; elitScore: number }>({ score: 0, elitScore: 0 });
 
   const isLoggedIn = !!account;
 
@@ -416,37 +421,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         setElitContract(elit.contract);
         setElitReason(elit.reason);
         setElitLayers(elit.layers);
+        latestSignalRef.current = { score: sig.score, elitScore: elit.score };
+      } else {
+        latestSignalRef.current = { score: sig.score, elitScore: 0 };
       }
 
-      // ── CONTINUOUS EXECUTION ENGINE ──
-      if (botRunning.current && proposalIdRef.current) {
-        // Rate limiting: max trades per second
-        const now = Date.now();
-        tradeTimestamps.current = tradeTimestamps.current.filter(t => t > now - 1000);
-        if (tradeTimestamps.current.length >= MAX_TRADES_PER_SEC) return;
-        if (openContracts.current >= MAX_CONCURRENT) return;
-
-        let shouldTrade = false;
-        const threshold = strategyProfile === "aggressive" ? 0.05 :
-                          strategyProfile === "elit" ? 0 : // ELIT uses its own score
-                          strategyProfile === "conservative" ? 0.25 : 0.15;
-
-        if (strategyProfile === "elit") {
-          const elit = elitAnalysis(lastDigitsRef.current, newPressure, tickBufferRef.current);
-          shouldTrade = elit.score >= 70;
-        } else {
-          shouldTrade = sig.score >= threshold;
-        }
-
-        if (shouldTrade) {
-          const tradeCount = bulkModeRef.current ? Math.min(bulkCountRef.current, MAX_CONCURRENT - openContracts.current) : 1;
-          const remaining = MAX_TRADES_PER_SEC - tradeTimestamps.current.length;
-          const actualCount = Math.min(tradeCount, remaining);
-          for (let i = 0; i < actualCount; i++) {
-            executeTradeContinuous();
-          }
-        }
-      }
+      // Tick handler does DATA ONLY — no trade execution here
     });
     return () => { unsub(); };
   }, [ws, selectedMarket, calculateLocalSignal, strategyProfile]);
@@ -497,22 +477,24 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     fetchHistory();
   }, [ws, selectedMarket]);
 
-  // Get proposal - continuously request proposals
+  // ── PROPOSAL LIFECYCLE: ready/consumed/refresh ──
+  const requestProposal = useCallback(() => {
+    if (!ws || !isLoggedIn) return;
+    const needsB = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
+    const isRF = contractType === "CALL" || contractType === "PUT";
+    ws.getProposal({
+      amount: currentStake.current,
+      contractType,
+      symbol: selectedMarket,
+      duration: isRF ? Math.max(duration, 5) : duration,
+      durationUnit: isRF ? "t" : durationUnit,
+      ...(needsB && { barrier }),
+    });
+  }, [ws, contractType, selectedMarket, duration, durationUnit, barrier, isLoggedIn]);
+
+  // Proposal listener + periodic refresh
   useEffect(() => {
     if (!ws || !isLoggedIn) return;
-
-    const requestProposal = () => {
-      const needsBarrier = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
-      const isRiseFall = contractType === "CALL" || contractType === "PUT";
-      ws.getProposal({
-        amount: currentStake.current,
-        contractType,
-        symbol: selectedMarket,
-        duration: isRiseFall ? Math.max(duration, 5) : duration,
-        durationUnit: isRiseFall ? "t" : durationUnit,
-        ...(needsBarrier && { barrier }),
-      });
-    };
 
     requestProposal();
     const proposalInterval = setInterval(requestProposal, 3000);
@@ -521,17 +503,19 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       if (data.proposal) {
         setProposalId(data.proposal.id);
         proposalIdRef.current = data.proposal.id;
+        proposalReady.current = true;
         setPayout(data.proposal.payout);
       }
     });
     return () => { unsub(); clearInterval(proposalInterval); };
-  }, [ws, contractType, stake, selectedMarket, duration, durationUnit, barrier, isLoggedIn]);
+  }, [ws, contractType, stake, selectedMarket, duration, durationUnit, barrier, isLoggedIn, requestProposal]);
 
   const marketLabel = VOLATILITY_MARKETS.find((m) => m.symbol === selectedMarket)?.label || selectedMarket;
   const needsBarrier = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
   const winRate = session.totalTrades > 0 ? ((session.wins / session.totalTrades) * 100).toFixed(1) : "0.0";
 
   const handleTradeResult = useCallback((profit: number, won: boolean, contractId: string, tradeStake: number) => {
+    pendingTrades.current.delete(contractId);
     setTradeResult({ profit, won });
     openContracts.current = Math.max(0, openContracts.current - 1);
 
@@ -566,7 +550,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       };
     });
 
-    // Recovery logic — NO loss streak stop
     if (won) {
       consecutiveLosses.current = 0;
       currentStake.current = parseFloat(stake);
@@ -575,13 +558,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       if (martingale && consecutiveLosses.current >= startMartingaleAfter && consecutiveLosses.current < maxMartingaleSteps) {
         currentStake.current *= parseFloat(martingaleMultiplier);
       } else if (martingale && consecutiveLosses.current >= maxMartingaleSteps) {
-        // Reset and continue — NEVER stop
         currentStake.current = parseFloat(stake);
         consecutiveLosses.current = 0;
       }
     }
 
-    // Smart Risker
     const totalP = sessionProfitRef.current + profit;
     if (smartRisker && totalP > 0) {
       const halfStake = parseFloat(stake) * 0.5;
@@ -592,7 +573,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       }
     }
 
-    // TP/SL checks — ONLY valid stop conditions
     const tp = parseFloat(takeProfit);
     const sl = parseFloat(stopLoss);
     if (totalP >= tp) {
@@ -605,56 +585,65 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       toast({ title: "⛔ Stop Loss Hit", description: `Loss limit reached: $${Math.abs(totalP).toFixed(2)}` });
     }
 
-    // Re-request proposal with current stake
-    if (ws && botRunning.current) {
-      const needsB = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
-      const isRF = contractType === "CALL" || contractType === "PUT";
-      ws.getProposal({
-        amount: currentStake.current,
-        contractType,
-        symbol: selectedMarket,
-        duration: isRF ? Math.max(duration, 5) : duration,
-        durationUnit: isRF ? "t" : durationUnit,
-        ...(needsB && { barrier }),
-      });
-    }
-  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, smartRisker, selectedMarket]);
+    requestProposal();
+  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, smartRisker, selectedMarket, requestProposal]);
 
-  // ── CONTINUOUS TRADE EXECUTION — non-blocking, parallel ──
-  const executeTradeContinuous = useCallback(() => {
-    if (!ws || !proposalIdRef.current || !isLoggedIn) return;
-    if (openContracts.current >= MAX_CONCURRENT) return;
+  // ── PERSISTENT LISTENERS: registered ONCE, dispatch by contract_id ──
+  useEffect(() => {
+    if (!ws) return;
 
-    const currentProposalId = proposalIdRef.current;
-    // ALWAYS use user-configured stake, apply martingale only if in recovery
-    const tradeStake = currentStake.current;
-
-    // Track trade rate
-    tradeTimestamps.current.push(Date.now());
-    openContracts.current++;
-
-    ws.buyContract(currentProposalId, tradeStake);
-
-    // NON-BLOCKING: result handled via one-time listeners
     const unsubBuy = ws.on("buy", (data) => {
-      unsubBuy();
       if (data.error) {
         openContracts.current = Math.max(0, openContracts.current - 1);
+        console.warn("[TradeEngine] Buy error:", data.error.message);
+        requestProposal();
         return;
       }
-      if (data.buy) {
+      if (data.buy?.contract_id) {
+        const contractId = String(data.buy.contract_id);
+        const latestStake = pendingTrades.current.get("_latest_stake");
+        const tradeStake = latestStake ? latestStake.stake : currentStake.current;
+        pendingTrades.current.delete("_latest_stake");
+        pendingTrades.current.set(contractId, { stake: tradeStake, resolved: false });
         ws.subscribeOpenContract();
       }
     });
 
-    const unsubContract = ws.on("proposal_open_contract", (data) => {
+    const unsubPoc = ws.on("proposal_open_contract", (data) => {
       const poc = data.proposal_open_contract;
-      if (poc && poc.is_sold) {
-        unsubContract();
-        handleTradeResult(poc.profit, poc.profit > 0, poc.contract_id, tradeStake);
-      }
+      if (!poc || !poc.is_sold) return;
+      const contractId = String(poc.contract_id);
+      const pending = pendingTrades.current.get(contractId);
+      if (!pending || pending.resolved) return;
+      pending.resolved = true;
+      handleTradeResult(poc.profit, poc.profit > 0, contractId, pending.stake);
     });
-  }, [ws, isLoggedIn, handleTradeResult]);
+
+    return () => { unsubBuy(); unsubPoc(); };
+  }, [ws, handleTradeResult, requestProposal]);
+
+  // ── TRADE EXECUTION: consumes proposal, fires buy, requests new proposal ──
+  const executeTradeContinuous = useCallback(() => {
+    if (!ws || !proposalReady.current || !proposalIdRef.current || !isLoggedIn) return;
+    if (openContracts.current >= MAX_CONCURRENT) return;
+
+    const now = Date.now();
+    tradeTimestamps.current = tradeTimestamps.current.filter(t => t > now - 1000);
+    if (tradeTimestamps.current.length >= MAX_TRADES_PER_SEC) return;
+
+    const currentProposalId = proposalIdRef.current;
+    const tradeStake = currentStake.current;
+
+    proposalReady.current = false;
+    proposalIdRef.current = null;
+
+    pendingTrades.current.set("_latest_stake", { stake: tradeStake, resolved: false });
+    tradeTimestamps.current.push(now);
+    openContracts.current++;
+
+    ws.buyContract(currentProposalId, tradeStake);
+    requestProposal();
+  }, [ws, isLoggedIn, requestProposal]);
 
   const executeTrade = useCallback(() => {
     executeTradeContinuous();
@@ -675,7 +664,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     setShowSessionModal(false);
     setSoftwareStatus("ACTIVE");
     botRunning.current = true;
-    toast({ title: "▶ Bot Resumed", description: `${strategyProfile} profile • Continuous mode` });
+    toast({ title: "▶ Bot Resumed", description: `${strategyProfile} profile • ${executionSpeed} mode` });
   };
 
   const confirmStart = () => {
@@ -686,9 +675,10 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     currentStake.current = parseFloat(stake);
     partialProfitTaken.current = 0;
     openContracts.current = 0;
+    pendingTrades.current.clear();
     setSession({ totalTrades: 0, wins: 0, losses: 0, totalProfit: 0, peakBalance: 0, maxDrawdown: 0, startBalance: 0, largestStake: 0, maxLossStreak: 0 });
     setTransactions([]);
-    toast({ title: "▶ Bot Started", description: `${strategyProfile} profile • Continuous mode` });
+    toast({ title: "▶ Bot Started", description: `${strategyProfile} profile • ${executionSpeed} mode` });
   };
 
   const stopBot = () => {
@@ -697,25 +687,45 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     toast({ title: "⏹ Bot Stopped", description: `P/L: $${session.totalProfit.toFixed(2)}` });
   };
 
-  // Normal mode backup loop (for when tick-based trading misses)
+  // ── DECOUPLED DECISION LOOP — runs on interval, reads signal from refs ──
   useEffect(() => {
     if (softwareStatus !== "ACTIVE" || !botRunning.current || mode !== "Automated") return;
 
+    const intervalMs = executionSpeed === "Turbo" ? 200 :
+                       executionSpeed === "Fast" ? 1000 : 4000;
+
     const timer = setInterval(() => {
-      if (botRunning.current && proposalIdRef.current && openContracts.current < MAX_CONCURRENT) {
-        const now = Date.now();
-        tradeTimestamps.current = tradeTimestamps.current.filter(t => t > now - 1000);
+      if (!botRunning.current || !proposalReady.current) return;
+      if (openContracts.current >= MAX_CONCURRENT) return;
+
+      const now = Date.now();
+      tradeTimestamps.current = tradeTimestamps.current.filter(t => t > now - 1000);
+      if (tradeTimestamps.current.length >= MAX_TRADES_PER_SEC) return;
+
+      const { score, elitScore } = latestSignalRef.current;
+      let shouldTrade = false;
+      const threshold = strategyProfile === "aggressive" ? 0.05 :
+                        strategyProfile === "conservative" ? 0.25 : 0.15;
+
+      if (strategyProfile === "elit") {
+        shouldTrade = elitScore >= 70;
+      } else {
+        shouldTrade = score >= threshold;
+      }
+
+      if (shouldTrade) {
         const remaining = MAX_TRADES_PER_SEC - tradeTimestamps.current.length;
-        if (remaining > 0) {
-          const count = bulkMode ? Math.min(bulkCount, remaining, MAX_CONCURRENT - openContracts.current) : 1;
-          for (let i = 0; i < count; i++) {
-            executeTradeContinuous();
-          }
+        const maxSlots = MAX_CONCURRENT - openContracts.current;
+        const tradeCount = bulkModeRef.current ? Math.min(bulkCountRef.current, remaining, maxSlots) : 1;
+        const actualCount = executionSpeed === "Turbo" ? Math.min(tradeCount, remaining) : 1;
+        for (let i = 0; i < actualCount; i++) {
+          executeTradeContinuous();
         }
       }
-    }, executionSpeed === "Fast" ? 1000 : 4000);
+    }, intervalMs);
+
     return () => clearInterval(timer);
-  }, [softwareStatus, mode, executionSpeed, executeTradeContinuous, bulkMode, bulkCount]);
+  }, [softwareStatus, mode, executionSpeed, executeTradeContinuous, strategyProfile]);
 
   const clearTransactions = () => setTransactions([]);
 
@@ -1207,16 +1217,17 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   value={executionSpeed}
                   onChange={(e) => {
                     const val = e.target.value;
-                    if (val === "Fast" && !isPremium && !isAdmin) {
+                    if ((val === "Fast" || val === "Turbo") && !isPremium && !isAdmin) {
                       setPremiumFeature("High-Speed Execution Mode");
                       setShowPremiumModal(true);
                       return;
                     }
-                    setExecutionSpeed(val as any);
+                    setExecutionSpeed(val as "Normal" | "Fast" | "Turbo");
                   }}
                   className="mt-1 w-full px-3 py-2 bg-secondary border border-border rounded text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 >
-                  <option value="Fast">⚡ Continuous (tick-by-tick) {!isPremium && !isAdmin ? "🔒" : ""}</option>
+                  <option value="Turbo">🚀 Turbo (5 trades/sec) {!isPremium && !isAdmin ? "🔒" : ""}</option>
+                  <option value="Fast">⚡ Fast (1 trade/sec) {!isPremium && !isAdmin ? "🔒" : ""}</option>
                   <option value="Normal">🐢 Normal (4s interval)</option>
                 </select>
               </div>
@@ -1428,7 +1439,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                       ["Take Profit:", takeProfit],
                       ["Stop Loss:", stopLoss],
                       ["Market:", marketLabel],
-                      ["Speed:", executionSpeed === "Fast" ? "Continuous" : "Normal"],
+                      ["Speed:", executionSpeed === "Turbo" ? "Turbo (5/sec)" : executionSpeed === "Fast" ? "Fast (1/sec)" : "Normal (4s)"],
                       ["Smart Risker:", smartRisker ? "On" : "Off"],
                     ].map(([k, v]) => (
                       <tr key={k}>
