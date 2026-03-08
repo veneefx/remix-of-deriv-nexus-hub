@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Wallet, List, Table, ChevronRight, Settings, TrendingUp, BarChart3, Shield, Zap, Activity, Flame, Target, AlertTriangle, Lock } from "lucide-react";
+import { X, Wallet, List, Table, ChevronRight, Settings, TrendingUp, BarChart3, Shield, Zap, Activity, Flame, Target, AlertTriangle, Lock, Brain } from "lucide-react";
 import DerivWebSocket from "@/services/deriv-websocket";
 import { DerivAccount } from "@/services/deriv-auth";
 import { VOLATILITY_MARKETS, CONTRACT_TYPES, DIGIT_BARRIERS, getLastDigit } from "@/lib/trading-constants";
 import { tradingEngine } from "@/services/trading-engine";
 import AnalysisTab from "@/components/trading/AnalysisTab";
 import DigitAnalysisDashboard from "@/components/trading/DigitAnalysisDashboard";
+import LiveProbabilityEngine from "@/components/trading/LiveProbabilityEngine";
+import QuantTerminal from "@/components/trading/QuantTerminal";
 import RiskPanel from "@/components/trading/RiskPanel";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -59,6 +61,90 @@ interface SignalDetails {
   volatilityScore: number;
 }
 
+// ── ELIT Strategy Engine ──────────────────────────────────────────
+function elitAnalysis(digits: number[], pressure: DigitPressure, buffer: { quote: number; epoch?: number }[]): {
+  score: number;
+  contract: string;
+  reason: string;
+  layers: { name: string; active: boolean; value: number }[];
+} {
+  const total = digits.length;
+  if (total < 50) return { score: 0, contract: "DIGITODD", reason: "Insufficient data", layers: [] };
+
+  // Layer 1: Digit frequency imbalance
+  const freq = new Array(10).fill(0);
+  digits.forEach(d => freq[d]++);
+  let rareDigit = -1, rareCount = Infinity, domDigit = 0, domCount = 0;
+  freq.forEach((c, i) => {
+    const pct = (c / total) * 100;
+    if (pct < 5 && c < rareCount) { rareDigit = i; rareCount = c; }
+    if (c > domCount) { domDigit = i; domCount = c; }
+  });
+  const freqImbalance = Math.max(...freq.map(c => Math.abs((c / total) * 100 - 10)));
+  const l1Active = freqImbalance >= 3;
+  const l1Score = Math.min(freqImbalance * 5, 25);
+
+  // Layer 2: Momentum shift
+  const recent50 = digits.slice(-50);
+  const prev50 = digits.slice(-100, -50);
+  const recentOdd = recent50.filter(x => x % 2 !== 0).length;
+  const prevOdd = prev50.length > 0 ? prev50.filter(x => x % 2 !== 0).length : 25;
+  const momentumShift = Math.abs(recentOdd - prevOdd);
+  const l2Active = momentumShift >= 3;
+  const l2Score = Math.min(momentumShift * 4, 20);
+  const oddMomentum = recentOdd > prevOdd;
+
+  // Layer 3: Streak detection
+  let streak = 1;
+  for (let i = digits.length - 1; i > 0; i--) {
+    if (digits[i] === digits[i - 1]) streak++; else break;
+  }
+  const l3Active = streak >= 2;
+  const l3Score = Math.min(streak * 8, 20);
+
+  // Layer 4: Digit clustering
+  const last30 = digits.slice(-30);
+  const highCount = last30.filter(d => d >= 7).length;
+  const lowCount = last30.filter(d => d <= 2).length;
+  const clusterPct = Math.max(highCount, lowCount) / 30 * 100;
+  const l4Active = clusterPct >= 40;
+  const l4Score = Math.min(clusterPct * 0.5, 20);
+  const highCluster = highCount > lowCount;
+
+  // Layer 5: Tick speed acceleration
+  let tickSpeed = 0;
+  if (buffer.length >= 10) {
+    const recent = buffer.slice(-10);
+    const span = (recent[recent.length - 1].epoch || 0) - (recent[0].epoch || 0);
+    tickSpeed = span > 0 ? 10 / span : 0;
+  }
+  const l5Active = tickSpeed >= 2;
+  const l5Score = Math.min(tickSpeed * 5, 15);
+
+  const totalScore = Math.min(Math.round(l1Score + l2Score + l3Score + l4Score + l5Score), 100);
+
+  // Determine contract type
+  let contract = "DIGITODD";
+  let reason = "";
+  if (l2Active && oddMomentum) { contract = "DIGITODD"; reason = "Odd momentum detected"; }
+  else if (l2Active && !oddMomentum) { contract = "DIGITEVEN"; reason = "Even momentum detected"; }
+  else if (l3Active && streak >= 3) { contract = "DIGITDIFF"; reason = `Digit ${digits[digits.length - 1]} streak x${streak} — reversal expected`; }
+  else if (l1Active && rareDigit >= 0) { contract = "DIGITDIFF"; reason = `Rare digit ${rareDigit} at ${((rareCount / total) * 100).toFixed(1)}%`; }
+  else if (l4Active && highCluster) { contract = "DIGITOVER"; reason = "High digit cluster detected"; }
+  else if (l4Active && !highCluster) { contract = "DIGITUNDER"; reason = "Low digit cluster detected"; }
+  else { reason = "Waiting for confluence"; }
+
+  const layers = [
+    { name: "Frequency", active: l1Active, value: l1Score },
+    { name: "Momentum", active: l2Active, value: l2Score },
+    { name: "Streak", active: l3Active, value: l3Score },
+    { name: "Cluster", active: l4Active, value: l4Score },
+    { name: "Tick Speed", active: l5Active, value: l5Score },
+  ];
+
+  return { score: totalScore, contract, reason, layers };
+}
+
 const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [selectedMarket, setSelectedMarket] = useState<string>(() => localStorage.getItem("dnx_market") || VOLATILITY_MARKETS[0].symbol);
   const [contractType, setContractType] = useState(() => localStorage.getItem("dnx_contractType") || "DIGITEVEN");
@@ -94,7 +180,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [smartRisker, setSmartRisker] = useState(false);
   const [freqBasedTrading, setFreqBasedTrading] = useState(false);
   const [freqThreshold, setFreqThreshold] = useState(12);
-  const [strategyProfile, setStrategyProfile] = useState<"aggressive" | "balanced" | "conservative">(() => (localStorage.getItem("dnx_profile") as any) || "balanced");
+  const [strategyProfile, setStrategyProfile] = useState<"aggressive" | "balanced" | "conservative" | "elit">(() => (localStorage.getItem("dnx_profile") as any) || "balanced");
   const [strategyVersion, setStrategyVersion] = useState<number | null>(null);
 
   // Signal scoring
@@ -102,6 +188,16 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [signalDetails, setSignalDetails] = useState<SignalDetails>({ frequencyScore: 0, pressureScore: 0, streakScore: 0, patternScore: 0, volatilityScore: 0 });
   const [digitPressure, setDigitPressure] = useState<DigitPressure>({ 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0 });
   const [highestPressureDigit, setHighestPressureDigit] = useState(0);
+
+  // ELIT state
+  const [elitScore, setElitScore] = useState(0);
+  const [elitContract, setElitContract] = useState("");
+  const [elitReason, setElitReason] = useState("");
+  const [elitLayers, setElitLayers] = useState<{ name: string; active: boolean; value: number }[]>([]);
+
+  // Continuous mode tracking
+  const [tradesPerSec, setTradesPerSec] = useState(0);
+  const tradeTimestamps = useRef<number[]>([]);
 
   const [session, setSession] = useState<SessionStats>({
     totalTrades: 0, wins: 0, losses: 0, totalProfit: 0,
@@ -135,7 +231,10 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const tickBufferRef = useRef<{ quote: number; digit: number; epoch: number }[]>([]);
   const digitPressureRef = useRef<DigitPressure>({ 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0 });
   const tickIndexRef = useRef(0);
-  const lastTradeTimestampRef = useRef(0);
+  // Trade queue for continuous mode
+  const tradeQueueRef = useRef<number>(0);
+  const MAX_TRADES_PER_SEC = 10;
+  const MAX_CONCURRENT = 15;
 
   const isLoggedIn = !!account;
 
@@ -162,6 +261,16 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   useEffect(() => { isTradingRef.current = isTrading; }, [isTrading]);
   useEffect(() => { sessionProfitRef.current = session.totalProfit; }, [session.totalProfit]);
   useEffect(() => { lastDigitsRef.current = lastDigits; }, [lastDigits]);
+
+  // Trades/sec counter
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      tradeTimestamps.current = tradeTimestamps.current.filter(t => t > now - 1000);
+      setTradesPerSec(tradeTimestamps.current.length);
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
 
   // Load global strategy from database
   useEffect(() => {
@@ -231,19 +340,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     return { score, details: { frequencyScore, pressureScore, streakScore, patternScore, volatilityScore } };
   }, []);
 
-  // Check if digit frequency condition is met for trading
-  const isFreqConditionMet = useCallback((): boolean => {
-    if (!freqBasedTrading || lastDigitsRef.current.length < 30) return true;
-    const digits = lastDigitsRef.current;
-    const total = digits.length;
-    for (let d = 0; d <= 9; d++) {
-      const count = digits.filter(x => x === d).length;
-      const pct = (count / total) * 100;
-      if (pct >= freqThreshold) return true;
-    }
-    return false;
-  }, [freqBasedTrading, freqThreshold]);
-
   // Subscribe to ticks
   useEffect(() => {
     if (!ws) return;
@@ -255,21 +351,17 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       if (!data.tick || typeof data.tick.quote !== "number") return;
 
       const quote = data.tick.quote;
-      setCurrentTick(quote);
-
-      // Reliable Digit Extraction
       const quoteStr = quote.toString();
       const lastDigit = parseInt(quoteStr.charAt(quoteStr.length - 1), 10);
       
       const tickData = { quote, digit: lastDigit, epoch: data.tick.epoch || Date.now() / 1000 };
       
-      // Update local refs and state
       setCurrentTick(quote);
       setLastDigits(prev => [...prev.slice(-999), lastDigit]);
       lastDigitsRef.current = [...lastDigitsRef.current.slice(-999), lastDigit];
       tickBufferRef.current = [...tickBufferRef.current.slice(-999), tickData];
 
-      // Update digit pressure (track absence)
+      // Update digit pressure
       tickIndexRef.current++;
       const newPressure = { ...digitPressureRef.current };
       newPressure[lastDigit] = 0;
@@ -279,40 +371,62 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       digitPressureRef.current = newPressure;
       setDigitPressure(newPressure);
 
-      // Find highest pressure digit
       let hpDigit = 0, hpVal = 0;
       for (let d = 0; d <= 9; d++) {
         if ((newPressure[d] || 0) > hpVal) { hpVal = newPressure[d]; hpDigit = d; }
       }
       setHighestPressureDigit(hpDigit);
 
-      // Calculate and update signal score
+      // Calculate signal
       const sig = calculateLocalSignal(lastDigitsRef.current, newPressure, tickBufferRef.current);
       setSignalScore(sig.score);
       setSignalDetails(sig.details);
 
-      // Fast Execution Logic
-      if (botRunning.current && !isTradingRef.current && proposalIdRef.current) {
+      // ELIT analysis
+      if (strategyProfile === "elit") {
+        const elit = elitAnalysis(lastDigitsRef.current, newPressure, tickBufferRef.current);
+        setElitScore(elit.score);
+        setElitContract(elit.contract);
+        setElitReason(elit.reason);
+        setElitLayers(elit.layers);
+      }
+
+      // ── CONTINUOUS EXECUTION ENGINE ──
+      if (botRunning.current && proposalIdRef.current) {
+        // Rate limiting: max trades per second
         const now = Date.now();
-        if (now - lastTradeTimestampRef.current >= 1000) {
-          if (sig.score >= 0.15 || aggressiveMode) {
-            executeTradeFast();
-          }
+        tradeTimestamps.current = tradeTimestamps.current.filter(t => t > now - 1000);
+        if (tradeTimestamps.current.length >= MAX_TRADES_PER_SEC) return;
+        if (openContracts.current >= MAX_CONCURRENT) return;
+
+        let shouldTrade = false;
+        const threshold = strategyProfile === "aggressive" ? 0.05 :
+                          strategyProfile === "elit" ? 0 : // ELIT uses its own score
+                          strategyProfile === "conservative" ? 0.25 : 0.15;
+
+        if (strategyProfile === "elit") {
+          const elit = elitAnalysis(lastDigitsRef.current, newPressure, tickBufferRef.current);
+          shouldTrade = elit.score >= 70;
+        } else {
+          shouldTrade = sig.score >= threshold;
+        }
+
+        if (shouldTrade) {
+          executeTradeContinuous();
         }
       }
     });
     return () => { unsub(); };
-  }, [ws, selectedMarket, executionSpeed, calculateLocalSignal, freqBasedTrading]);
+  }, [ws, selectedMarket, calculateLocalSignal, strategyProfile]);
 
-  // Preload tick history — restore from localStorage first, then fetch remote
+  // Preload tick history
   useEffect(() => {
-    // Restore from localStorage immediately
     try {
       const saved = localStorage.getItem(`dnx_ticks_${selectedMarket}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         const age = Date.now() - (parsed.ts || 0);
-        if (age < 3600000 && parsed.digits?.length > 0) { // valid for 1 hour
+        if (age < 3600000 && parsed.digits?.length > 0) {
           if (lastDigitsRef.current.length < 50) {
             setLastDigits(parsed.digits);
             lastDigitsRef.current = parsed.digits;
@@ -389,7 +503,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     setTradeResult({ profit, won });
     openContracts.current = Math.max(0, openContracts.current - 1);
 
-    // Show notification
     toast({
       title: won ? "✅ Trade Won" : "❌ Trade Lost",
       description: `${won ? "+" : ""}${profit.toFixed(2)} USD • ${marketLabel}`,
@@ -408,7 +521,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       const newProfit = prev.totalProfit + profit;
       const newPeak = Math.max(prev.peakBalance, newProfit);
       const dd = newPeak > 0 ? ((newPeak - newProfit) / newPeak) * 100 : 0;
-      const newLossStreak = won ? 0 : consecutiveLosses.current + 1;
       return {
         ...prev,
         totalTrades: prev.totalTrades + 1,
@@ -418,11 +530,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         peakBalance: newPeak,
         maxDrawdown: Math.max(prev.maxDrawdown, dd),
         largestStake: Math.max(prev.largestStake, tradeStake),
-        maxLossStreak: Math.max(prev.maxLossStreak, newLossStreak),
+        maxLossStreak: Math.max(prev.maxLossStreak, won ? 0 : consecutiveLosses.current + 1),
       };
     });
 
-    // Recovery logic
+    // Recovery logic — NO loss streak stop
     if (won) {
       consecutiveLosses.current = 0;
       currentStake.current = parseFloat(stake);
@@ -431,12 +543,9 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       if (martingale && consecutiveLosses.current >= startMartingaleAfter && consecutiveLosses.current < maxMartingaleSteps) {
         currentStake.current *= parseFloat(martingaleMultiplier);
       } else if (martingale && consecutiveLosses.current >= maxMartingaleSteps) {
-        if (stopAfterMaxMartingale) {
-          stopBot();
-        } else {
-          currentStake.current = parseFloat(stake);
-          consecutiveLosses.current = 0;
-        }
+        // Reset and continue — NEVER stop
+        currentStake.current = parseFloat(stake);
+        consecutiveLosses.current = 0;
       }
     }
 
@@ -451,7 +560,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       }
     }
 
-    // TP/SL checks
+    // TP/SL checks — ONLY valid stop conditions
     const tp = parseFloat(takeProfit);
     const sl = parseFloat(stopLoss);
     if (totalP >= tp) {
@@ -464,11 +573,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       toast({ title: "⛔ Stop Loss Hit", description: `Loss limit reached: $${Math.abs(totalP).toFixed(2)}` });
     }
 
-    // CRITICAL: Mark trading as done IMMEDIATELY
-    setIsTrading(false);
-    isTradingRef.current = false;
-
-    // Re-request proposal with current stake for next trade
+    // Re-request proposal with current stake
     if (ws && botRunning.current) {
       const needsB = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
       const isRF = contractType === "CALL" || contractType === "PUT";
@@ -481,42 +586,27 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         ...(needsB && { barrier }),
       });
     }
-  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, stopAfterMaxMartingale, smartRisker, selectedMarket]);
+  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, smartRisker, selectedMarket]);
 
-  // FAST trade execution — non-blocking, uses one-time listener
-  const executeTradeFast = useCallback(() => {
+  // ── CONTINUOUS TRADE EXECUTION — non-blocking, parallel ──
+  const executeTradeContinuous = useCallback(() => {
     if (!ws || !proposalIdRef.current || !isLoggedIn) return;
-    
-    // Check if aggressive mode or not trading
-    if (!aggressiveMode && isTradingRef.current) return;
-    if (openContracts.current >= (aggressiveMode ? 10 : 3)) return; // Max concurrent trades guard
+    if (openContracts.current >= MAX_CONCURRENT) return;
 
     const currentProposalId = proposalIdRef.current;
-    
-    // Ensure stake is correct: use martingale stake if in recovery, else use user input stake
-    const tradeStake = consecutiveLosses.current > 0 ? currentStake.current : parseFloat(stake);
+    // ALWAYS use user-configured stake, apply martingale only if in recovery
+    const tradeStake = currentStake.current;
 
-    isTradingRef.current = true;
-    setIsTrading(true);
-    setTradeResult(null);
+    // Track trade rate
+    tradeTimestamps.current.push(Date.now());
     openContracts.current++;
 
-    lastTradeTimestampRef.current = Date.now();
     ws.buyContract(currentProposalId, tradeStake);
-    
-    // Reset isTrading immediately in aggressive mode to allow parallel trades
-    if (aggressiveMode) {
-      setTimeout(() => {
-        isTradingRef.current = false;
-        setIsTrading(false);
-      }, 500);
-    }
 
+    // NON-BLOCKING: result handled via one-time listeners
     const unsubBuy = ws.on("buy", (data) => {
       unsubBuy();
       if (data.error) {
-        isTradingRef.current = false;
-        setIsTrading(false);
         openContracts.current = Math.max(0, openContracts.current - 1);
         return;
       }
@@ -535,8 +625,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   }, [ws, isLoggedIn, handleTradeResult]);
 
   const executeTrade = useCallback(() => {
-    executeTradeFast();
-  }, [executeTradeFast]);
+    executeTradeContinuous();
+  }, [executeTradeContinuous]);
 
   const startBot = () => {
     if (!isLoggedIn) return;
@@ -553,7 +643,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     setShowSessionModal(false);
     setSoftwareStatus("ACTIVE");
     botRunning.current = true;
-    toast({ title: "▶ Bot Resumed", description: `${strategyProfile} profile • ${executionSpeed} mode` });
+    toast({ title: "▶ Bot Resumed", description: `${strategyProfile} profile • Continuous mode` });
   };
 
   const confirmStart = () => {
@@ -564,49 +654,35 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     currentStake.current = parseFloat(stake);
     partialProfitTaken.current = 0;
     openContracts.current = 0;
-    isTradingRef.current = false;
-    setIsTrading(false);
     setSession({ totalTrades: 0, wins: 0, losses: 0, totalProfit: 0, peakBalance: 0, maxDrawdown: 0, startBalance: 0, largestStake: 0, maxLossStreak: 0 });
     setTransactions([]);
-    toast({ title: "▶ Bot Started", description: `${strategyProfile} profile • ${executionSpeed} mode` });
+    toast({ title: "▶ Bot Started", description: `${strategyProfile} profile • Continuous mode` });
   };
 
   const stopBot = () => {
     setSoftwareStatus("INACTIVE");
     botRunning.current = false;
-    isTradingRef.current = false;
-    setIsTrading(false);
     toast({ title: "⏹ Bot Stopped", description: `P/L: $${session.totalProfit.toFixed(2)}` });
   };
 
-  // Normal mode auto-trade loop (4s interval)
+  // Normal mode backup loop (for when tick-based trading misses)
   useEffect(() => {
-    if (softwareStatus !== "ACTIVE" || !botRunning.current || mode !== "Automated" || executionSpeed !== "Normal") return;
+    if (softwareStatus !== "ACTIVE" || !botRunning.current || mode !== "Automated") return;
 
     const timer = setInterval(() => {
-      if (botRunning.current && !isTradingRef.current && proposalIdRef.current) {
-        executeTradeFast();
+      if (botRunning.current && proposalIdRef.current && openContracts.current < MAX_CONCURRENT) {
+        const now = Date.now();
+        tradeTimestamps.current = tradeTimestamps.current.filter(t => t > now - 1000);
+        if (tradeTimestamps.current.length < MAX_TRADES_PER_SEC) {
+          executeTradeContinuous();
+        }
       }
-    }, 4000);
+    }, executionSpeed === "Fast" ? 1000 : 4000);
     return () => clearInterval(timer);
-  }, [softwareStatus, mode, executionSpeed, executeTradeFast]);
-
-  // Aggressive mode auto-trade loop (1s interval - 1 trade per second)
-  useEffect(() => {
-    if (softwareStatus !== "ACTIVE" || !botRunning.current || mode !== "Automated" || executionSpeed !== "Fast") return;
-
-    const timer = setInterval(() => {
-      if (botRunning.current && proposalIdRef.current) {
-        // In aggressive mode, execute immediately without waiting for previous trade to close
-        executeTradeFast();
-      }
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [softwareStatus, mode, executionSpeed, executeTradeFast]);
+  }, [softwareStatus, mode, executionSpeed, executeTradeContinuous]);
 
   const clearTransactions = () => setTransactions([]);
 
-  // Compute digit frequencies for display
   const digitFrequencies = useMemo(() => DIGIT_BARRIERS.map((d) => {
     const num = parseInt(d);
     const count = lastDigits.filter((x) => x === num).length;
@@ -648,6 +724,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
             >
               Signal: {(signalScore * 100).toFixed(0)}%
             </motion.span>
+          )}
+          {/* High Speed indicator */}
+          {softwareStatus === "ACTIVE" && (
+            <span className="text-[9px] px-2 py-0.5 rounded-full bg-buy/10 text-buy border border-buy/20 font-bold animate-pulse flex items-center gap-1">
+              <Zap className="w-3 h-3" /> {tradesPerSec}t/s • {openContracts.current} open
+            </span>
           )}
           {currentTick !== null && (
             <div className="flex items-center gap-2 ml-auto">
@@ -719,6 +801,49 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                     </div>
                   </div>
                 </div>
+
+                {/* ELIT Strategy Panel */}
+                {strategyProfile === "elit" && lastDigits.length > 50 && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="p-4 rounded-xl bg-card border-2 border-warning/30"
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <Brain className="w-4 h-4 text-warning" />
+                      <h3 className="text-sm font-bold text-warning">ELIT Strategy Engine</h3>
+                      <span className="text-[9px] px-2 py-0.5 rounded-full bg-warning/10 text-warning border border-warning/20 font-bold">
+                        {elitScore}% Confluence
+                      </span>
+                      {elitScore >= 70 && (
+                        <span className="text-[9px] px-2 py-0.5 rounded-full bg-buy/10 text-buy border border-buy/20 font-bold animate-pulse ml-auto">
+                          ⚡ FIRING
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-5 gap-2 mb-3">
+                      {elitLayers.map(l => (
+                        <div key={l.name} className="text-center">
+                          <div className="h-8 bg-secondary rounded relative overflow-hidden">
+                            <motion.div
+                              className={`absolute bottom-0 w-full rounded ${l.active ? "bg-warning/50" : "bg-muted-foreground/10"}`}
+                              animate={{ height: `${l.value * 4}%` }}
+                              transition={{ duration: 0.3 }}
+                            />
+                          </div>
+                          <span className="text-[7px] text-muted-foreground block mt-0.5">{l.name}</span>
+                          <span className={`text-[8px] ${l.active ? "text-warning" : "text-muted-foreground"}`}>
+                            {l.active ? "✔" : "—"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] text-muted-foreground">{elitReason}</p>
+                      <span className="text-xs font-bold text-warning">{elitContract.replace("DIGIT", "")}</span>
+                    </div>
+                  </motion.div>
+                )}
 
                 {/* Signal Strength + Digit Pressure */}
                 {lastDigits.length > 30 && (
@@ -806,75 +931,29 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   </div>
                 )}
 
-                {/* Sign in prompt */}
-                {!isLoggedIn && (
-                  <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <Shield className="w-5 h-5 text-primary" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-sm font-semibold text-foreground">Connect to Execute Trades</h3>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          Live data is streaming. Connect your Deriv account to place trades and access the automated bot engine.
-                        </p>
-                      </div>
+                {/* Digit History Circles */}
+                {lastDigits.length > 0 && (
+                  <div className="p-3 rounded-xl bg-card border border-border">
+                    <p className="text-[10px] text-muted-foreground mb-2">Digit History (last 60)</p>
+                    <div className="flex flex-wrap gap-1">
+                      {lastDigits.slice(-60).map((d, i) => (
+                        <span key={i} className={`w-5 h-5 rounded-full text-[9px] font-bold flex items-center justify-center ${d % 2 === 0 ? "bg-primary/10 text-primary" : "bg-warning/10 text-warning"}`}>
+                          {d}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 )}
 
-                {/* Last 50 Digits — Tiny Circles */}
-                <div className="p-4 rounded-xl bg-card border border-border">
-                  <h3 className="text-sm font-semibold text-foreground mb-3">Last 50 Digits ({marketLabel})</h3>
-                  <div className="flex flex-wrap gap-1">
-                    {(lastDigits.length > 0 ? lastDigits.slice(-50) : Array(50).fill(null)).map((digit, i) => (
-                      <motion.div
-                        key={i}
-                        initial={digit !== null ? { scale: 0.5, opacity: 0 } : false}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{ duration: 0.15 }}
-                        className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-mono font-bold transition-all ${
-                          digit === null
-                            ? "bg-secondary text-muted-foreground"
-                            : digit >= 5
-                              ? "bg-buy/20 text-buy border border-buy/30"
-                              : "bg-sell/20 text-sell border border-sell/30"
-                        }`}
-                      >
-                        {digit !== null && digit !== undefined ? String(digit) : "-"}
-                      </motion.div>
-                    ))}
-                  </div>
+                {/* Live Probability Engine */}
+                <LiveProbabilityEngine lastDigits={lastDigits} tickBuffer={tickBufferRef.current} />
 
-                  {/* Digit frequency — Deriv-style donut circles */}
-                  <div className="mt-4 grid grid-cols-10 gap-1.5">
-                    {digitFrequencies.map((d) => {
-                      const circumference = 2 * Math.PI * 15;
-                      const dashLen = (d.pct / 100) * circumference;
-                      const gapLen = circumference - dashLen;
-                      return (
-                        <div key={d.digit} className="flex flex-col items-center gap-0.5">
-                          <div className="relative w-9 h-9">
-                            <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                              <circle cx="18" cy="18" r="15" fill="none" stroke="hsl(var(--secondary))" strokeWidth="2.5" />
-                              <circle
-                                cx="18" cy="18" r="15" fill="none"
-                                stroke={d.pct > 12 ? "hsl(var(--sell))" : d.pct > 8 ? "hsl(var(--warning))" : "hsl(var(--buy))"}
-                                strokeWidth="2.5"
-                                strokeDasharray={`${dashLen} ${gapLen}`}
-                                strokeLinecap="round"
-                              />
-                            </svg>
-                            <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold text-foreground">{d.digit}</span>
-                          </div>
-                          <span className="text-[8px] text-muted-foreground">{d.pct.toFixed(0)}%</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                {/* Quant Terminal */}
+                {lastDigits.length > 50 && (
+                  <QuantTerminal lastDigits={lastDigits} tickBuffer={tickBufferRef.current} signalScore={signalScore} />
+                )}
 
-                {/* Advanced Analysis Dashboard — inline below digits */}
+                {/* Advanced Analysis Dashboard */}
                 {lastDigits.length > 30 && (
                   <DigitAnalysisDashboard
                     lastDigits={lastDigits}
@@ -885,15 +964,19 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   />
                 )}
 
-                {/* Freq-based status */}
-                {freqBasedTrading && softwareStatus === "ACTIVE" && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`p-3 rounded-lg text-center text-xs font-medium ${isFreqConditionMet() ? "bg-buy/10 text-buy" : "bg-warning/10 text-warning"}`}
-                  >
-                    {isFreqConditionMet() ? "⚡ Frequency imbalance detected — Trading active" : "⏸ Waiting for digit frequency imbalance..."}
-                  </motion.div>
+                {/* Sign in prompt */}
+                {!isLoggedIn && (
+                  <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <Wallet className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">Connect to Trade</p>
+                        <p className="text-xs text-muted-foreground">Link your Deriv account to start automated trading.</p>
+                      </div>
+                    </div>
+                  </div>
                 )}
 
                 {/* Session stats */}
@@ -1007,18 +1090,21 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           {/* Strategy Profile Selector */}
           <div>
             <label className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">Strategy Profile <span className="text-primary text-xs">●</span></label>
-            <div className="mt-1 flex gap-1">
-              {(["aggressive", "balanced", "conservative"] as const).map((p) => (
+            <div className="mt-1 grid grid-cols-2 gap-1">
+              {(["aggressive", "balanced", "conservative", "elit"] as const).map((p) => (
                 <button
                   key={p}
                   onClick={() => setStrategyProfile(p)}
-                  className={`flex-1 py-1.5 text-[10px] font-medium rounded transition-all capitalize ${
+                  className={`py-1.5 text-[10px] font-medium rounded transition-all capitalize ${
                     strategyProfile === p
-                      ? p === "aggressive" ? "bg-sell/20 text-sell border border-sell/30" : p === "balanced" ? "bg-warning/20 text-warning border border-warning/30" : "bg-buy/20 text-buy border border-buy/30"
+                      ? p === "aggressive" ? "bg-sell/20 text-sell border border-sell/30"
+                      : p === "balanced" ? "bg-warning/20 text-warning border border-warning/30"
+                      : p === "elit" ? "bg-warning/30 text-warning border border-warning/40 font-bold"
+                      : "bg-buy/20 text-buy border border-buy/30"
                       : "bg-secondary text-muted-foreground hover:bg-muted"
                   }`}
                 >
-                  {p === "aggressive" ? "🟥" : p === "balanced" ? "🟨" : "🟩"} {p}
+                  {p === "aggressive" ? "🟥" : p === "balanced" ? "🟨" : p === "elit" ? "⚡" : "🟩"} {p === "elit" ? "ELIT" : p}
                 </button>
               ))}
             </div>
@@ -1082,7 +1168,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   onChange={(e) => {
                     const val = e.target.value;
                     if (val === "Fast" && !isPremium && !isAdmin) {
-                      setPremiumFeature("Aggressive Execution Mode");
+                      setPremiumFeature("High-Speed Execution Mode");
                       setShowPremiumModal(true);
                       return;
                     }
@@ -1090,8 +1176,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   }}
                   className="mt-1 w-full px-3 py-2 bg-secondary border border-border rounded text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 >
-                  <option value="Fast">🚀 Aggressive (1 trade/sec) {!isPremium && !isAdmin ? "🔒" : ""}</option>
-                  <option value="Normal">🐢 Normal (4s delay)</option>
+                  <option value="Fast">⚡ Continuous (tick-by-tick) {!isPremium && !isAdmin ? "🔒" : ""}</option>
+                  <option value="Normal">🐢 Normal (4s interval)</option>
                 </select>
               </div>
             </div>
@@ -1199,11 +1285,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                     <FormField label="Max Martingale Level" hint="Max consecutive multiplications.">
                       <input type="number" value={maxMartingaleSteps} onChange={(e) => setMaxMartingaleSteps(parseInt(e.target.value) || 3)} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                     </FormField>
-                    <FormField label="Stop After Max Level" hint="Stop or reset and continue.">
-                      <select value={stopAfterMaxMartingale ? "Yes" : "No"} onChange={(e) => setStopAfterMaxMartingale(e.target.value === "Yes")} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground">
-                        <option>Yes</option><option>No</option>
-                      </select>
-                    </FormField>
                     <FormField label="Start Martingale After" hint="Losses before martingale kicks in.">
                       <input type="number" value={startMartingaleAfter} onChange={(e) => setStartMartingaleAfter(parseInt(e.target.value) || 1)} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                     </FormField>
@@ -1282,14 +1363,13 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   <tbody className="divide-y divide-border">
                     {[
                       ["Starting Stake:", `${parseFloat(stake).toFixed(2)}`],
-                      ["Strategy:", strategyProfile],
+                      ["Strategy:", strategyProfile === "elit" ? "⚡ ELIT" : strategyProfile],
                       ["Martingale:", martingaleMultiplier],
                       ["Take Profit:", takeProfit],
                       ["Stop Loss:", stopLoss],
                       ["Market:", marketLabel],
-                      ["Speed:", executionSpeed],
+                      ["Speed:", executionSpeed === "Fast" ? "Continuous" : "Normal"],
                       ["Smart Risker:", smartRisker ? "On" : "Off"],
-                      ["Freq Trading:", freqBasedTrading ? `On (${freqThreshold}%)` : "Off"],
                     ].map(([k, v]) => (
                       <tr key={k}>
                         <td className="py-2 text-muted-foreground font-medium">{k}</td>
@@ -1354,15 +1434,6 @@ const FormField = ({ label, hint, children }: { label: string; hint: string; chi
     <p className="text-[10px] text-muted-foreground mt-1">{hint}</p>
   </div>
 );
-
-interface Transaction {
-  id: string;
-  contractType: string;
-  stake: number;
-  profit: number;
-  won: boolean;
-  description: string;
-}
 
 const TransactionView = ({
   transactions, session, winRate, txViewMode, setTxViewMode, clearTransactions, onClose,
