@@ -509,6 +509,9 @@ const TradingHub = () => {
               )}
             </div>
           )}
+          {activeView === "market-scanner" && (
+            <MarketScannerView />
+          )}
           {activeView === "transactions" && (
             <div className="p-4 lg:p-6 overflow-y-auto h-full">
               <div className="p-6 rounded-xl bg-card border border-border text-center">
