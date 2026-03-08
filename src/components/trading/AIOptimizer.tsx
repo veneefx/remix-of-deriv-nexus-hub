@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import { Brain, Target, TrendingUp, Clock, Zap, Shield, ChevronRight } from "lucide-react";
+import { Brain, Target, TrendingUp, Clock, Zap, Shield, ChevronRight, Activity } from "lucide-react";
 
 interface TickData {
   quote: number;
