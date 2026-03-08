@@ -168,7 +168,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   // Bot engine state
   const [mode, setMode] = useState<"Quick" | "Automated">("Automated");
   const [softwareStatus, setSoftwareStatus] = useState<"INACTIVE" | "ACTIVE">("INACTIVE");
-  const [executionSpeed, setExecutionSpeed] = useState<"Fast" | "Normal">("Fast");
+  const [executionSpeed, setExecutionSpeed] = useState<"Normal" | "Fast" | "Turbo">("Fast");
   const [aggressiveMode, setAggressiveMode] = useState(false);
   const [takeProfit, setTakeProfit] = useState("1000");
   const [stopLoss, setStopLoss] = useState("100");
