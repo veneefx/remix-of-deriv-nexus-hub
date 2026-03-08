@@ -273,7 +273,6 @@ const LandingPage = () => {
             <div>
               <span className="text-[#e41f28] font-bold uppercase tracking-[0.2em] text-sm">Faq's</span>
               <h2 className="text-4xl md:text-6xl font-bold text-white mt-4 mb-12 font-['Open_Sans']">Frequently Asked Questions</h2>
-              <div className="space-y-4">
               <div className="space-y-3">
                 {faqs.map((faq, i) => (
                   <div 
