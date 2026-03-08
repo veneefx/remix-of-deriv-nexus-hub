@@ -44,7 +44,7 @@ const sidebarItems = [
   { icon: Settings, label: "Settings", path: "/risk" },
 ];
 
-type ViewMode = "digit-edge" | "trading-view" | "deriv-charts" | "dat" | "market-scanner" | "transactions";
+type ViewMode = "digit-edge" | "trading-view" | "deriv-charts" | "dat" | "market-scanner" | "strategy-lab" | "transactions";
 
 const viewLabels: Record<ViewMode, string> = {
   "digit-edge": "Digit Edge",
@@ -52,6 +52,7 @@ const viewLabels: Record<ViewMode, string> = {
   "deriv-charts": "Deriv Charts",
   "dat": "DAT",
   "market-scanner": "Market Scanner",
+  "strategy-lab": "Strategy Lab",
   "transactions": "Transactions",
 };
 
@@ -275,6 +276,13 @@ const TradingHub = () => {
   const formatDate = (date: Date) => {
     return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
   };
+
+  const [hubLoaded, setHubLoaded] = useState(false);
+
+  // Show loader on first visit
+  if (!hubLoaded) {
+    return <TradingHubLoader onComplete={() => setHubLoaded(true)} />;
+  }
 
   // Show loading while checking auth
   if (isAuthenticated === null) {
