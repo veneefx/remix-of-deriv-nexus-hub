@@ -6,48 +6,91 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    /* DNexus Professional Light Theme — inspired by dtnexusapp.com */
+    --background: 225 14% 97%;      /* #f5f7fb */
+    --foreground: 222 47% 11%;      /* #1e293b */
+    --card: 0 0% 100%;              /* #ffffff */
+    --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 358 76% 51%; /* #e41f28 */
+    --popover-foreground: 222 47% 11%;
+    --primary: 358 76% 51%;         /* #e41f28 — DNexus red */
     --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 358 76% 51%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 358 76% 51%;
-    --radius: 0.75rem;
-  }
-
-  .dark {
-    --background: 0 0% 8%;
-    --foreground: 0 0% 95%;
-    --card: 0 0% 9%;
-    --card-foreground: 0 0% 95%;
-    --popover: 0 0% 9%;
-    --popover-foreground: 0 0% 95%;
-    --primary: 358 76% 51%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 13%;
-    --secondary-foreground: 0 0% 80%;
-    --muted: 0 0% 16%;
-    --muted-foreground: 0 0% 55%;
+    --secondary: 220 14% 96%;       /* #f1f5f9 */
+    --secondary-foreground: 222 47% 11%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 215 16% 47%; /* #64748b */
     --accent: 358 76% 51%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 14%;
-    --input: 0 0% 14%;
+    --border: 220 13% 91%;          /* #e2e8f0 */
+    --input: 220 13% 91%;
     --ring: 358 76% 51%;
+    --radius: 0.75rem;
+
+    /* Trading-specific tokens */
+    --buy: 142 71% 45%;             /* #22c55e */
+    --sell: 0 84% 60%;              /* #ef4444 */
+    --warning: 38 92% 50%;          /* #f59e0b */
+    --success: 142 71% 45%;
+    --neutral: 215 16% 47%;
+
+    /* Sidebar */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222 47% 11%;
+    --sidebar-primary: 358 76% 51%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 14% 96%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 358 76% 51%;
+
+    /* Card shadow for light */
+    --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    --card-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  .dark {
+    /* DNexus Professional Dark Theme — trading terminal aesthetic */
+    --background: 222 47% 11%;      /* #1e293b deep navy */
+    --foreground: 214 32% 91%;      /* #e2e8f0 */
+    --card: 217 33% 17%;            /* #1e293b → slightly lighter */
+    --card-foreground: 214 32% 91%;
+    --popover: 217 33% 17%;
+    --popover-foreground: 214 32% 91%;
+    --primary: 358 76% 51%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 215 20% 65%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%; /* #94a3b8 */
+    --accent: 358 76% 51%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 217 19% 27%;          /* #334155 */
+    --input: 217 19% 27%;
+    --ring: 358 76% 51%;
+
+    /* Trading tokens — same accent green */
+    --buy: 142 71% 45%;
+    --sell: 0 84% 60%;
+    --warning: 38 92% 50%;
+    --success: 142 71% 45%;
+    --neutral: 215 20% 65%;
+
+    /* Sidebar dark */
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 214 32% 91%;
+    --sidebar-primary: 358 76% 51%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 217 33% 17%;
+    --sidebar-accent-foreground: 214 32% 91%;
+    --sidebar-border: 217 19% 27%;
+    --sidebar-ring: 358 76% 51%;
+
+    --card-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --card-shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.5);
   }
 }
 
@@ -65,19 +108,20 @@
 
 @layer utilities {
   .glass-panel {
-    @apply bg-white/5 backdrop-blur-xl border border-white/10 shadow-2xl;
+    @apply bg-card/80 backdrop-blur-xl border border-border;
+    box-shadow: var(--card-shadow);
   }
 
   .hover-lift {
     @apply transition-all duration-300;
   }
   .hover-lift:hover {
-    @apply -translate-y-1;
-    box-shadow: 0 10px 30px -10px rgba(228, 31, 40, 0.3);
+    @apply -translate-y-0.5;
+    box-shadow: var(--card-shadow-hover);
   }
 
   .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60;
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-foreground to-foreground/60;
   }
 
   .bg-gradient-brand {
@@ -85,7 +129,24 @@
   }
 
   .glow-red {
-    box-shadow: 0 0 20px rgba(228, 31, 40, 0.3);
+    box-shadow: 0 0 20px rgba(228, 31, 40, 0.2);
+  }
+
+  /* Professional card styling */
+  .card-pro {
+    @apply bg-card rounded-xl border border-border;
+    box-shadow: var(--card-shadow);
+    padding: 18px;
+  }
+
+  /* Trading action button */
+  .btn-trade {
+    @apply px-4 py-2.5 bg-buy text-white font-semibold rounded-[10px] transition-all duration-200;
+    box-shadow: 0 4px 10px hsla(var(--buy) / 0.2);
+  }
+  .btn-trade:hover {
+    filter: brightness(0.9);
+    box-shadow: 0 6px 14px hsla(var(--buy) / 0.3);
   }
 }
 
@@ -99,16 +160,16 @@
 }
 
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-background;
+  @apply bg-transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-muted;
-  border-radius: 4px;
+  @apply bg-border;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {

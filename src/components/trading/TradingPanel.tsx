@@ -251,11 +251,32 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       lastDigitsRef.current = [...lastDigitsRef.current.slice(-999), lastDigit];
       tickBufferRef.current = [...tickBufferRef.current.slice(-999), tickData];
 
+      // Update digit pressure (track absence)
+      tickIndexRef.current++;
+      const newPressure = { ...digitPressureRef.current };
+      newPressure[lastDigit] = 0;
+      for (let d = 0; d <= 9; d++) {
+        if (d !== lastDigit) newPressure[d] = (newPressure[d] || 0) + 1;
+      }
+      digitPressureRef.current = newPressure;
+      setDigitPressure(newPressure);
+
+      // Find highest pressure digit
+      let hpDigit = 0, hpVal = 0;
+      for (let d = 0; d <= 9; d++) {
+        if ((newPressure[d] || 0) > hpVal) { hpVal = newPressure[d]; hpDigit = d; }
+      }
+      setHighestPressureDigit(hpDigit);
+
+      // Calculate and update signal score
+      const sig = calculateLocalSignal(lastDigitsRef.current, newPressure, tickBufferRef.current);
+      setSignalScore(sig.score);
+      setSignalDetails(sig.details);
+
       // Fast Execution Logic
       if (botRunning.current && !isTradingRef.current && proposalIdRef.current) {
         const now = Date.now();
         if (now - lastTradeTimestampRef.current >= 1000) {
-          const sig = calculateLocalSignal(lastDigitsRef.current, digitPressureRef.current, tickBufferRef.current);
           if (sig.score >= 0.15 || aggressiveMode) {
             executeTradeFast();
           }
