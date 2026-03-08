@@ -496,7 +496,7 @@ const TradingHub = () => {
                 </div>
               </div>
             ) : (
-              <DATTab lastDigits={lastDigits} currentTick={currentTick} marketLabel={marketLabel} />
+              <DATTab ws={ws} selectedMarket={selectedMarket} onMarketChange={setSelectedMarket} />
             )
           )}
           {activeView === "trading-view" && (
