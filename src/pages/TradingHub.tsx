@@ -24,7 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { VOLATILITY_MARKETS, CONTRACT_TYPES } from "@/lib/trading-constants";
+import { VOLATILITY_MARKETS, MARKET_CATEGORIES, CONTRACT_TYPES } from "@/lib/trading-constants";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
