@@ -1212,6 +1212,37 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   <option value="Normal">🐢 Normal (4s interval)</option>
                 </select>
               </div>
+
+              {/* Bulk Trade Mode */}
+              <div className="p-3 rounded-lg bg-secondary/50 border border-border space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                    <Flame className="w-3 h-3 text-sell" /> Trade Mode
+                  </label>
+                  <button
+                    onClick={() => setBulkMode(!bulkMode)}
+                    className={`px-3 py-1 text-[10px] font-bold rounded-full transition-all ${
+                      bulkMode ? "bg-sell/20 text-sell border border-sell/30" : "bg-secondary text-muted-foreground border border-border"
+                    }`}
+                  >
+                    {bulkMode ? `Bulk (${bulkCount})` : "Single"}
+                  </button>
+                </div>
+                {bulkMode && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground">Trades/tick:</span>
+                    <input
+                      type="number"
+                      value={bulkCount}
+                      onChange={(e) => setBulkCount(Math.max(2, Math.min(10, parseInt(e.target.value) || 2)))}
+                      min="2"
+                      max="10"
+                      className="w-14 px-2 py-1 bg-secondary border border-border rounded text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <span className="text-[8px] text-muted-foreground">2–10</span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
