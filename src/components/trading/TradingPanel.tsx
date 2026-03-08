@@ -66,7 +66,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [duration, setDuration] = useState(1);
   const [durationUnit, setDurationUnit] = useState("t");
   const [barrier, setBarrier] = useState("4");
-  const [lastDigits, setLastDigits] = useState<number[]>([]);
+  const [lastDigits, setLastDigits] = useState<number[]>(() => {
+    try {
+      const saved = localStorage.getItem(`dnx_ticks_${VOLATILITY_MARKETS[0].symbol}`);
+      return saved ? JSON.parse(saved).digits || [] : [];
+    } catch { return []; }
+  });
   const [currentTick, setCurrentTick] = useState<number | null>(null);
   const [proposalId, setProposalId] = useState<string | null>(null);
   const [payout, setPayout] = useState<number | null>(null);
@@ -139,6 +144,18 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   useEffect(() => { localStorage.setItem("dnx_contractType", contractType); }, [contractType]);
   useEffect(() => { localStorage.setItem("dnx_stake", stake); }, [stake]);
   useEffect(() => { localStorage.setItem("dnx_profile", strategyProfile); }, [strategyProfile]);
+
+  // Persist tick history to localStorage (throttled, every 5 ticks)
+  const tickSaveCounter = useRef(0);
+  useEffect(() => {
+    tickSaveCounter.current++;
+    if (tickSaveCounter.current % 5 !== 0) return;
+    try {
+      const digits = lastDigits.slice(-500);
+      const buffer = tickBufferRef.current.slice(-500);
+      localStorage.setItem(`dnx_ticks_${selectedMarket}`, JSON.stringify({ digits, buffer, ts: Date.now() }));
+    } catch {}
+  }, [lastDigits, selectedMarket]);
 
   // Keep refs in sync
   useEffect(() => { proposalIdRef.current = proposalId; }, [proposalId]);
@@ -287,13 +304,28 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     return () => { unsub(); };
   }, [ws, selectedMarket, executionSpeed, calculateLocalSignal, freqBasedTrading]);
 
-  // Preload tick history
+  // Preload tick history — restore from localStorage first, then fetch remote
   useEffect(() => {
+    // Restore from localStorage immediately
+    try {
+      const saved = localStorage.getItem(`dnx_ticks_${selectedMarket}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const age = Date.now() - (parsed.ts || 0);
+        if (age < 3600000 && parsed.digits?.length > 0) { // valid for 1 hour
+          if (lastDigitsRef.current.length < 50) {
+            setLastDigits(parsed.digits);
+            lastDigitsRef.current = parsed.digits;
+            if (parsed.buffer) tickBufferRef.current = parsed.buffer;
+          }
+        }
+      }
+    } catch {}
+
     if (!ws) return;
     const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
     if (!projectId) return;
     
-    // Fetch historical ticks via edge function
     const fetchHistory = async () => {
       try {
         const res = await supabase.functions.invoke("deriv-proxy", {
@@ -312,7 +344,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
             }
             return prev;
           });
-          // Fill tick buffer
           tickBufferRef.current = prices.map((p: number) => ({ quote: p, digit: getLastDigit(p), epoch: 0 }));
         }
       } catch {}
