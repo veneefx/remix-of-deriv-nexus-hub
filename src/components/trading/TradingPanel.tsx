@@ -184,6 +184,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [strategyProfile, setStrategyProfile] = useState<"aggressive" | "balanced" | "conservative" | "elit">(() => (localStorage.getItem("dnx_profile") as any) || "balanced");
   const [strategyVersion, setStrategyVersion] = useState<number | null>(null);
 
+  // Bulk trade mode
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkCount, setBulkCount] = useState(3);
+  const bulkModeRef = useRef(false);
+  const bulkCountRef = useRef(3);
+
   // Signal scoring
   const [signalScore, setSignalScore] = useState(0);
   const [signalDetails, setSignalDetails] = useState<SignalDetails>({ frequencyScore: 0, pressureScore: 0, streakScore: 0, patternScore: 0, volatilityScore: 0 });
@@ -262,6 +268,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   useEffect(() => { isTradingRef.current = isTrading; }, [isTrading]);
   useEffect(() => { sessionProfitRef.current = session.totalProfit; }, [session.totalProfit]);
   useEffect(() => { lastDigitsRef.current = lastDigits; }, [lastDigits]);
+  useEffect(() => { bulkModeRef.current = bulkMode; }, [bulkMode]);
+  useEffect(() => { bulkCountRef.current = bulkCount; }, [bulkCount]);
 
   // Trades/sec counter
   useEffect(() => {
@@ -431,7 +439,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         }
 
         if (shouldTrade) {
-          executeTradeContinuous();
+          const tradeCount = bulkModeRef.current ? Math.min(bulkCountRef.current, MAX_CONCURRENT - openContracts.current) : 1;
+          const remaining = MAX_TRADES_PER_SEC - tradeTimestamps.current.length;
+          const actualCount = Math.min(tradeCount, remaining);
+          for (let i = 0; i < actualCount; i++) {
+            executeTradeContinuous();
+          }
         }
       }
     });
@@ -692,13 +705,17 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       if (botRunning.current && proposalIdRef.current && openContracts.current < MAX_CONCURRENT) {
         const now = Date.now();
         tradeTimestamps.current = tradeTimestamps.current.filter(t => t > now - 1000);
-        if (tradeTimestamps.current.length < MAX_TRADES_PER_SEC) {
-          executeTradeContinuous();
+        const remaining = MAX_TRADES_PER_SEC - tradeTimestamps.current.length;
+        if (remaining > 0) {
+          const count = bulkMode ? Math.min(bulkCount, remaining, MAX_CONCURRENT - openContracts.current) : 1;
+          for (let i = 0; i < count; i++) {
+            executeTradeContinuous();
+          }
         }
       }
     }, executionSpeed === "Fast" ? 1000 : 4000);
     return () => clearInterval(timer);
-  }, [softwareStatus, mode, executionSpeed, executeTradeContinuous]);
+  }, [softwareStatus, mode, executionSpeed, executeTradeContinuous, bulkMode, bulkCount]);
 
   const clearTransactions = () => setTransactions([]);
 
@@ -1202,6 +1219,37 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   <option value="Fast">⚡ Continuous (tick-by-tick) {!isPremium && !isAdmin ? "🔒" : ""}</option>
                   <option value="Normal">🐢 Normal (4s interval)</option>
                 </select>
+              </div>
+
+              {/* Bulk Trade Mode */}
+              <div className="p-3 rounded-lg bg-secondary/50 border border-border space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                    <Flame className="w-3 h-3 text-sell" /> Trade Mode
+                  </label>
+                  <button
+                    onClick={() => setBulkMode(!bulkMode)}
+                    className={`px-3 py-1 text-[10px] font-bold rounded-full transition-all ${
+                      bulkMode ? "bg-sell/20 text-sell border border-sell/30" : "bg-secondary text-muted-foreground border border-border"
+                    }`}
+                  >
+                    {bulkMode ? `Bulk (${bulkCount})` : "Single"}
+                  </button>
+                </div>
+                {bulkMode && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground">Trades/tick:</span>
+                    <input
+                      type="number"
+                      value={bulkCount}
+                      onChange={(e) => setBulkCount(Math.max(2, Math.min(10, parseInt(e.target.value) || 2)))}
+                      min="2"
+                      max="10"
+                      className="w-14 px-2 py-1 bg-secondary border border-border rounded text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                    <span className="text-[8px] text-muted-foreground">2–10</span>
+                  </div>
+                )}
               </div>
             </div>
           )}
