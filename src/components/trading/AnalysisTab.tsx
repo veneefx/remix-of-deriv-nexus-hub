@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Activity, Gauge, BarChart3, Scan, RefreshCw, Target, TrendingUp, TrendingDown, Minus, Radar } from "lucide-react";
+import AIOptimizer from "./AIOptimizer";
+import InstitutionTools from "./InstitutionTools";
 
 interface SessionStats {
   totalTrades: number;
@@ -569,6 +571,13 @@ const AnalysisTab = ({ lastDigits, session, marketLabel, tickBuffer, signalScore
         ))}
       </div>
 
+      {/* AI Strategy Optimizer */}
+      <AIOptimizer
+        lastDigits={lastDigits}
+        tickBuffer={tickBuffer}
+        signalScore={signalScore}
+      />
+
       {/* Confluence Radar — Full Width */}
       <ConfluenceRadar
         lastDigits={lastDigits}
@@ -593,6 +602,9 @@ const AnalysisTab = ({ lastDigits, session, marketLabel, tickBuffer, signalScore
 
       {/* Section 3 — Prediction Intelligence (Bottom Row) */}
       <ProbabilityProjectionEngine lastDigits={lastDigits} />
+
+      {/* Section 4 — Institutional Analysis Terminal */}
+      <InstitutionTools tickBuffer={tickBuffer} lastDigits={lastDigits} />
     </div>
   );
 };
