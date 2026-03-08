@@ -421,37 +421,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         setElitContract(elit.contract);
         setElitReason(elit.reason);
         setElitLayers(elit.layers);
+        latestSignalRef.current = { score: sig.score, elitScore: elit.score };
+      } else {
+        latestSignalRef.current = { score: sig.score, elitScore: 0 };
       }
 
-      // ── CONTINUOUS EXECUTION ENGINE ──
-      if (botRunning.current && proposalIdRef.current) {
-        // Rate limiting: max trades per second
-        const now = Date.now();
-        tradeTimestamps.current = tradeTimestamps.current.filter(t => t > now - 1000);
-        if (tradeTimestamps.current.length >= MAX_TRADES_PER_SEC) return;
-        if (openContracts.current >= MAX_CONCURRENT) return;
-
-        let shouldTrade = false;
-        const threshold = strategyProfile === "aggressive" ? 0.05 :
-                          strategyProfile === "elit" ? 0 : // ELIT uses its own score
-                          strategyProfile === "conservative" ? 0.25 : 0.15;
-
-        if (strategyProfile === "elit") {
-          const elit = elitAnalysis(lastDigitsRef.current, newPressure, tickBufferRef.current);
-          shouldTrade = elit.score >= 70;
-        } else {
-          shouldTrade = sig.score >= threshold;
-        }
-
-        if (shouldTrade) {
-          const tradeCount = bulkModeRef.current ? Math.min(bulkCountRef.current, MAX_CONCURRENT - openContracts.current) : 1;
-          const remaining = MAX_TRADES_PER_SEC - tradeTimestamps.current.length;
-          const actualCount = Math.min(tradeCount, remaining);
-          for (let i = 0; i < actualCount; i++) {
-            executeTradeContinuous();
-          }
-        }
-      }
+      // Tick handler does DATA ONLY — no trade execution here
     });
     return () => { unsub(); };
   }, [ws, selectedMarket, calculateLocalSignal, strategyProfile]);
