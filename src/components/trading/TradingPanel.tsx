@@ -1047,7 +1047,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           <div>
             <label className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">Market <span className="text-primary text-xs">●</span></label>
             <select value={selectedMarket} onChange={(e) => setSelectedMarket(e.target.value)} className="mt-1 w-full px-3 py-2 bg-secondary border border-border rounded text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
-              {VOLATILITY_MARKETS.map((m) => (<option key={m.symbol} value={m.symbol}>{m.label}</option>))}
+              {MARKET_CATEGORIES.map((cat) => (
+                <optgroup key={cat.category} label={cat.category}>
+                  {cat.markets.map((m) => (<option key={m.symbol} value={m.symbol}>{m.label}</option>))}
+                </optgroup>
+              ))}
             </select>
           </div>
 
