@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Wallet, List, Table, ChevronRight, Settings, TrendingUp, BarChart3, Shield, Zap, Activity, Flame, Target, AlertTriangle, Lock, Brain } from "lucide-react";
 import DerivWebSocket from "@/services/deriv-websocket";
 import { DerivAccount } from "@/services/deriv-auth";
-import { VOLATILITY_MARKETS, CONTRACT_TYPES, DIGIT_BARRIERS, getLastDigit } from "@/lib/trading-constants";
+import { VOLATILITY_MARKETS, MARKET_CATEGORIES, CONTRACT_TYPES, DIGIT_BARRIERS, getLastDigit } from "@/lib/trading-constants";
 import { tradingEngine } from "@/services/trading-engine";
 import AnalysisTab from "@/components/trading/AnalysisTab";
 import DigitAnalysisDashboard from "@/components/trading/DigitAnalysisDashboard";
@@ -340,10 +340,28 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     return { score, details: { frequencyScore, pressureScore, streakScore, patternScore, volatilityScore } };
   }, []);
 
-  // Subscribe to ticks
+  // Subscribe to ticks — reset all buffers on market switch
   useEffect(() => {
     if (!ws) return;
-    if (prevMarketRef.current !== selectedMarket) ws.unsubscribeTicks(prevMarketRef.current);
+    if (prevMarketRef.current !== selectedMarket) {
+      ws.unsubscribeTicks(prevMarketRef.current);
+      // ── FULL BUFFER RESET on market switch ──
+      setLastDigits([]);
+      lastDigitsRef.current = [];
+      tickBufferRef.current = [];
+      setCurrentTick(null);
+      setSignalScore(0);
+      setSignalDetails({ frequencyScore: 0, pressureScore: 0, streakScore: 0, patternScore: 0, volatilityScore: 0 });
+      const resetPressure: DigitPressure = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0 };
+      digitPressureRef.current = resetPressure;
+      setDigitPressure(resetPressure);
+      tickIndexRef.current = 0;
+      setElitScore(0);
+      setElitContract("");
+      setElitReason("");
+      setElitLayers([]);
+      toast({ title: `Market switched to ${VOLATILITY_MARKETS.find(m => m.symbol === selectedMarket)?.label || selectedMarket}`, description: `Tracking digit intelligence for ${selectedMarket}` });
+    }
     prevMarketRef.current = selectedMarket;
     ws.subscribeTicks(selectedMarket);
 
@@ -1047,7 +1065,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           <div>
             <label className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">Market <span className="text-primary text-xs">●</span></label>
             <select value={selectedMarket} onChange={(e) => setSelectedMarket(e.target.value)} className="mt-1 w-full px-3 py-2 bg-secondary border border-border rounded text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary">
-              {VOLATILITY_MARKETS.map((m) => (<option key={m.symbol} value={m.symbol}>{m.label}</option>))}
+              {MARKET_CATEGORIES.map((cat) => (
+                <optgroup key={cat.category} label={cat.category}>
+                  {cat.markets.map((m) => (<option key={m.symbol} value={m.symbol}>{m.label}</option>))}
+                </optgroup>
+              ))}
             </select>
           </div>
 
