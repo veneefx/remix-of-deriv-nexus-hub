@@ -10,7 +10,7 @@ import DigitAnalysisDashboard from "@/components/trading/DigitAnalysisDashboard"
 import LiveProbabilityEngine from "@/components/trading/LiveProbabilityEngine";
 import QuantTerminal from "@/components/trading/QuantTerminal";
 import StrategyBooklet from "@/components/trading/StrategyBooklet";
-import RiskPanel from "@/components/trading/RiskPanel";
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { usePremium } from "@/hooks/use-premium";
