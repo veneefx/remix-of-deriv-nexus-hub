@@ -22,7 +22,7 @@ const Risk = () => (
         <p>The prices of financial instruments are determined by market forces and can be affected by a variety of factors, including but not limited to: economic indicators, political events, natural disasters, market sentiment, and liquidity conditions. These factors can cause rapid and significant price movements that may result in losses exceeding your initial investment.</p>
 
         <h3 className="text-base font-semibold text-foreground mt-4">2.2 Volatility Risk</h3>
-        <p>Synthetic indices and volatility markets are characterized by high price volatility. While this volatility creates trading opportunities, it also significantly increases the risk of loss. The DTNexus platform's digit trading tools operate on 1-tick contracts, which means results are determined instantly and cannot be reversed.</p>
+        <p>Synthetic indices and volatility markets are characterized by high price volatility. While this volatility creates trading opportunities, it also significantly increases the risk of loss. The DNexus platform's digit trading tools operate on 1-tick contracts, which means results are determined instantly and cannot be reversed.</p>
 
         <h3 className="text-base font-semibold text-foreground mt-4">2.3 Technology Risk</h3>
         <p>Trading through electronic platforms carries inherent technological risks, including:</p>
@@ -34,7 +34,7 @@ const Risk = () => (
         </ul>
 
         <h3 className="text-base font-semibold text-foreground mt-4">2.4 Automated Trading Risk</h3>
-        <p>DTNexus offers automated trading features powered by AI and algorithmic strategies. While these tools are designed to assist your trading, they carry specific risks:</p>
+        <p>DNexus offers automated trading features powered by AI and algorithmic strategies. While these tools are designed to assist your trading, they carry specific risks:</p>
         <ul className="list-disc pl-6 space-y-2">
           <li>Automated systems may execute trades based on historical patterns that may not repeat in the future.</li>
           <li>AI predictions and signals are probabilistic, not guaranteed.</li>
@@ -43,7 +43,7 @@ const Risk = () => (
         </ul>
 
         <h3 className="text-base font-semibold text-foreground mt-4">2.5 Signal and Analysis Risk</h3>
-        <p>The Premium Signals and analysis tools provided by DTNexus are derived from technical indicators and mathematical calculations. These signals:</p>
+        <p>The Premium Signals and analysis tools provided by DNexus are derived from technical indicators and mathematical calculations. These signals:</p>
         <ul className="list-disc pl-6 space-y-2">
           <li>Are not investment advice and should not be solely relied upon for trading decisions.</li>
           <li>May have varying accuracy rates depending on market conditions.</li>
@@ -63,17 +63,17 @@ const Risk = () => (
         </ul>
 
         <h2 className="text-lg font-semibold text-foreground mt-8">4. Regulatory Notice</h2>
-        <p>DTNexus is an independent technology platform that provides trading tools and analytics. We are not a broker, dealer, financial advisor, or investment company. We do not hold client funds — all trading funds are held in your personal Deriv account. The regulatory status of online trading varies by jurisdiction, and it is your responsibility to ensure compliance with local laws.</p>
+        <p>DNexus is an independent technology platform that provides trading tools and analytics. We are not a broker, dealer, financial advisor, or investment company. We do not hold client funds — all trading funds are held in your personal Deriv account. The regulatory status of online trading varies by jurisdiction, and it is your responsibility to ensure compliance with local laws.</p>
 
         <h2 className="text-lg font-semibold text-foreground mt-8">5. No Guarantee of Profits</h2>
-        <p>DTNexus does not guarantee any profits or returns on your trading activities. Any testimonials, performance statistics, or historical results displayed on our platform are for illustrative purposes only and do not represent a guarantee of future performance. Trading results vary among users based on experience, strategy, market conditions, and risk management practices.</p>
+        <p>DNexus does not guarantee any profits or returns on your trading activities. Any testimonials, performance statistics, or historical results displayed on our platform are for illustrative purposes only and do not represent a guarantee of future performance. Trading results vary among users based on experience, strategy, market conditions, and risk management practices.</p>
 
         <h2 className="text-lg font-semibold text-foreground mt-8">6. Acknowledgment</h2>
-        <p>By using the DTNexus platform, you acknowledge that:</p>
+        <p>By using the DNexus platform, you acknowledge that:</p>
         <ul className="list-disc pl-6 space-y-2">
           <li>You have read and understood this Risk Disclosure in its entirety.</li>
           <li>You understand that trading involves significant risk of loss.</li>
-          <li>You are trading at your own risk and DTNexus shall not be liable for any losses.</li>
+          <li>You are trading at your own risk and DNexus shall not be liable for any losses.</li>
           <li>You have the financial capacity to bear the risk of loss.</li>
           <li>You will seek independent financial advice if you have any doubts about the suitability of trading.</li>
         </ul>

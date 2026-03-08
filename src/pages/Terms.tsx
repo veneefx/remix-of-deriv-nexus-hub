@@ -10,8 +10,8 @@ const Terms = () => (
         <p>Last Updated: February 2026</p>
 
         <h2 className="text-lg font-semibold text-foreground mt-8">1. Introduction</h2>
-        <p>Welcome to DTNexus ("we," "our," or "us"). These Terms of Service ("Terms") govern your access to and use of the DTNexus platform, including our website, trading tools, AI analytics, educational content, and partner programs (collectively, the "Services"). By accessing or using our Services, you agree to be bound by these Terms. If you do not agree, please do not use our platform.</p>
-        <p>DTNexus is an independent third-party trading interface built using the official Deriv API. We are not affiliated with, endorsed by, or sponsored by Deriv Group or any of its subsidiaries. Our platform provides tools, analytics, and educational resources designed to enhance your trading experience on the Deriv platform.</p>
+        <p>Welcome to DNexus ("we," "our," or "us"). These Terms of Service ("Terms") govern your access to and use of the DNexus platform, including our website, trading tools, AI analytics, educational content, and partner programs (collectively, the "Services"). By accessing or using our Services, you agree to be bound by these Terms. If you do not agree, please do not use our platform.</p>
+        <p>DNexus is an independent third-party trading interface built using the official Deriv API. We are not affiliated with, endorsed by, or sponsored by Deriv Group or any of its subsidiaries. Our platform provides tools, analytics, and educational resources designed to enhance your trading experience on the Deriv platform.</p>
 
         <h2 className="text-lg font-semibold text-foreground mt-8">2. Eligibility</h2>
         <p>You must be at least 18 years old (or the legal age of majority in your jurisdiction) to use our Services. By creating an account or using our platform, you represent and warrant that you meet this requirement. You are responsible for ensuring that your use of our Services complies with all applicable laws and regulations in your jurisdiction, including but not limited to financial regulations, tax obligations, and data protection laws.</p>
@@ -21,7 +21,7 @@ const Terms = () => (
         <p>We reserve the right to suspend or terminate your access to our Services at any time, with or without cause, and with or without notice. This includes, but is not limited to, situations where we reasonably believe that you have violated these Terms, engaged in fraudulent activity, or posed a risk to the security of our platform or other users.</p>
 
         <h2 className="text-lg font-semibold text-foreground mt-8">4. Services Description</h2>
-        <p>DTNexus provides the following services through our platform:</p>
+        <p>DNexus provides the following services through our platform:</p>
         <ul className="list-disc pl-6 space-y-2">
           <li><strong className="text-foreground">AI Trading Tools:</strong> Automated and manual trading interfaces that connect to the Deriv API, including digit analysis, pattern recognition, and strategy execution tools.</li>
           <li><strong className="text-foreground">Premium Signals:</strong> Technical analysis indicators, oscillator readings, and moving average calculations derived from real-time market data.</li>
@@ -44,7 +44,7 @@ const Terms = () => (
         <p>DTNexus applies a 3% commission markup on trades executed through our platform. This commission is transparently disclosed and is factored into the trade execution price. By using our trading tools, you acknowledge and agree to this commission structure. We reserve the right to modify our fee structure with reasonable notice to users.</p>
 
         <h2 className="text-lg font-semibold text-foreground mt-8">7. Intellectual Property</h2>
-        <p>All content, features, and functionality of our platform — including but not limited to text, graphics, logos, icons, images, audio clips, digital downloads, data compilations, software, and the compilation thereof — are the exclusive property of DTNexus or its licensors and are protected by international copyright, trademark, patent, trade secret, and other intellectual property laws.</p>
+        <p>All content, features, and functionality of our platform — including but not limited to text, graphics, logos, icons, images, audio clips, digital downloads, data compilations, software, and the compilation thereof — are the exclusive property of DNexus or its licensors and are protected by international copyright, trademark, patent, trade secret, and other intellectual property laws.</p>
 
         <h2 className="text-lg font-semibold text-foreground mt-8">8. User Conduct</h2>
         <p>You agree not to: (a) use our Services for any illegal purpose or in violation of any laws; (b) attempt to gain unauthorized access to any portion of our platform; (c) interfere with or disrupt the integrity or performance of our Services; (d) use automated scripts or bots to access our Services outside of the tools we provide; (e) reverse engineer, decompile, or disassemble any portion of our platform; (f) use our Services to transmit any malicious code, viruses, or harmful data.</p>
@@ -53,13 +53,13 @@ const Terms = () => (
         <p>Your privacy is important to us. Our collection, use, and disclosure of personal information is governed by our Privacy Policy, which is incorporated into these Terms by reference. By using our Services, you consent to our data practices as described in the Privacy Policy.</p>
 
         <h2 className="text-lg font-semibold text-foreground mt-8">10. Limitation of Liability</h2>
-        <p>To the maximum extent permitted by applicable law, DTNexus and its officers, directors, employees, agents, and affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of profits, data, use, goodwill, or other intangible losses, resulting from your access to or use of (or inability to access or use) our Services.</p>
+        <p>To the maximum extent permitted by applicable law, DNexus and its officers, directors, employees, agents, and affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including but not limited to loss of profits, data, use, goodwill, or other intangible losses, resulting from your access to or use of (or inability to access or use) our Services.</p>
 
         <h2 className="text-lg font-semibold text-foreground mt-8">11. Modifications to Terms</h2>
         <p>We reserve the right to modify these Terms at any time. We will notify users of material changes by posting the updated Terms on our platform with a revised "Last Updated" date. Your continued use of our Services after any such changes constitutes your acceptance of the new Terms.</p>
 
         <h2 className="text-lg font-semibold text-foreground mt-8">12. Contact Us</h2>
-        <p>If you have any questions about these Terms of Service, please contact us through our platform's Help Center or reach out to our support team at support@dtnexus.com.</p>
+        <p>If you have any questions about these Terms of Service, please contact us through our platform's Help Center or reach out to our support team at support@dnexus.com.</p>
       </div>
     </div>
     <Footer />

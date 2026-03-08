@@ -1,16 +1,17 @@
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Brain, BarChart3, Users, ChevronDown, Lock, CreditCard, Star, Activity, ExternalLink, ArrowRight, Zap, Shield, Globe, Play } from "lucide-react";
 import { Link } from "react-router-dom";
 import MarketTracker from "@/components/trading/MarketTracker";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import heroMobileLocal from "@/assets/hero-mobile.png";
 
 // Reference images from the site
 const tradeOnImg = "https://dtnexusapp.com/_next/static/media/trade_on2.b04695d6.png";
 const partnersImg = "https://dtnexusapp.com/_next/static/media/partners-portrait.9046d76e.png";
 const aiImg = "https://dtnexusapp.com/_next/static/media/ai-portrait.8d2ce3d6.png";
 const signalsImg = "https://dtnexusapp.com/_next/static/media/signals-portrait.1893b487.png";
-const heroMobileImg = "https://dtnexusapp.com/_next/static/media/hero_mobile.8dca3f44.png";
 const whyTradeImg = "https://dtnexusapp.com/_next/static/media/why_trade.249cb2ad.png";
 const worldwideImg = "https://dtnexusapp.com/_next/static/media/ig-portrait.44c3f5f9.png";
 const faqImg = "https://dtnexusapp.com/_next/static/media/faq.0a41727c.png";
@@ -25,6 +26,21 @@ const fadeUp = {
 };
 
 const LandingPage = () => {
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  const faqs = [
+    { q: "What is trading?", a: "Trading involves buying and selling financial instruments to profit from price movements. On DNexus, we specialize in synthetic indices and digit contracts — fast-paced instruments that trade 24/7 with instant results." },
+    { q: "How can I get started with trading?", a: "Create a free Deriv account, then connect it to DNexus via our Trading Hub. You can start with a $10,000 demo account to practice risk-free before trading with real funds." },
+    { q: "Who is Deriv?", a: "Deriv is a regulated online broker offering synthetic indices, forex, and derivatives trading. DNexus connects to Deriv via their official API to provide enhanced trading tools and analytics." },
+    { q: "Who is DNexus?", a: "DNexus is an independent third-party trading platform that enhances your Deriv experience with AI-powered analysis, automated bots, digit analysis tools, and professional signals — all in one unified interface." },
+    { q: "What tools do you offer for market analysis?", a: "We offer a Digit Edge terminal with frequency heatmaps, momentum trackers, streak detectors, pressure meters, a Confluence Radar, pattern recognition, volatility scanners, and probability projection engines." },
+    { q: "How does DNexus link to Deriv?", a: "DNexus uses Deriv's official OAuth2 API (App ID 129344) for secure authentication. We never store your password — only temporary session tokens that are cleared when you log out." },
+    { q: "Is DNexus safe to use?", a: "Yes. We use 256-bit encryption, secure OAuth2 authentication, and never hold your funds. All trades execute directly on your Deriv account. DNexus cannot withdraw or transfer your money." },
+    { q: "What is the Digit Edge bot?", a: "Our AI-powered bot analyzes real-time tick data to detect statistical patterns and digit imbalances. It uses confluence scoring, frequency analysis, and adaptive strategies to find high-probability trading opportunities." },
+    { q: "Do I need to pay to use DNexus?", a: "DNexus is free to use. We apply a transparent 3% commission on trades executed through our platform. All analysis tools, educational content, and signal features are included at no extra cost." },
+    { q: "Can I trade on mobile?", a: "Yes! DNexus is fully responsive and optimized for mobile devices. Access all trading tools, analysis dashboards, and bot features from your phone's browser — no app download required." },
+  ];
+
   return (
     <div className="min-h-screen bg-[#141414] flex flex-col font-['Poppins'] text-[#b6b6b6]">
       <Navbar />
@@ -92,6 +108,16 @@ const LandingPage = () => {
                 </motion.div>
               ))}
             </div>
+
+            {/* Hero Mobile Image */}
+            <motion.div
+              className="mb-12"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.5, duration: 0.7 }}
+            >
+              <img src={heroMobileLocal} alt="DNexus Mobile Trading" className="w-full max-w-[320px] mx-auto drop-shadow-2xl" />
+            </motion.div>
 
             <motion.div className="flex items-center gap-4" {...fadeUp}>
               <div className="w-12 h-12 rounded-full bg-[#e41f28] flex items-center justify-center animate-pulse">
@@ -247,18 +273,30 @@ const LandingPage = () => {
             <div>
               <span className="text-[#e41f28] font-bold uppercase tracking-[0.2em] text-sm">Faq's</span>
               <h2 className="text-4xl md:text-6xl font-bold text-white mt-4 mb-12 font-['Open_Sans']">Frequently Asked Questions</h2>
-              <div className="space-y-4">
-                {[
-                  "What is trading?",
-                  "How can I get started with trading?",
-                  "Who is Deriv?",
-                  "Who is DTNexus?",
-                  "What tools do you offer for market analysis?",
-                  "How does DTNexus link to Deriv?"
-                ].map((q, i) => (
-                  <div key={i} className="p-6 rounded-2xl bg-white/5 border border-white/10 flex justify-between items-center group cursor-pointer hover:bg-white/10 transition-all">
-                    <span className="text-white font-bold">{q}</span>
-                    <ChevronDown className="w-5 h-5 text-[#e41f28] group-hover:rotate-180 transition-all" />
+              <div className="space-y-3">
+                {faqs.map((faq, i) => (
+                  <div 
+                    key={i} 
+                    className="rounded-2xl bg-white/5 border border-white/10 overflow-hidden cursor-pointer hover:bg-white/10 transition-all"
+                    onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  >
+                    <div className="p-5 flex justify-between items-center">
+                      <span className="text-white font-bold text-sm">{faq.q}</span>
+                      <ChevronDown className={`w-5 h-5 text-[#e41f28] shrink-0 transition-transform duration-300 ${openFaq === i ? "rotate-180" : ""}`} />
+                    </div>
+                    <AnimatePresence>
+                      {openFaq === i && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3 }}
+                          className="overflow-hidden"
+                        >
+                          <p className="px-5 pb-5 text-sm text-[#b6b6b6] leading-relaxed">{faq.a}</p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 ))}
               </div>
