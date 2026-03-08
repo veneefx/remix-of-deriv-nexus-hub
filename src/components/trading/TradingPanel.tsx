@@ -187,6 +187,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   // Bulk trade mode
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkCount, setBulkCount] = useState(3);
+  const bulkModeRef = useRef(false);
+  const bulkCountRef = useRef(3);
 
   // Signal scoring
   const [signalScore, setSignalScore] = useState(0);
