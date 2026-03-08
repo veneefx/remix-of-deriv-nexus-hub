@@ -701,13 +701,17 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       if (botRunning.current && proposalIdRef.current && openContracts.current < MAX_CONCURRENT) {
         const now = Date.now();
         tradeTimestamps.current = tradeTimestamps.current.filter(t => t > now - 1000);
-        if (tradeTimestamps.current.length < MAX_TRADES_PER_SEC) {
-          executeTradeContinuous();
+        const remaining = MAX_TRADES_PER_SEC - tradeTimestamps.current.length;
+        if (remaining > 0) {
+          const count = bulkMode ? Math.min(bulkCount, remaining, MAX_CONCURRENT - openContracts.current) : 1;
+          for (let i = 0; i < count; i++) {
+            executeTradeContinuous();
+          }
         }
       }
     }, executionSpeed === "Fast" ? 1000 : 4000);
     return () => clearInterval(timer);
-  }, [softwareStatus, mode, executionSpeed, executeTradeContinuous]);
+  }, [softwareStatus, mode, executionSpeed, executeTradeContinuous, bulkMode, bulkCount]);
 
   const clearTransactions = () => setTransactions([]);
 

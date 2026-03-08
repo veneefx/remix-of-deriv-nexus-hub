@@ -291,12 +291,16 @@ const DATTab = ({ ws, selectedMarket, onMarketChange }: DATTabProps) => {
   // ── Sequences ──
   const [seqLength, setSeqLength] = useState(3);
   const sequences = useMemo(() => {
+    if (patternCells.length < seqLength + 1) return [];
     const seqMap = new Map<string, number>();
     for (let i = 0; i <= patternCells.length - seqLength; i++) {
       const seq = patternCells.slice(i, i + seqLength).join("");
       seqMap.set(seq, (seqMap.get(seq) || 0) + 1);
     }
-    return Array.from(seqMap.entries()).sort((a, b) => b[1] - a[1]).slice(0, 10);
+    return Array.from(seqMap.entries())
+      .filter(([, count]) => count >= 2)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10);
   }, [patternCells, seqLength]);
   const maxSeqCount = sequences.length > 0 ? Math.max(...sequences.map(s => s[1])) : 1;
 
@@ -561,7 +565,7 @@ const DATTab = ({ ws, selectedMarket, onMarketChange }: DATTabProps) => {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-foreground">Common {seqLength}-Cell Sequences</span>
-            <Tip text="Shows the most frequently occurring patterns of Over/Under/Neutral sequences. Helps predict next movements.">
+            <Tip text="Shows the most frequently occurring patterns of Over/Under/Neutral sequences. Requires enough ticks to detect repeating patterns (shown only when count ≥ 2).">
               <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
             </Tip>
           </div>
@@ -569,24 +573,34 @@ const DATTab = ({ ws, selectedMarket, onMarketChange }: DATTabProps) => {
             {[2, 3, 4, 5].map(v => <option key={v} value={v}>{v}</option>)}
           </select>
         </div>
-        <div className="flex items-end gap-2 h-48">
-          {sequences.map(([seq, count], i) => {
-            const heightPct = (count / maxSeqCount) * 100;
-            return (
-              <div key={seq} className="flex-1 flex flex-col items-center gap-1">
-                <span className="text-[9px] text-muted-foreground font-mono">{count}</span>
-                <motion.div
-                  initial={{ height: 0 }}
-                  animate={{ height: `${heightPct}%` }}
-                  transition={{ duration: 0.4, delay: i * 0.05 }}
-                  className={`w-full rounded-t ${count === maxSeqCount ? "bg-primary" : "bg-primary/40"}`}
-                  style={{ minHeight: 4 }}
-                />
-                <span className="text-[8px] text-muted-foreground font-mono mt-1">{seq}</span>
-              </div>
-            );
-          })}
-        </div>
+        {sequences.length === 0 ? (
+          <div className="flex items-center justify-center h-32 text-muted-foreground">
+            <div className="text-center">
+              <AlertTriangle className="w-6 h-6 mx-auto mb-2 opacity-50" />
+              <p className="text-xs">Need more ticks to detect sequences</p>
+              <p className="text-[9px] mt-1">Collect at least {seqLength * 5} ticks with current window</p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-end gap-2 h-48">
+            {sequences.map(([seq, count], i) => {
+              const heightPct = (count / maxSeqCount) * 100;
+              return (
+                <div key={seq} className="flex-1 flex flex-col items-center gap-1">
+                  <span className="text-[9px] text-muted-foreground font-mono">{count}</span>
+                  <motion.div
+                    initial={{ height: 0 }}
+                    animate={{ height: `${heightPct}%` }}
+                    transition={{ duration: 0.4, delay: i * 0.05 }}
+                    className={`w-full rounded-t ${count === maxSeqCount ? "bg-primary" : "bg-primary/40"}`}
+                    style={{ minHeight: 4 }}
+                  />
+                  <span className="text-[8px] text-muted-foreground font-mono mt-1">{seq}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
