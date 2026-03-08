@@ -419,8 +419,6 @@ const AIInsightPanel = ({ lastDigits, tickBuffer, signalScore = 0 }: QuantTermin
 // ── Exported Quant Terminal ──────────────────────────────────────
 const QuantTerminal = ({ lastDigits, tickBuffer, signalScore }: QuantTerminalProps) => (
   <div className="space-y-3">
-    <AIInsightPanel lastDigits={lastDigits} tickBuffer={tickBuffer} signalScore={signalScore} />
-    <DigitHeatmap lastDigits={lastDigits} />
     <DigitFlowAnalyzer lastDigits={lastDigits} />
     <PatternRadar lastDigits={lastDigits} />
     <div className="grid grid-cols-2 gap-2">
@@ -428,6 +426,8 @@ const QuantTerminal = ({ lastDigits, tickBuffer, signalScore }: QuantTerminalPro
       <TickSpeedAnalyzer tickBuffer={tickBuffer} />
     </div>
     <ConfluenceEngine lastDigits={lastDigits} tickBuffer={tickBuffer} />
+    <AIInsightPanel lastDigits={lastDigits} tickBuffer={tickBuffer} signalScore={signalScore} />
+    <DigitHeatmap lastDigits={lastDigits} />
   </div>
 );
 

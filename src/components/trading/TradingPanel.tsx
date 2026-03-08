@@ -10,7 +10,7 @@ import DigitAnalysisDashboard from "@/components/trading/DigitAnalysisDashboard"
 import LiveProbabilityEngine from "@/components/trading/LiveProbabilityEngine";
 import QuantTerminal from "@/components/trading/QuantTerminal";
 import StrategyBooklet from "@/components/trading/StrategyBooklet";
-import RiskPanel from "@/components/trading/RiskPanel";
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { usePremium } from "@/hooks/use-premium";
@@ -209,7 +209,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [showTransactions, setShowTransactions] = useState(false);
   const [txViewMode, setTxViewMode] = useState<"list" | "table">("list");
   const [showRiskModal, setShowRiskModal] = useState(false);
-  const [showRiskPanel, setShowRiskPanel] = useState(false);
+  
   const { isPremium, isAdmin } = usePremium();
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumFeature, setPremiumFeature] = useState("");
@@ -1208,7 +1208,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
           {/* Risk Management Settings button */}
           <button
-            onClick={() => setShowRiskPanel(true)}
+            onClick={() => setShowRiskModal(true)}
             className="w-full flex items-center justify-between px-3 py-2.5 bg-secondary border border-border rounded-lg text-xs text-foreground hover:bg-muted transition-colors"
           >
             <div className="flex items-center gap-2">
@@ -1262,17 +1262,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         featureName={premiumFeature}
       />
 
-      {/* Risk Management Side Panel */}
-      <RiskPanel
-        isOpen={showRiskPanel}
-        onClose={() => setShowRiskPanel(false)}
-        takeProfit={takeProfit}
-        stopLoss={stopLoss}
-        maxDrawdown={session.maxDrawdown}
-        dailyTarget={session.totalProfit}
-        onTakeProfitChange={setTakeProfit}
-        onStopLossChange={setStopLoss}
-      />
 
       {/* Risk Management Modal */}
       <AnimatePresence>
