@@ -228,7 +228,5 @@ const AIOptimizer = ({ lastDigits, tickBuffer, signalScore = 0 }: AIOptimizerPro
   );
 };
 
-// Need Activity import for the market assessment section
-import { Activity } from "lucide-react";
 
 export default AIOptimizer;
