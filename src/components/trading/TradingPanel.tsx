@@ -583,14 +583,17 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     } else {
       consecutiveLosses.current++;
       if (martingale && consecutiveLosses.current >= startMartingaleAfter && consecutiveLosses.current < maxMartingaleSteps) {
-        currentStake.current *= parseFloat(martingaleMultiplier);
+        // Calculate martingale stake from BASE, not by multiplying current
+        // This prevents parallel losses from compounding the multiplier incorrectly
+        const lossStep = consecutiveLosses.current - startMartingaleAfter + 1;
+        currentStake.current = parseFloat(stake) * Math.pow(parseFloat(martingaleMultiplier), lossStep);
       } else if (martingale && consecutiveLosses.current >= maxMartingaleSteps) {
         currentStake.current = parseFloat(stake);
         consecutiveLosses.current = 0;
       }
     }
 
-    // After stake changes (martingale or reset), immediately refresh proposal with new stake
+    // After stake changes, immediately refresh proposal with new stake
     requestProposal();
 
     const totalP = sessionProfitRef.current + profit;
