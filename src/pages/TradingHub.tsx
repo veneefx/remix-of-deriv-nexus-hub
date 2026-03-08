@@ -14,6 +14,7 @@ import DerivChart from "@/components/trading/DerivChart";
 import DATTab from "@/components/trading/DATTab";
 import MarketScannerView from "@/components/trading/MarketScannerView";
 import StrategyLab from "@/components/trading/StrategyLab";
+import ForexAITab from "@/components/trading/ForexAITab";
 import ClientTokenManager from "@/components/trading/ClientTokenManager";
 import TradingHubLoader from "@/components/trading/TradingHubLoader";
 import DerivWebSocket from "@/services/deriv-websocket";
@@ -44,7 +45,7 @@ const sidebarItems = [
   { icon: Settings, label: "Settings", path: "/risk" },
 ];
 
-type ViewMode = "digit-edge" | "trading-view" | "deriv-charts" | "dat" | "market-scanner" | "strategy-lab" | "transactions";
+type ViewMode = "digit-edge" | "trading-view" | "deriv-charts" | "dat" | "market-scanner" | "strategy-lab" | "forex-ai" | "transactions";
 
 const viewLabels: Record<ViewMode, string> = {
   "digit-edge": "Digit Edge",
@@ -53,6 +54,7 @@ const viewLabels: Record<ViewMode, string> = {
   "dat": "DAT",
   "market-scanner": "Market Scanner",
   "strategy-lab": "Strategy Lab",
+  "forex-ai": "Forex AI",
   "transactions": "Transactions",
 };
 
@@ -524,6 +526,9 @@ const TradingHub = () => {
           )}
           {activeView === "market-scanner" && (
             <MarketScannerView />
+          )}
+          {activeView === "forex-ai" && (
+            <ForexAITab />
           )}
           {activeView === "transactions" && (
             <div className="p-4 lg:p-6 overflow-y-auto h-full">
