@@ -184,6 +184,10 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [strategyProfile, setStrategyProfile] = useState<"aggressive" | "balanced" | "conservative" | "elit">(() => (localStorage.getItem("dnx_profile") as any) || "balanced");
   const [strategyVersion, setStrategyVersion] = useState<number | null>(null);
 
+  // Bulk trade mode
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkCount, setBulkCount] = useState(3);
+
   // Signal scoring
   const [signalScore, setSignalScore] = useState(0);
   const [signalDetails, setSignalDetails] = useState<SignalDetails>({ frequencyScore: 0, pressureScore: 0, streakScore: 0, patternScore: 0, volatilityScore: 0 });
@@ -431,7 +435,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         }
 
         if (shouldTrade) {
-          executeTradeContinuous();
+          const tradeCount = bulkMode ? Math.min(bulkCount, MAX_CONCURRENT - openContracts.current) : 1;
+          const remaining = MAX_TRADES_PER_SEC - tradeTimestamps.current.length;
+          const actualCount = Math.min(tradeCount, remaining);
+          for (let i = 0; i < actualCount; i++) {
+            executeTradeContinuous();
+          }
         }
       }
     });
