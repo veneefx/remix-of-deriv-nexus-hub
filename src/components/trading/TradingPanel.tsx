@@ -483,6 +483,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     if (!ws || !isLoggedIn) return;
     const needsB = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
     const isRF = contractType === "CALL" || contractType === "PUT";
+    proposalReady.current = false; // Mark not ready until response arrives
     ws.getProposal({
       amount: currentStake.current,
       contractType,
@@ -588,6 +589,9 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         consecutiveLosses.current = 0;
       }
     }
+
+    // After stake changes (martingale or reset), immediately refresh proposal with new stake
+    requestProposal();
 
     const totalP = sessionProfitRef.current + profit;
     if (smartRisker && totalP > 0) {
