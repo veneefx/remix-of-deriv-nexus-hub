@@ -268,6 +268,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   useEffect(() => { isTradingRef.current = isTrading; }, [isTrading]);
   useEffect(() => { sessionProfitRef.current = session.totalProfit; }, [session.totalProfit]);
   useEffect(() => { lastDigitsRef.current = lastDigits; }, [lastDigits]);
+  useEffect(() => { bulkModeRef.current = bulkMode; }, [bulkMode]);
+  useEffect(() => { bulkCountRef.current = bulkCount; }, [bulkCount]);
 
   // Trades/sec counter
   useEffect(() => {
