@@ -340,10 +340,28 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     return { score, details: { frequencyScore, pressureScore, streakScore, patternScore, volatilityScore } };
   }, []);
 
-  // Subscribe to ticks
+  // Subscribe to ticks — reset all buffers on market switch
   useEffect(() => {
     if (!ws) return;
-    if (prevMarketRef.current !== selectedMarket) ws.unsubscribeTicks(prevMarketRef.current);
+    if (prevMarketRef.current !== selectedMarket) {
+      ws.unsubscribeTicks(prevMarketRef.current);
+      // ── FULL BUFFER RESET on market switch ──
+      setLastDigits([]);
+      lastDigitsRef.current = [];
+      tickBufferRef.current = [];
+      setCurrentTick(null);
+      setSignalScore(0);
+      setSignalDetails({ frequencyScore: 0, pressureScore: 0, streakScore: 0, patternScore: 0, volatilityScore: 0 });
+      const resetPressure: DigitPressure = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0 };
+      digitPressureRef.current = resetPressure;
+      setDigitPressure(resetPressure);
+      tickIndexRef.current = 0;
+      setElitScore(0);
+      setElitContract("");
+      setElitReason("");
+      setElitLayers([]);
+      toast({ title: `Market switched to ${VOLATILITY_MARKETS.find(m => m.symbol === selectedMarket)?.label || selectedMarket}`, description: `Tracking digit intelligence for ${selectedMarket}` });
+    }
     prevMarketRef.current = selectedMarket;
     ws.subscribeTicks(selectedMarket);
 
