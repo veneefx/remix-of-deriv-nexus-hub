@@ -272,20 +272,13 @@ const TradingHub = () => {
     return date.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
   };
 
-  // If not authenticated, show login prompt
-  if (isAuthenticated === false) {
+  // Show loading while checking auth
+  if (isAuthenticated === null) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <div className="text-center space-y-6 max-w-md">
-          <img src={logo} alt="DNexus" className="h-12 mx-auto" />
-          <h1 className="text-2xl font-bold text-foreground">Sign in to DNexus</h1>
-          <p className="text-sm text-muted-foreground">You need a DNexus account to access the Trading Hub. Create one for free and get a 1-month free trial.</p>
-          <div className="flex flex-col gap-3">
-            <Link to="/auth" className="px-6 py-3 bg-gradient-brand text-primary-foreground font-semibold rounded-lg text-center">
-              Sign In / Create Account
-            </Link>
-            <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">← Back to Home</Link>
-          </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <img src={logo} alt="DNexus" className="h-10 animate-pulse" />
+          <p className="text-xs text-muted-foreground">Loading Trading Hub...</p>
         </div>
       </div>
     );
