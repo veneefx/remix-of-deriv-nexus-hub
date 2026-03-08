@@ -81,7 +81,7 @@ const TradingHub = () => {
     return false;
   });
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { isPremium, isAdmin } = usePremium();
@@ -286,17 +286,8 @@ const TradingHub = () => {
     return <TradingHubLoader onComplete={() => setHubLoaded(true)} />;
   }
 
-  // Show loading while checking auth
-  if (isAuthenticated === null) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <img src={logo} alt="DNexus" className="h-10 animate-pulse" />
-          <p className="text-xs text-muted-foreground">Loading Trading Hub...</p>
-        </div>
-      </div>
-    );
-  }
+
+
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
