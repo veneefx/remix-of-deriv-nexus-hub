@@ -519,6 +519,9 @@ const TradingHub = () => {
               )}
             </div>
           )}
+          {activeView === "strategy-lab" && (
+            <StrategyLab />
+          )}
           {activeView === "market-scanner" && (
             <MarketScannerView />
           )}
