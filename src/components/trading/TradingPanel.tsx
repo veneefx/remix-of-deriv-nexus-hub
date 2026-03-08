@@ -209,7 +209,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [showTransactions, setShowTransactions] = useState(false);
   const [txViewMode, setTxViewMode] = useState<"list" | "table">("list");
   const [showRiskModal, setShowRiskModal] = useState(false);
-  const [showRiskPanel, setShowRiskPanel] = useState(false);
+  
   const { isPremium, isAdmin } = usePremium();
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [premiumFeature, setPremiumFeature] = useState("");
