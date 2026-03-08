@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Lock, Clock, Crown } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 interface PremiumGateProps {
   isPremium: boolean;
@@ -22,13 +22,11 @@ const PremiumGate = ({
   const [secondsLeft, setSecondsLeft] = useState(previewSeconds);
   const [previewExpired, setPreviewExpired] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // Admin or premium users get full access
-  if (isPremium || isAdmin) {
-    return <>{children}</>;
-  }
+  const hasAccess = isPremium || isAdmin;
 
   useEffect(() => {
+    if (hasAccess) return;
+
     setSecondsLeft(previewSeconds);
     setPreviewExpired(false);
 
@@ -46,7 +44,11 @@ const PremiumGate = ({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [previewSeconds]);
+  }, [previewSeconds, hasAccess]);
+
+  if (hasAccess) {
+    return <>{children}</>;
+  }
 
   if (previewExpired) {
     return (
@@ -75,11 +77,9 @@ const PremiumGate = ({
     );
   }
 
-  // Preview mode — show content with countdown overlay
   return (
     <div className="relative h-full">
       {children}
-      {/* Countdown overlay */}
       <div className="absolute top-3 right-3 z-50">
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -93,7 +93,6 @@ const PremiumGate = ({
           <span className="text-[10px] text-muted-foreground">preview</span>
         </motion.div>
       </div>
-      {/* Progress bar at bottom */}
       <div className="absolute bottom-0 left-0 right-0 h-1 bg-muted z-50">
         <motion.div
           className="h-full bg-primary"
