@@ -392,8 +392,164 @@ const ProbabilityProjectionEngine = ({ lastDigits }: { lastDigits: number[] }) =
   );
 };
 
+// ── Confluence Radar Panel ─────────────────────────────────────────
+const ConfluenceRadar = ({ lastDigits, tickBuffer, signalScore = 0, signalDetails, digitPressure }: {
+  lastDigits: number[];
+  tickBuffer: TickData[];
+  signalScore: number;
+  signalDetails?: SignalDetails;
+  digitPressure?: { [digit: number]: number };
+}) => {
+  const radarData = useMemo(() => {
+    const freq = signalDetails?.frequencyScore ?? 0;
+    const pressure = signalDetails?.pressureScore ?? 0;
+    const streak = signalDetails?.streakScore ?? 0;
+    const pattern = signalDetails?.patternScore ?? 0;
+    const volatility = signalDetails?.volatilityScore ?? 0;
+
+    // Momentum from digit edge
+    const d = lastDigits;
+    let momentum = 0;
+    if (d.length >= 50) {
+      const recent = d.slice(-25);
+      const older = d.slice(-50, -25);
+      const recentOdd = recent.filter(x => x % 2 !== 0).length / recent.length;
+      const olderOdd = older.filter(x => x % 2 !== 0).length / older.length;
+      momentum = Math.min(Math.abs(recentOdd - olderOdd) * 5, 1);
+    }
+
+    // Tick speed factor
+    let speed = 0;
+    if (tickBuffer.length >= 10) {
+      const last10 = tickBuffer.slice(-10);
+      const span = last10[last10.length - 1].epoch - last10[0].epoch;
+      speed = span > 0 ? Math.min((10 / span) / 3, 1) : 0;
+    }
+
+    const axes = [
+      { axis: "Frequency", value: freq },
+      { axis: "Pressure", value: pressure },
+      { axis: "Streak", value: streak },
+      { axis: "Pattern", value: pattern },
+      { axis: "Volatility", value: volatility },
+      { axis: "Momentum", value: momentum },
+      { axis: "Speed", value: speed },
+    ];
+
+    const combined = (freq * 0.2 + pressure * 0.25 + streak * 0.1 + pattern * 0.1 + volatility * 0.1 + momentum * 0.15 + speed * 0.1) * 100;
+    const confidence = Math.min(Math.round(combined), 100);
+
+    let bias = "NEUTRAL";
+    if (d.length >= 30) {
+      const oddCount = d.slice(-100).filter(x => x % 2 !== 0).length;
+      const total = Math.min(d.length, 100);
+      bias = oddCount / total > 0.55 ? "ODD" : oddCount / total < 0.45 ? "EVEN" : "NEUTRAL";
+    }
+
+    return { axes, confidence, bias };
+  }, [lastDigits, tickBuffer, signalScore, signalDetails]);
+
+  const { axes, confidence, bias } = radarData;
+  const cx = 120, cy = 120, r = 90;
+  const angleStep = (2 * Math.PI) / axes.length;
+
+  const pointsStr = axes.map((a, i) => {
+    const angle = i * angleStep - Math.PI / 2;
+    const val = a.value * r;
+    return `${cx + val * Math.cos(angle)},${cy + val * Math.sin(angle)}`;
+  }).join(" ");
+
+  const confColor = confidence >= 70 ? "text-buy" : confidence >= 40 ? "text-warning" : "text-muted-foreground";
+  const confBg = confidence >= 70 ? "stroke-buy fill-buy/20" : confidence >= 40 ? "stroke-warning fill-warning/20" : "stroke-muted-foreground fill-muted/20";
+
+  return (
+    <div className="p-4 rounded-xl bg-card border border-border">
+      <div className="flex items-center gap-2 mb-3">
+        <Radar className="w-4 h-4 text-primary" />
+        <h3 className="text-sm font-semibold text-foreground">Confluence Radar</h3>
+        <span className={`ml-auto text-xl font-bold ${confColor}`}>{confidence}%</span>
+      </div>
+
+      <div className="flex flex-col md:flex-row items-center gap-4">
+        {/* SVG Radar Chart */}
+        <svg viewBox="0 0 240 240" className="w-52 h-52 shrink-0">
+          {/* Grid rings */}
+          {[0.25, 0.5, 0.75, 1].map(ring => (
+            <polygon
+              key={ring}
+              points={axes.map((_, i) => {
+                const angle = i * angleStep - Math.PI / 2;
+                const v = ring * r;
+                return `${cx + v * Math.cos(angle)},${cy + v * Math.sin(angle)}`;
+              }).join(" ")}
+              className="fill-none stroke-border"
+              strokeWidth={0.5}
+            />
+          ))}
+          {/* Axis lines */}
+          {axes.map((a, i) => {
+            const angle = i * angleStep - Math.PI / 2;
+            return (
+              <line key={a.axis} x1={cx} y1={cy} x2={cx + r * Math.cos(angle)} y2={cy + r * Math.sin(angle)} className="stroke-border" strokeWidth={0.5} />
+            );
+          })}
+          {/* Data polygon */}
+          <motion.polygon
+            points={pointsStr}
+            className={confBg}
+            strokeWidth={2}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5 }}
+          />
+          {/* Axis labels */}
+          {axes.map((a, i) => {
+            const angle = i * angleStep - Math.PI / 2;
+            const lx = cx + (r + 18) * Math.cos(angle);
+            const ly = cy + (r + 18) * Math.sin(angle);
+            return (
+              <text key={a.axis} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle" className="fill-muted-foreground text-[8px]">
+                {a.axis}
+              </text>
+            );
+          })}
+        </svg>
+
+        {/* Scores breakdown */}
+        <div className="flex-1 space-y-2 w-full">
+          {axes.map(a => (
+            <div key={a.axis} className="flex items-center gap-2">
+              <span className="text-[10px] text-muted-foreground w-16">{a.axis}</span>
+              <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
+                <motion.div
+                  className={`h-full rounded-full ${a.value >= 0.7 ? "bg-buy" : a.value >= 0.4 ? "bg-warning" : "bg-muted-foreground"}`}
+                  animate={{ width: `${a.value * 100}%` }}
+                  transition={{ duration: 0.4 }}
+                />
+              </div>
+              <span className="text-[10px] text-foreground font-mono w-8 text-right">{(a.value * 100).toFixed(0)}%</span>
+            </div>
+          ))}
+
+          <div className="mt-3 p-3 rounded-lg bg-secondary/30 border border-border">
+            <p className="text-xs text-muted-foreground">
+              Trade Signal: <span className={`font-bold ${confColor}`}>{confidence}% Confluence</span>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Suggested Bias: <span className="font-bold text-foreground">{bias}</span>
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Confidence: <span className="font-bold text-foreground">{confidence >= 70 ? "High" : confidence >= 40 ? "Medium" : "Low"}</span>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ── Main Analysis Tab ─────────────────────────────────────────────
-const AnalysisTab = ({ lastDigits, session, marketLabel, tickBuffer }: AnalysisTabProps) => {
+const AnalysisTab = ({ lastDigits, session, marketLabel, tickBuffer, signalScore, signalDetails, digitPressure }: AnalysisTabProps) => {
   const winRate = session.totalTrades > 0 ? ((session.wins / session.totalTrades) * 100).toFixed(1) : "0.0";
 
   return (
@@ -412,6 +568,15 @@ const AnalysisTab = ({ lastDigits, session, marketLabel, tickBuffer }: AnalysisT
           </div>
         ))}
       </div>
+
+      {/* Confluence Radar — Full Width */}
+      <ConfluenceRadar
+        lastDigits={lastDigits}
+        tickBuffer={tickBuffer}
+        signalScore={signalScore ?? 0}
+        signalDetails={signalDetails}
+        digitPressure={digitPressure}
+      />
 
       {/* Section 1 — Market Overview (Top Row) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
