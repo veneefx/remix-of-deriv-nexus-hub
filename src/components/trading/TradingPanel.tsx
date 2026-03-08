@@ -1217,16 +1217,17 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   value={executionSpeed}
                   onChange={(e) => {
                     const val = e.target.value;
-                    if (val === "Fast" && !isPremium && !isAdmin) {
+                    if ((val === "Fast" || val === "Turbo") && !isPremium && !isAdmin) {
                       setPremiumFeature("High-Speed Execution Mode");
                       setShowPremiumModal(true);
                       return;
                     }
-                    setExecutionSpeed(val as any);
+                    setExecutionSpeed(val as "Normal" | "Fast" | "Turbo");
                   }}
                   className="mt-1 w-full px-3 py-2 bg-secondary border border-border rounded text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                 >
-                  <option value="Fast">⚡ Continuous (tick-by-tick) {!isPremium && !isAdmin ? "🔒" : ""}</option>
+                  <option value="Turbo">🚀 Turbo (5 trades/sec) {!isPremium && !isAdmin ? "🔒" : ""}</option>
+                  <option value="Fast">⚡ Fast (1 trade/sec) {!isPremium && !isAdmin ? "🔒" : ""}</option>
                   <option value="Normal">🐢 Normal (4s interval)</option>
                 </select>
               </div>
