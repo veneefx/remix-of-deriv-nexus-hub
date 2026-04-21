@@ -1598,10 +1598,10 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   </select>
                 </FormField>
                 <FormField label="Take Profit" hint="Minimum profit limit.">
-                  <input type="number" value={takeProfit} onChange={(e) => setTakeProfit(e.target.value)} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
+                  <input type="number" value={takeProfit} onChange={(e) => { setTakeProfit(e.target.value); userTouchedRisk.current = true; }} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                 </FormField>
                 <FormField label="Stop Loss" hint="Maximum loss limit.">
-                  <input type="number" value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
+                  <input type="number" value={stopLoss} onChange={(e) => { setStopLoss(e.target.value); userTouchedRisk.current = true; }} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                 </FormField>
                 <FormField label="Trading Method" hint="Stakelist or martingale.">
                   <select value={martingale ? "Martingale" : "Flat"} onChange={(e) => setMartingale(e.target.value === "Martingale")} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground">
@@ -1611,7 +1611,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                 {martingale && (
                   <>
                     <FormField label="Martingale Multiplier" hint="Multiplier on loss.">
-                      <input type="number" value={martingaleMultiplier} onChange={(e) => setMartingaleMultiplier(e.target.value)} step="0.1" className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
+                      <input type="number" value={martingaleMultiplier} onChange={(e) => { setMartingaleMultiplier(e.target.value); userTouchedRisk.current = true; }} step="0.1" className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                     </FormField>
                     <FormField label="Max Martingale Level" hint="Max consecutive multiplications.">
                       <input type="number" value={maxMartingaleSteps} onChange={(e) => setMaxMartingaleSteps(parseInt(e.target.value) || 3)} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
