@@ -878,14 +878,46 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
     const intervalMs = executionSpeed === "Turbo" ? 200 :
                        executionSpeed === "Fast" ? 1000 : 4000;
+    // Brain trades only ONE contract at a time, no spamming
+    const brainIntervalMs = strategyProfile === "brain" ? 300 : intervalMs;
 
     const timer = setInterval(() => {
-      if (!botRunning.current || !proposalReady.current) return;
+      if (!botRunning.current) return;
       if (openContracts.current >= MAX_CONCURRENT) return;
 
       const now = Date.now();
       tradeTimestamps.current = tradeTimestamps.current.filter(t => t > now - 1000);
       if (tradeTimestamps.current.length >= MAX_TRADES_PER_SEC) return;
+
+      // ── DERIV BRAIN: strict UNDER 8 / OVER 2 with adaptive selection ──
+      if (strategyProfile === "brain") {
+        const lastQuote = tickBufferRef.current[tickBufferRef.current.length - 1]?.quote ?? 0;
+        const decision = derivBrain.decide(lastDigitsRef.current, lastQuote);
+        if (decision.shouldTrade && decision.contractType && decision.barrier) {
+          // Brain trades one at a time — guard with openContracts check
+          if (openContracts.current > 0) {
+            derivBrain.cancelInFlight();
+            return;
+          }
+          // Switch contract type/barrier dynamically; new proposal will be requested
+          if (contractType !== decision.contractType || barrier !== decision.barrier) {
+            setContractType(decision.contractType);
+            setBarrier(decision.barrier);
+            // Wait one tick for proposal to refresh
+            derivBrain.cancelInFlight();
+            return;
+          }
+          if (!proposalReady.current) {
+            derivBrain.cancelInFlight();
+            return;
+          }
+          const lastDigit = lastDigitsRef.current[lastDigitsRef.current.length - 1];
+          executeTradeContinuous(lastDigit);
+        }
+        return;
+      }
+
+      if (!proposalReady.current) return;
 
       const { score, elitScore } = latestSignalRef.current;
       let shouldTrade = false;
@@ -894,6 +926,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
       if (strategyProfile === "elit") {
         shouldTrade = elitScore >= 70;
+        if (shouldTrade) aiLogger.log("ELIT", "success", `Confluence ${elitScore}% — firing ${elitContract.replace("DIGIT","")}`);
       } else {
         shouldTrade = score >= threshold;
       }
@@ -903,11 +936,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         const maxSlots = MAX_CONCURRENT - openContracts.current;
         const tradeCount = bulkModeRef.current ? Math.min(bulkCountRef.current, remaining, maxSlots) : 1;
         const actualCount = executionSpeed === "Turbo" ? Math.min(tradeCount, remaining) : 1;
+        const lastDigit = lastDigitsRef.current[lastDigitsRef.current.length - 1];
         for (let i = 0; i < actualCount; i++) {
-          executeTradeContinuous();
+          executeTradeContinuous(lastDigit);
         }
       }
-    }, intervalMs);
+    }, brainIntervalMs);
 
     // TPS counter — update every 500ms
     const tpsTimer = setInterval(() => {
