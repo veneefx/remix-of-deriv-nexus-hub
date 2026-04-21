@@ -951,7 +951,36 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     }, 500);
 
     return () => { clearInterval(timer); clearInterval(tpsTimer); };
-  }, [softwareStatus, mode, executionSpeed, executeTradeContinuous, strategyProfile]);
+  }, [softwareStatus, mode, executionSpeed, executeTradeContinuous, strategyProfile, contractType, barrier, elitContract]);
+
+  // ── ENGINE WATCHDOG: detect stuck state and auto-recover ──
+  useEffect(() => {
+    if (softwareStatus !== "ACTIVE") return;
+    const watchdog = setInterval(() => {
+      const now = Date.now();
+      // Tick freshness: if no tick in 15s, force resubscribe
+      if (now - lastTickTs.current > 15000 && ws) {
+        aiLogger.log("System", "warn", "Tick stream stale (>15s) — resubscribing");
+        try {
+          ws.unsubscribeTicks(selectedMarket);
+          setTimeout(() => ws.subscribeTicks(selectedMarket), 500);
+        } catch {}
+        lastTickTs.current = now;
+      }
+      // Proposal watchdog: if no proposal in 8s, force re-request
+      if (!proposalReady.current && now - lastProposalReqTs.current > 8000) {
+        aiLogger.log("System", "warn", "Proposal stuck — forcing re-request");
+        requestProposal();
+        lastProposalReqTs.current = now;
+      }
+      // Execution loop: if bot active but no trade attempt in 60s and conditions favorable, log it
+      if (botRunning.current && now - lastTradeAttemptTs.current > 60000 && openContracts.current === 0) {
+        aiLogger.log("System", "info", "No trade attempts in 60s — engine idle (waiting for signal)");
+        lastTradeAttemptTs.current = now;
+      }
+    }, 5000);
+    return () => clearInterval(watchdog);
+  }, [softwareStatus, ws, selectedMarket, requestProposal]);
 
   const clearTransactions = () => setTransactions([]);
 
@@ -1368,11 +1397,28 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           <div>
             <label className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">Strategy Profile <span className="text-primary text-xs">●</span></label>
             <div className="mt-1 grid grid-cols-2 gap-1">
-              {(["aggressive", "balanced", "conservative", "elit"] as const).map((p) => (
+              {(["aggressive", "balanced", "conservative", "elit", "brain"] as const).map((p) => (
                 <button
                   key={p}
-                  onClick={() => setStrategyProfile(p)}
+                  onClick={() => { setStrategyProfile(p); userTouchedRisk.current = true; }}
                   className={`py-1.5 text-[10px] font-medium rounded transition-all capitalize ${
+                    strategyProfile === p
+                      ? p === "aggressive" ? "bg-sell/20 text-sell border border-sell/30"
+                      : p === "balanced" ? "bg-warning/20 text-warning border border-warning/30"
+                      : p === "elit" ? "bg-warning/30 text-warning border border-warning/40 font-bold"
+                      : p === "brain" ? "bg-primary/30 text-primary border border-primary/40 font-bold"
+                      : "bg-buy/20 text-buy border border-buy/30"
+                      : "bg-secondary text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  {p === "aggressive" ? "🟥" : p === "balanced" ? "🟨" : p === "elit" ? "⚡" : p === "brain" ? "🧠" : "🟩"} {p === "elit" ? "ELIT" : p === "brain" ? "Brain" : p}
+                </button>
+              ))}
+            </div>
+            {strategyProfile === "brain" && (
+              <p className="text-[9px] text-primary/80 mt-1">🧠 Adaptive UNDER 8 / OVER 2 — strict entry triggers + self-learning</p>
+            )}
+          </div>
                     strategyProfile === p
                       ? p === "aggressive" ? "bg-sell/20 text-sell border border-sell/30"
                       : p === "balanced" ? "bg-warning/20 text-warning border border-warning/30"
@@ -1381,7 +1427,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                       : "bg-secondary text-muted-foreground hover:bg-muted"
                   }`}
                 >
-                  {p === "aggressive" ? "🟥" : p === "balanced" ? "🟨" : p === "elit" ? "⚡" : "🟩"} {p === "elit" ? "ELIT" : p}
                 </button>
               ))}
             </div>
