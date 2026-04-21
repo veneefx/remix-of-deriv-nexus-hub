@@ -763,15 +763,19 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       if (data.error) {
         openContracts.current = Math.max(0, openContracts.current - 1);
         console.warn("[TradeEngine] Buy error:", data.error.message);
+        // Release Brain in-flight guard so it can re-evaluate
+        if (strategyProfile === "brain") derivBrain.cancelInFlight();
+        aiLogger.log("System", "error", `Buy error: ${data.error.message}`);
         requestProposal();
         return;
       }
       if (data.buy?.contract_id) {
         const contractId = String(data.buy.contract_id);
-        const latestStake = pendingTrades.current.get("_latest_stake");
-        const tradeStake = latestStake ? latestStake.stake : currentStake.current;
+        const latest = pendingTrades.current.get("_latest_stake");
+        const tradeStake = latest ? latest.stake : currentStake.current;
+        const entryDigit = (latest as any)?.entryDigit ?? null;
         pendingTrades.current.delete("_latest_stake");
-        pendingTrades.current.set(contractId, { stake: tradeStake, resolved: false });
+        pendingTrades.current.set(contractId, { stake: tradeStake, resolved: false, entryDigit } as any);
         ws.subscribeOpenContract();
       }
     });
@@ -780,23 +784,34 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       const poc = data.proposal_open_contract;
       if (!poc || !poc.is_sold) return;
       const contractId = String(poc.contract_id);
-      const pending = pendingTrades.current.get(contractId);
+      const pending = pendingTrades.current.get(contractId) as any;
       if (!pending || pending.resolved) return;
       pending.resolved = true;
-      handleTradeResult(poc.profit, poc.profit > 0, contractId, pending.stake);
+      const exitDigit = poc.exit_tick != null ? getLastDigit(poc.exit_tick) : undefined;
+      handleTradeResult(poc.profit, poc.profit > 0, contractId, pending.stake, pending.entryDigit ?? undefined, exitDigit);
     });
 
     return () => { unsubBuy(); unsubPoc(); };
-  }, [ws, handleTradeResult, requestProposal]);
+  }, [ws, handleTradeResult, requestProposal, strategyProfile]);
 
   // ── TRADE EXECUTION: consumes proposal, fires buy, requests new proposal ──
-  const executeTradeContinuous = useCallback(() => {
-    if (!ws || !proposalReady.current || !proposalIdRef.current || !isLoggedIn) return;
-    if (openContracts.current >= MAX_CONCURRENT) return;
+  const executeTradeContinuous = useCallback((entryDigit?: number) => {
+    if (!ws || !proposalReady.current || !proposalIdRef.current || !isLoggedIn) {
+      // Release Brain in-flight if it was guarding
+      if (strategyProfile === "brain") derivBrain.cancelInFlight();
+      return false;
+    }
+    if (openContracts.current >= MAX_CONCURRENT) {
+      if (strategyProfile === "brain") derivBrain.cancelInFlight();
+      return false;
+    }
 
     const now = Date.now();
     tradeTimestamps.current = tradeTimestamps.current.filter(t => t > now - 1000);
-    if (tradeTimestamps.current.length >= MAX_TRADES_PER_SEC) return;
+    if (tradeTimestamps.current.length >= MAX_TRADES_PER_SEC) {
+      if (strategyProfile === "brain") derivBrain.cancelInFlight();
+      return false;
+    }
 
     const currentProposalId = proposalIdRef.current;
     const tradeStake = currentStake.current;
@@ -804,13 +819,16 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     proposalReady.current = false;
     proposalIdRef.current = null;
 
-    pendingTrades.current.set("_latest_stake", { stake: tradeStake, resolved: false });
+    pendingTrades.current.set("_latest_stake", { stake: tradeStake, resolved: false, entryDigit } as any);
     tradeTimestamps.current.push(now);
     openContracts.current++;
+    lastTradeAttemptTs.current = now;
 
     ws.buyContract(currentProposalId, tradeStake);
     requestProposal();
-  }, [ws, isLoggedIn, requestProposal]);
+    lastProposalReqTs.current = now;
+    return true;
+  }, [ws, isLoggedIn, requestProposal, strategyProfile]);
 
   const executeTrade = useCallback(() => {
     executeTradeContinuous();
