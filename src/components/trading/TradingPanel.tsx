@@ -1419,18 +1419,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
               <p className="text-[9px] text-primary/80 mt-1">🧠 Adaptive UNDER 8 / OVER 2 — strict entry triggers + self-learning</p>
             )}
           </div>
-                    strategyProfile === p
-                      ? p === "aggressive" ? "bg-sell/20 text-sell border border-sell/30"
-                      : p === "balanced" ? "bg-warning/20 text-warning border border-warning/30"
-                      : p === "elit" ? "bg-warning/30 text-warning border border-warning/40 font-bold"
-                      : "bg-buy/20 text-buy border border-buy/30"
-                      : "bg-secondary text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                </button>
-              ))}
-            </div>
-          </div>
 
           {/* Quick / Automated tabs */}
           <div className="flex items-center justify-center border-b border-border">
