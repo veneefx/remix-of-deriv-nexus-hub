@@ -232,6 +232,60 @@ export type Database = {
         }
         Relationships: []
       }
+      user_trading_settings: {
+        Row: {
+          base_stake: number | null
+          created_at: string
+          execution_speed: string | null
+          extra: Json | null
+          id: string
+          martingale_enabled: boolean | null
+          martingale_multiplier: number | null
+          max_martingale_steps: number | null
+          selected_market: string | null
+          selected_strategy: string | null
+          start_martingale_after: number | null
+          stop_loss: number | null
+          take_profit: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          base_stake?: number | null
+          created_at?: string
+          execution_speed?: string | null
+          extra?: Json | null
+          id?: string
+          martingale_enabled?: boolean | null
+          martingale_multiplier?: number | null
+          max_martingale_steps?: number | null
+          selected_market?: string | null
+          selected_strategy?: string | null
+          start_martingale_after?: number | null
+          stop_loss?: number | null
+          take_profit?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          base_stake?: number | null
+          created_at?: string
+          execution_speed?: string | null
+          extra?: Json | null
+          id?: string
+          martingale_enabled?: boolean | null
+          martingale_multiplier?: number | null
+          max_martingale_steps?: number | null
+          selected_market?: string | null
+          selected_strategy?: string | null
+          start_martingale_after?: number | null
+          stop_loss?: number | null
+          take_profit?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

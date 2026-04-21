@@ -5,6 +5,8 @@ import DerivWebSocket from "@/services/deriv-websocket";
 import { DerivAccount } from "@/services/deriv-auth";
 import { VOLATILITY_MARKETS, MARKET_CATEGORIES, CONTRACT_TYPES, DIGIT_BARRIERS, getLastDigit } from "@/lib/trading-constants";
 import { tradingEngine } from "@/services/trading-engine";
+import { aiLogger, AIEngine } from "@/services/ai-logger";
+import { derivBrain } from "@/services/deriv-brain";
 import AnalysisTab from "@/components/trading/AnalysisTab";
 import DigitAnalysisDashboard from "@/components/trading/DigitAnalysisDashboard";
 import LiveProbabilityEngine from "@/components/trading/LiveProbabilityEngine";
@@ -182,8 +184,16 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [smartRisker, setSmartRisker] = useState(false);
   const [freqBasedTrading, setFreqBasedTrading] = useState(false);
   const [freqThreshold, setFreqThreshold] = useState(12);
-  const [strategyProfile, setStrategyProfile] = useState<"aggressive" | "balanced" | "conservative" | "elit">(() => (localStorage.getItem("dnx_profile") as any) || "balanced");
+  const [strategyProfile, setStrategyProfile] = useState<"aggressive" | "balanced" | "conservative" | "elit" | "brain">(() => (localStorage.getItem("dnx_profile") as any) || "balanced");
   const [strategyVersion, setStrategyVersion] = useState<number | null>(null);
+
+  // Track whether the user has manually edited risk settings.
+  // If true, we DO NOT overwrite them when global_strategy reloads.
+  const userTouchedRisk = useRef(false);
+  // Engine watchdog tracking
+  const lastTickTs = useRef<number>(Date.now());
+  const lastTradeAttemptTs = useRef<number>(Date.now());
+  const lastProposalReqTs = useRef<number>(0);
 
   // Bulk trade mode
   const [bulkMode, setBulkMode] = useState(false);
@@ -287,7 +297,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     return () => clearInterval(interval);
   }, []);
 
-  // Load global strategy from database
+  // Load global strategy from database (does NOT overwrite user-touched risk settings)
   useEffect(() => {
     const loadStrategy = async () => {
       const { data } = await supabase
@@ -298,6 +308,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         .single();
       if (data) {
         setStrategyVersion(data.version);
+        // ── Skip overwrite if user has manually customized their risk settings ──
+        if (userTouchedRisk.current) return;
         const risk = data.risk_global as unknown as any;
         const recovery = data.recovery_global as unknown as any;
         if (risk) {
@@ -316,9 +328,97 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       }
     };
     loadStrategy();
-    const interval = setInterval(loadStrategy, 30000);
+    // Periodic reload — only updates strategyVersion, won't overwrite user risk
+    const interval = setInterval(loadStrategy, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // ── Load user's saved risk/strategy settings from DB (per-user, sync across devices) ──
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || cancelled) return;
+        // Try localStorage first for instant load
+        const cached = localStorage.getItem(`dnx_user_settings_${user.id}`);
+        if (cached) {
+          const c = JSON.parse(cached);
+          if (c.takeProfit) setTakeProfit(String(c.takeProfit));
+          if (c.stopLoss) setStopLoss(String(c.stopLoss));
+          if (c.baseStake) setStake(String(c.baseStake));
+          if (typeof c.martingaleEnabled === "boolean") setMartingale(c.martingaleEnabled);
+          if (c.martingaleMultiplier) setMartingaleMultiplier(String(c.martingaleMultiplier));
+          if (c.maxMartingaleSteps) setMaxMartingaleSteps(c.maxMartingaleSteps);
+          if (c.startMartingaleAfter) setStartMartingaleAfter(c.startMartingaleAfter);
+          if (c.selectedStrategy) setStrategyProfile(c.selectedStrategy);
+          if (c.executionSpeed) setExecutionSpeed(c.executionSpeed);
+          userTouchedRisk.current = true;
+        }
+        // Then sync from DB (authoritative)
+        const { data } = await supabase
+          .from("user_trading_settings")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (data && !cancelled) {
+          if (data.take_profit != null) setTakeProfit(String(data.take_profit));
+          if (data.stop_loss != null) setStopLoss(String(data.stop_loss));
+          if (data.base_stake != null) setStake(String(data.base_stake));
+          if (typeof data.martingale_enabled === "boolean") setMartingale(data.martingale_enabled);
+          if (data.martingale_multiplier != null) setMartingaleMultiplier(String(data.martingale_multiplier));
+          if (data.max_martingale_steps != null) setMaxMartingaleSteps(data.max_martingale_steps);
+          if (data.start_martingale_after != null) setStartMartingaleAfter(data.start_martingale_after);
+          if (data.selected_strategy) setStrategyProfile(data.selected_strategy as any);
+          if (data.execution_speed) setExecutionSpeed(data.execution_speed as any);
+          userTouchedRisk.current = true;
+          aiLogger.log("System", "info", "User settings loaded from cloud");
+        }
+      } catch (e) {
+        console.warn("[Settings] Load failed:", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Persist user's risk/strategy settings (debounced) ──
+  const settingsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!userTouchedRisk.current) return;
+    if (settingsSaveTimer.current) clearTimeout(settingsSaveTimer.current);
+    settingsSaveTimer.current = setTimeout(async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const payload = {
+          take_profit: parseFloat(takeProfit) || null,
+          stop_loss: parseFloat(stopLoss) || null,
+          base_stake: parseFloat(stake) || null,
+          martingale_enabled: martingale,
+          martingale_multiplier: parseFloat(martingaleMultiplier) || null,
+          max_martingale_steps: maxMartingaleSteps,
+          start_martingale_after: startMartingaleAfter,
+          selected_strategy: strategyProfile,
+          execution_speed: executionSpeed,
+          selected_market: selectedMarket,
+        };
+        // Cache to localStorage immediately
+        localStorage.setItem(`dnx_user_settings_${user.id}`, JSON.stringify({
+          takeProfit, stopLoss, baseStake: stake, martingaleEnabled: martingale,
+          martingaleMultiplier, maxMartingaleSteps, startMartingaleAfter,
+          selectedStrategy: strategyProfile, executionSpeed,
+        }));
+        // Upsert to DB
+        await supabase.from("user_trading_settings").upsert({
+          user_id: user.id,
+          ...payload,
+        }, { onConflict: "user_id" });
+      } catch (e) {
+        console.warn("[Settings] Save failed:", e);
+      }
+    }, 1500);
+    return () => { if (settingsSaveTimer.current) clearTimeout(settingsSaveTimer.current); };
+  }, [takeProfit, stopLoss, stake, martingale, martingaleMultiplier, maxMartingaleSteps, startMartingaleAfter, strategyProfile, executionSpeed, selectedMarket]);
 
   // Local signal scoring (runs client-side for speed, mirrors backend logic)
   const calculateLocalSignal = useCallback((digits: number[], pressure: DigitPressure, buffer: { quote: number }[]) => {
@@ -384,11 +484,14 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       if (!data.tick || typeof data.tick.quote !== "number") return;
 
       const quote = data.tick.quote;
-      const quoteStr = quote.toString();
-      const lastDigit = parseInt(quoteStr.charAt(quoteStr.length - 1), 10);
-      
+      // ── CRITICAL: Use bulletproof getLastDigit (preserves trailing zeros) ──
+      const lastDigit = getLastDigit(quote);
+
       const tickData = { quote, digit: lastDigit, epoch: data.tick.epoch || Date.now() / 1000 };
-      
+
+      // Update freshness watchdog timestamp
+      lastTickTs.current = Date.now();
+
       setCurrentTick(quote);
       setLastDigits(prev => [...prev.slice(-999), lastDigit]);
       lastDigitsRef.current = [...lastDigitsRef.current.slice(-999), lastDigit];
@@ -494,12 +597,16 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     });
   }, [ws, contractType, selectedMarket, duration, durationUnit, barrier, isLoggedIn]);
 
-  // Proposal listener + periodic refresh
+  // Proposal listener + periodic refresh + watchdog
   useEffect(() => {
     if (!ws || !isLoggedIn) return;
 
     requestProposal();
-    const proposalInterval = setInterval(requestProposal, 3000);
+    lastProposalReqTs.current = Date.now();
+    const proposalInterval = setInterval(() => {
+      requestProposal();
+      lastProposalReqTs.current = Date.now();
+    }, 3000);
 
     const unsub = ws.on("proposal", (data) => {
       if (data.proposal) {
@@ -507,6 +614,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         proposalIdRef.current = data.proposal.id;
         proposalReady.current = true;
         setPayout(data.proposal.payout);
+      }
+      if (data.error) {
+        // Force a re-request soon if proposal failed
+        proposalReady.current = false;
+        aiLogger.log("System", "warn", `Proposal error: ${data.error.message || "unknown"}`);
       }
     });
     return () => { unsub(); clearInterval(proposalInterval); };
@@ -516,7 +628,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const needsBarrier = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
   const winRate = session.totalTrades > 0 ? ((session.wins / session.totalTrades) * 100).toFixed(1) : "0.0";
 
-  const handleTradeResult = useCallback((profit: number, won: boolean, contractId: string, tradeStake: number) => {
+  const handleTradeResult = useCallback((profit: number, won: boolean, contractId: string, tradeStake: number, entryDigit?: number, exitDigit?: number) => {
     pendingTrades.current.delete(contractId);
     setTradeResult({ profit, won });
     openContracts.current = Math.max(0, openContracts.current - 1);
@@ -524,6 +636,29 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     toast({
       title: won ? "✅ Trade Won" : "❌ Trade Lost",
       description: `${won ? "+" : ""}${profit.toFixed(2)} USD • ${marketLabel}`,
+    });
+
+    // ── Inform Brain (self-learning + recovery arming) ──
+    if (strategyProfile === "brain") {
+      derivBrain.recordResult(won, profit);
+    }
+
+    // ── AI logger trade entry ──
+    const engine: AIEngine =
+      strategyProfile === "brain" ? "Brain" :
+      strategyProfile === "elit" ? "ELIT" :
+      strategyProfile === "aggressive" ? "Aggressive" :
+      strategyProfile === "conservative" ? "Conservative" : "Balanced";
+    aiLogger.trade({
+      engine,
+      contractId,
+      contractType,
+      symbol: selectedMarket,
+      entryDigit: entryDigit ?? null,
+      exitDigit: exitDigit ?? null,
+      stake: tradeStake,
+      profit,
+      won,
     });
 
     // ── LOG TRADE TO BACKEND ──
@@ -593,9 +728,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       }
     }
 
-    // After stake changes, immediately refresh proposal with new stake
-    requestProposal();
-
     const totalP = sessionProfitRef.current + profit;
     if (smartRisker && totalP > 0) {
       const halfStake = parseFloat(stake) * 0.5;
@@ -618,8 +750,10 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       toast({ title: "⛔ Stop Loss Hit", description: `Loss limit reached: $${Math.abs(totalP).toFixed(2)}` });
     }
 
+    // After stake changes, refresh proposal ONCE with new stake
     requestProposal();
-  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, smartRisker, selectedMarket, requestProposal]);
+    lastProposalReqTs.current = Date.now();
+  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, smartRisker, selectedMarket, requestProposal, strategyProfile]);
 
   // ── PERSISTENT LISTENERS: registered ONCE, dispatch by contract_id ──
   useEffect(() => {
@@ -629,15 +763,19 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       if (data.error) {
         openContracts.current = Math.max(0, openContracts.current - 1);
         console.warn("[TradeEngine] Buy error:", data.error.message);
+        // Release Brain in-flight guard so it can re-evaluate
+        if (strategyProfile === "brain") derivBrain.cancelInFlight();
+        aiLogger.log("System", "error", `Buy error: ${data.error.message}`);
         requestProposal();
         return;
       }
       if (data.buy?.contract_id) {
         const contractId = String(data.buy.contract_id);
-        const latestStake = pendingTrades.current.get("_latest_stake");
-        const tradeStake = latestStake ? latestStake.stake : currentStake.current;
+        const latest = pendingTrades.current.get("_latest_stake");
+        const tradeStake = latest ? latest.stake : currentStake.current;
+        const entryDigit = (latest as any)?.entryDigit ?? null;
         pendingTrades.current.delete("_latest_stake");
-        pendingTrades.current.set(contractId, { stake: tradeStake, resolved: false });
+        pendingTrades.current.set(contractId, { stake: tradeStake, resolved: false, entryDigit } as any);
         ws.subscribeOpenContract();
       }
     });
@@ -646,23 +784,34 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       const poc = data.proposal_open_contract;
       if (!poc || !poc.is_sold) return;
       const contractId = String(poc.contract_id);
-      const pending = pendingTrades.current.get(contractId);
+      const pending = pendingTrades.current.get(contractId) as any;
       if (!pending || pending.resolved) return;
       pending.resolved = true;
-      handleTradeResult(poc.profit, poc.profit > 0, contractId, pending.stake);
+      const exitDigit = poc.exit_tick != null ? getLastDigit(poc.exit_tick) : undefined;
+      handleTradeResult(poc.profit, poc.profit > 0, contractId, pending.stake, pending.entryDigit ?? undefined, exitDigit);
     });
 
     return () => { unsubBuy(); unsubPoc(); };
-  }, [ws, handleTradeResult, requestProposal]);
+  }, [ws, handleTradeResult, requestProposal, strategyProfile]);
 
   // ── TRADE EXECUTION: consumes proposal, fires buy, requests new proposal ──
-  const executeTradeContinuous = useCallback(() => {
-    if (!ws || !proposalReady.current || !proposalIdRef.current || !isLoggedIn) return;
-    if (openContracts.current >= MAX_CONCURRENT) return;
+  const executeTradeContinuous = useCallback((entryDigit?: number) => {
+    if (!ws || !proposalReady.current || !proposalIdRef.current || !isLoggedIn) {
+      // Release Brain in-flight if it was guarding
+      if (strategyProfile === "brain") derivBrain.cancelInFlight();
+      return false;
+    }
+    if (openContracts.current >= MAX_CONCURRENT) {
+      if (strategyProfile === "brain") derivBrain.cancelInFlight();
+      return false;
+    }
 
     const now = Date.now();
     tradeTimestamps.current = tradeTimestamps.current.filter(t => t > now - 1000);
-    if (tradeTimestamps.current.length >= MAX_TRADES_PER_SEC) return;
+    if (tradeTimestamps.current.length >= MAX_TRADES_PER_SEC) {
+      if (strategyProfile === "brain") derivBrain.cancelInFlight();
+      return false;
+    }
 
     const currentProposalId = proposalIdRef.current;
     const tradeStake = currentStake.current;
@@ -670,13 +819,16 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     proposalReady.current = false;
     proposalIdRef.current = null;
 
-    pendingTrades.current.set("_latest_stake", { stake: tradeStake, resolved: false });
+    pendingTrades.current.set("_latest_stake", { stake: tradeStake, resolved: false, entryDigit } as any);
     tradeTimestamps.current.push(now);
     openContracts.current++;
+    lastTradeAttemptTs.current = now;
 
     ws.buyContract(currentProposalId, tradeStake);
     requestProposal();
-  }, [ws, isLoggedIn, requestProposal]);
+    lastProposalReqTs.current = now;
+    return true;
+  }, [ws, isLoggedIn, requestProposal, strategyProfile]);
 
   const executeTrade = useCallback(() => {
     executeTradeContinuous();
@@ -726,14 +878,46 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
     const intervalMs = executionSpeed === "Turbo" ? 200 :
                        executionSpeed === "Fast" ? 1000 : 4000;
+    // Brain trades only ONE contract at a time, no spamming
+    const brainIntervalMs = strategyProfile === "brain" ? 300 : intervalMs;
 
     const timer = setInterval(() => {
-      if (!botRunning.current || !proposalReady.current) return;
+      if (!botRunning.current) return;
       if (openContracts.current >= MAX_CONCURRENT) return;
 
       const now = Date.now();
       tradeTimestamps.current = tradeTimestamps.current.filter(t => t > now - 1000);
       if (tradeTimestamps.current.length >= MAX_TRADES_PER_SEC) return;
+
+      // ── DERIV BRAIN: strict UNDER 8 / OVER 2 with adaptive selection ──
+      if (strategyProfile === "brain") {
+        const lastQuote = tickBufferRef.current[tickBufferRef.current.length - 1]?.quote ?? 0;
+        const decision = derivBrain.decide(lastDigitsRef.current, lastQuote);
+        if (decision.shouldTrade && decision.contractType && decision.barrier) {
+          // Brain trades one at a time — guard with openContracts check
+          if (openContracts.current > 0) {
+            derivBrain.cancelInFlight();
+            return;
+          }
+          // Switch contract type/barrier dynamically; new proposal will be requested
+          if (contractType !== decision.contractType || barrier !== decision.barrier) {
+            setContractType(decision.contractType);
+            setBarrier(decision.barrier);
+            // Wait one tick for proposal to refresh
+            derivBrain.cancelInFlight();
+            return;
+          }
+          if (!proposalReady.current) {
+            derivBrain.cancelInFlight();
+            return;
+          }
+          const lastDigit = lastDigitsRef.current[lastDigitsRef.current.length - 1];
+          executeTradeContinuous(lastDigit);
+        }
+        return;
+      }
+
+      if (!proposalReady.current) return;
 
       const { score, elitScore } = latestSignalRef.current;
       let shouldTrade = false;
@@ -742,6 +926,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
       if (strategyProfile === "elit") {
         shouldTrade = elitScore >= 70;
+        if (shouldTrade) aiLogger.log("ELIT", "success", `Confluence ${elitScore}% — firing ${elitContract.replace("DIGIT","")}`);
       } else {
         shouldTrade = score >= threshold;
       }
@@ -751,11 +936,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         const maxSlots = MAX_CONCURRENT - openContracts.current;
         const tradeCount = bulkModeRef.current ? Math.min(bulkCountRef.current, remaining, maxSlots) : 1;
         const actualCount = executionSpeed === "Turbo" ? Math.min(tradeCount, remaining) : 1;
+        const lastDigit = lastDigitsRef.current[lastDigitsRef.current.length - 1];
         for (let i = 0; i < actualCount; i++) {
-          executeTradeContinuous();
+          executeTradeContinuous(lastDigit);
         }
       }
-    }, intervalMs);
+    }, brainIntervalMs);
 
     // TPS counter — update every 500ms
     const tpsTimer = setInterval(() => {
@@ -765,7 +951,36 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     }, 500);
 
     return () => { clearInterval(timer); clearInterval(tpsTimer); };
-  }, [softwareStatus, mode, executionSpeed, executeTradeContinuous, strategyProfile]);
+  }, [softwareStatus, mode, executionSpeed, executeTradeContinuous, strategyProfile, contractType, barrier, elitContract]);
+
+  // ── ENGINE WATCHDOG: detect stuck state and auto-recover ──
+  useEffect(() => {
+    if (softwareStatus !== "ACTIVE") return;
+    const watchdog = setInterval(() => {
+      const now = Date.now();
+      // Tick freshness: if no tick in 15s, force resubscribe
+      if (now - lastTickTs.current > 15000 && ws) {
+        aiLogger.log("System", "warn", "Tick stream stale (>15s) — resubscribing");
+        try {
+          ws.unsubscribeTicks(selectedMarket);
+          setTimeout(() => ws.subscribeTicks(selectedMarket), 500);
+        } catch {}
+        lastTickTs.current = now;
+      }
+      // Proposal watchdog: if no proposal in 8s, force re-request
+      if (!proposalReady.current && now - lastProposalReqTs.current > 8000) {
+        aiLogger.log("System", "warn", "Proposal stuck — forcing re-request");
+        requestProposal();
+        lastProposalReqTs.current = now;
+      }
+      // Execution loop: if bot active but no trade attempt in 60s and conditions favorable, log it
+      if (botRunning.current && now - lastTradeAttemptTs.current > 60000 && openContracts.current === 0) {
+        aiLogger.log("System", "info", "No trade attempts in 60s — engine idle (waiting for signal)");
+        lastTradeAttemptTs.current = now;
+      }
+    }, 5000);
+    return () => clearInterval(watchdog);
+  }, [softwareStatus, ws, selectedMarket, requestProposal]);
 
   const clearTransactions = () => setTransactions([]);
 
@@ -1182,23 +1397,27 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           <div>
             <label className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">Strategy Profile <span className="text-primary text-xs">●</span></label>
             <div className="mt-1 grid grid-cols-2 gap-1">
-              {(["aggressive", "balanced", "conservative", "elit"] as const).map((p) => (
+              {(["aggressive", "balanced", "conservative", "elit", "brain"] as const).map((p) => (
                 <button
                   key={p}
-                  onClick={() => setStrategyProfile(p)}
+                  onClick={() => { setStrategyProfile(p); userTouchedRisk.current = true; }}
                   className={`py-1.5 text-[10px] font-medium rounded transition-all capitalize ${
                     strategyProfile === p
                       ? p === "aggressive" ? "bg-sell/20 text-sell border border-sell/30"
                       : p === "balanced" ? "bg-warning/20 text-warning border border-warning/30"
                       : p === "elit" ? "bg-warning/30 text-warning border border-warning/40 font-bold"
+                      : p === "brain" ? "bg-primary/30 text-primary border border-primary/40 font-bold"
                       : "bg-buy/20 text-buy border border-buy/30"
                       : "bg-secondary text-muted-foreground hover:bg-muted"
                   }`}
                 >
-                  {p === "aggressive" ? "🟥" : p === "balanced" ? "🟨" : p === "elit" ? "⚡" : "🟩"} {p === "elit" ? "ELIT" : p}
+                  {p === "aggressive" ? "🟥" : p === "balanced" ? "🟨" : p === "elit" ? "⚡" : p === "brain" ? "🧠" : "🟩"} {p === "elit" ? "ELIT" : p === "brain" ? "Brain" : p}
                 </button>
               ))}
             </div>
+            {strategyProfile === "brain" && (
+              <p className="text-[9px] text-primary/80 mt-1">🧠 Adaptive UNDER 8 / OVER 2 — strict entry triggers + self-learning</p>
+            )}
           </div>
 
           {/* Quick / Automated tabs */}
@@ -1379,10 +1598,10 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   </select>
                 </FormField>
                 <FormField label="Take Profit" hint="Minimum profit limit.">
-                  <input type="number" value={takeProfit} onChange={(e) => setTakeProfit(e.target.value)} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
+                  <input type="number" value={takeProfit} onChange={(e) => { setTakeProfit(e.target.value); userTouchedRisk.current = true; }} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                 </FormField>
                 <FormField label="Stop Loss" hint="Maximum loss limit.">
-                  <input type="number" value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
+                  <input type="number" value={stopLoss} onChange={(e) => { setStopLoss(e.target.value); userTouchedRisk.current = true; }} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                 </FormField>
                 <FormField label="Trading Method" hint="Stakelist or martingale.">
                   <select value={martingale ? "Martingale" : "Flat"} onChange={(e) => setMartingale(e.target.value === "Martingale")} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground">
@@ -1392,7 +1611,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                 {martingale && (
                   <>
                     <FormField label="Martingale Multiplier" hint="Multiplier on loss.">
-                      <input type="number" value={martingaleMultiplier} onChange={(e) => setMartingaleMultiplier(e.target.value)} step="0.1" className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
+                      <input type="number" value={martingaleMultiplier} onChange={(e) => { setMartingaleMultiplier(e.target.value); userTouchedRisk.current = true; }} step="0.1" className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                     </FormField>
                     <FormField label="Max Martingale Level" hint="Max consecutive multiplications.">
                       <input type="number" value={maxMartingaleSteps} onChange={(e) => setMaxMartingaleSteps(parseInt(e.target.value) || 3)} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />

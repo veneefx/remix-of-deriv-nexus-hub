@@ -13,10 +13,13 @@ class DerivWebSocket {
   private appId: string;
   private handlers: Map<string, Set<MessageHandler>> = new Map();
   private reconnectAttempts = 0;
-  private maxReconnects = 5;
+  private maxReconnects = 10;
   private reconnectDelay = 2000;
   private isConnected = false;
   private pendingMessages: string[] = [];
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private lastPongTs = 0;
+  private intentionalClose = false;
 
   constructor(appId: string) {
     this.appId = appId;
@@ -25,14 +28,19 @@ class DerivWebSocket {
   connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       try {
+        this.intentionalClose = false;
         this.ws = new WebSocket(`${DERIV_WS_URL}?app_id=${this.appId}`);
 
         this.ws.onopen = () => {
           this.isConnected = true;
           this.reconnectAttempts = 0;
-          // Send any pending messages
-          this.pendingMessages.forEach((msg) => this.ws?.send(msg));
+          this.lastPongTs = Date.now();
+          // Flush pending messages safely
+          this.pendingMessages.forEach((msg) => {
+            try { this.ws?.send(msg); } catch {}
+          });
           this.pendingMessages = [];
+          this.startHeartbeat();
           this.emit("connection", { status: "connected" });
           resolve();
         };
@@ -40,12 +48,15 @@ class DerivWebSocket {
         this.ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
+            if (data.msg_type === "ping" || data.ping) this.lastPongTs = Date.now();
             if (data.msg_type) {
               this.emit(data.msg_type, data);
             }
             if (data.error) {
               this.emit("error", data);
             }
+            // Any incoming message proves the link is alive
+            this.lastPongTs = Date.now();
           } catch (e) {
             console.error("Failed to parse WS message:", e);
           }
@@ -53,8 +64,9 @@ class DerivWebSocket {
 
         this.ws.onclose = () => {
           this.isConnected = false;
+          this.stopHeartbeat();
           this.emit("connection", { status: "disconnected" });
-          this.tryReconnect();
+          if (!this.intentionalClose) this.tryReconnect();
         };
 
         this.ws.onerror = (err) => {
@@ -68,19 +80,46 @@ class DerivWebSocket {
     });
   }
 
+  private startHeartbeat() {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => {
+      // Send ping every 25s
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        try { this.ws.send(JSON.stringify({ ping: 1 })); } catch {}
+      }
+      // If no message received in 60s, force reconnect
+      if (Date.now() - this.lastPongTs > 60000) {
+        console.warn("[WS] Heartbeat timeout — forcing reconnect");
+        try { this.ws?.close(); } catch {}
+      }
+    }, 25000);
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
   private tryReconnect() {
     if (this.reconnectAttempts < this.maxReconnects) {
       this.reconnectAttempts++;
+      const delay = Math.min(this.reconnectDelay * this.reconnectAttempts, 15000);
       setTimeout(() => {
         this.connect().catch(console.error);
-      }, this.reconnectDelay * this.reconnectAttempts);
+      }, delay);
     }
   }
 
   send(data: Record<string, any>) {
     const msg = JSON.stringify(data);
-    if (this.isConnected && this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(msg);
+    // Only send if socket is fully OPEN — otherwise buffer
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      try { this.ws.send(msg); } catch (e) {
+        // Network error during send — buffer and let reconnect logic handle
+        this.pendingMessages.push(msg);
+      }
     } else {
       this.pendingMessages.push(msg);
     }
@@ -144,7 +183,9 @@ class DerivWebSocket {
   }
 
   disconnect() {
-    this.ws?.close();
+    this.intentionalClose = true;
+    this.stopHeartbeat();
+    try { this.ws?.close(); } catch {}
     this.ws = null;
     this.isConnected = false;
     this.handlers.clear();

@@ -116,9 +116,23 @@ export const CONTRACT_TYPES = [
 
 export const DIGIT_BARRIERS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
-export const getLastDigit = (quote: number): number => {
-  // Use toFixed(2) to preserve trailing zeros (e.g. 9602.50 → "0" not "5")
-  // Volatility indices use 2 decimal places
-  const formatted = Number(quote).toFixed(2);
-  return parseInt(formatted[formatted.length - 1], 10);
+/**
+ * Extract the last digit from a Deriv quote, preserving trailing zeros.
+ *
+ * Critical: 0.80 → "0.80" → digit 0 (NOT 8 from "0.8")
+ *           123.40 → "123.40" → digit 0
+ *           9602.05 → "9602.05" → digit 5
+ *
+ * Uses toFixed(2) — Deriv volatility indices publish at 2-decimal precision.
+ * Always returns 0–9.
+ */
+export const getLastDigit = (quote: number | string): number => {
+  const num = typeof quote === "string" ? parseFloat(quote) : quote;
+  if (!Number.isFinite(num)) return 0;
+  // toFixed(2) preserves trailing zeros and gives consistent precision
+  const formatted = num.toFixed(2);
+  const lastChar = formatted.charAt(formatted.length - 1);
+  const digit = parseInt(lastChar, 10);
+  // Guarantee 0-9
+  return Number.isFinite(digit) && digit >= 0 && digit <= 9 ? digit : 0;
 };
