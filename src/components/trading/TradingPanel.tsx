@@ -597,12 +597,16 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     });
   }, [ws, contractType, selectedMarket, duration, durationUnit, barrier, isLoggedIn]);
 
-  // Proposal listener + periodic refresh
+  // Proposal listener + periodic refresh + watchdog
   useEffect(() => {
     if (!ws || !isLoggedIn) return;
 
     requestProposal();
-    const proposalInterval = setInterval(requestProposal, 3000);
+    lastProposalReqTs.current = Date.now();
+    const proposalInterval = setInterval(() => {
+      requestProposal();
+      lastProposalReqTs.current = Date.now();
+    }, 3000);
 
     const unsub = ws.on("proposal", (data) => {
       if (data.proposal) {
@@ -610,6 +614,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         proposalIdRef.current = data.proposal.id;
         proposalReady.current = true;
         setPayout(data.proposal.payout);
+      }
+      if (data.error) {
+        // Force a re-request soon if proposal failed
+        proposalReady.current = false;
+        aiLogger.log("System", "warn", `Proposal error: ${data.error.message || "unknown"}`);
       }
     });
     return () => { unsub(); clearInterval(proposalInterval); };
@@ -619,7 +628,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const needsBarrier = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
   const winRate = session.totalTrades > 0 ? ((session.wins / session.totalTrades) * 100).toFixed(1) : "0.0";
 
-  const handleTradeResult = useCallback((profit: number, won: boolean, contractId: string, tradeStake: number) => {
+  const handleTradeResult = useCallback((profit: number, won: boolean, contractId: string, tradeStake: number, entryDigit?: number, exitDigit?: number) => {
     pendingTrades.current.delete(contractId);
     setTradeResult({ profit, won });
     openContracts.current = Math.max(0, openContracts.current - 1);
@@ -627,6 +636,29 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     toast({
       title: won ? "✅ Trade Won" : "❌ Trade Lost",
       description: `${won ? "+" : ""}${profit.toFixed(2)} USD • ${marketLabel}`,
+    });
+
+    // ── Inform Brain (self-learning + recovery arming) ──
+    if (strategyProfile === "brain") {
+      derivBrain.recordResult(won, profit);
+    }
+
+    // ── AI logger trade entry ──
+    const engine: AIEngine =
+      strategyProfile === "brain" ? "Brain" :
+      strategyProfile === "elit" ? "ELIT" :
+      strategyProfile === "aggressive" ? "Aggressive" :
+      strategyProfile === "conservative" ? "Conservative" : "Balanced";
+    aiLogger.trade({
+      engine,
+      contractId,
+      contractType,
+      symbol: selectedMarket,
+      entryDigit: entryDigit ?? null,
+      exitDigit: exitDigit ?? null,
+      stake: tradeStake,
+      profit,
+      won,
     });
 
     // ── LOG TRADE TO BACKEND ──
@@ -696,9 +728,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       }
     }
 
-    // After stake changes, immediately refresh proposal with new stake
-    requestProposal();
-
     const totalP = sessionProfitRef.current + profit;
     if (smartRisker && totalP > 0) {
       const halfStake = parseFloat(stake) * 0.5;
@@ -721,8 +750,10 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       toast({ title: "⛔ Stop Loss Hit", description: `Loss limit reached: $${Math.abs(totalP).toFixed(2)}` });
     }
 
+    // After stake changes, refresh proposal ONCE with new stake
     requestProposal();
-  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, smartRisker, selectedMarket, requestProposal]);
+    lastProposalReqTs.current = Date.now();
+  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, smartRisker, selectedMarket, requestProposal, strategyProfile]);
 
   // ── PERSISTENT LISTENERS: registered ONCE, dispatch by contract_id ──
   useEffect(() => {
