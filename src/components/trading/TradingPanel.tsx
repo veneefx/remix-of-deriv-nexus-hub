@@ -5,6 +5,8 @@ import DerivWebSocket from "@/services/deriv-websocket";
 import { DerivAccount } from "@/services/deriv-auth";
 import { VOLATILITY_MARKETS, MARKET_CATEGORIES, CONTRACT_TYPES, DIGIT_BARRIERS, getLastDigit } from "@/lib/trading-constants";
 import { tradingEngine } from "@/services/trading-engine";
+import { aiLogger, AIEngine } from "@/services/ai-logger";
+import { derivBrain } from "@/services/deriv-brain";
 import AnalysisTab from "@/components/trading/AnalysisTab";
 import DigitAnalysisDashboard from "@/components/trading/DigitAnalysisDashboard";
 import LiveProbabilityEngine from "@/components/trading/LiveProbabilityEngine";
@@ -182,8 +184,16 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [smartRisker, setSmartRisker] = useState(false);
   const [freqBasedTrading, setFreqBasedTrading] = useState(false);
   const [freqThreshold, setFreqThreshold] = useState(12);
-  const [strategyProfile, setStrategyProfile] = useState<"aggressive" | "balanced" | "conservative" | "elit">(() => (localStorage.getItem("dnx_profile") as any) || "balanced");
+  const [strategyProfile, setStrategyProfile] = useState<"aggressive" | "balanced" | "conservative" | "elit" | "brain">(() => (localStorage.getItem("dnx_profile") as any) || "balanced");
   const [strategyVersion, setStrategyVersion] = useState<number | null>(null);
+
+  // Track whether the user has manually edited risk settings.
+  // If true, we DO NOT overwrite them when global_strategy reloads.
+  const userTouchedRisk = useRef(false);
+  // Engine watchdog tracking
+  const lastTickTs = useRef<number>(Date.now());
+  const lastTradeAttemptTs = useRef<number>(Date.now());
+  const lastProposalReqTs = useRef<number>(0);
 
   // Bulk trade mode
   const [bulkMode, setBulkMode] = useState(false);
@@ -287,7 +297,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     return () => clearInterval(interval);
   }, []);
 
-  // Load global strategy from database
+  // Load global strategy from database (does NOT overwrite user-touched risk settings)
   useEffect(() => {
     const loadStrategy = async () => {
       const { data } = await supabase
@@ -298,6 +308,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         .single();
       if (data) {
         setStrategyVersion(data.version);
+        // ── Skip overwrite if user has manually customized their risk settings ──
+        if (userTouchedRisk.current) return;
         const risk = data.risk_global as unknown as any;
         const recovery = data.recovery_global as unknown as any;
         if (risk) {
@@ -316,9 +328,97 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       }
     };
     loadStrategy();
-    const interval = setInterval(loadStrategy, 30000);
+    // Periodic reload — only updates strategyVersion, won't overwrite user risk
+    const interval = setInterval(loadStrategy, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // ── Load user's saved risk/strategy settings from DB (per-user, sync across devices) ──
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || cancelled) return;
+        // Try localStorage first for instant load
+        const cached = localStorage.getItem(`dnx_user_settings_${user.id}`);
+        if (cached) {
+          const c = JSON.parse(cached);
+          if (c.takeProfit) setTakeProfit(String(c.takeProfit));
+          if (c.stopLoss) setStopLoss(String(c.stopLoss));
+          if (c.baseStake) setStake(String(c.baseStake));
+          if (typeof c.martingaleEnabled === "boolean") setMartingale(c.martingaleEnabled);
+          if (c.martingaleMultiplier) setMartingaleMultiplier(String(c.martingaleMultiplier));
+          if (c.maxMartingaleSteps) setMaxMartingaleSteps(c.maxMartingaleSteps);
+          if (c.startMartingaleAfter) setStartMartingaleAfter(c.startMartingaleAfter);
+          if (c.selectedStrategy) setStrategyProfile(c.selectedStrategy);
+          if (c.executionSpeed) setExecutionSpeed(c.executionSpeed);
+          userTouchedRisk.current = true;
+        }
+        // Then sync from DB (authoritative)
+        const { data } = await supabase
+          .from("user_trading_settings")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (data && !cancelled) {
+          if (data.take_profit != null) setTakeProfit(String(data.take_profit));
+          if (data.stop_loss != null) setStopLoss(String(data.stop_loss));
+          if (data.base_stake != null) setStake(String(data.base_stake));
+          if (typeof data.martingale_enabled === "boolean") setMartingale(data.martingale_enabled);
+          if (data.martingale_multiplier != null) setMartingaleMultiplier(String(data.martingale_multiplier));
+          if (data.max_martingale_steps != null) setMaxMartingaleSteps(data.max_martingale_steps);
+          if (data.start_martingale_after != null) setStartMartingaleAfter(data.start_martingale_after);
+          if (data.selected_strategy) setStrategyProfile(data.selected_strategy as any);
+          if (data.execution_speed) setExecutionSpeed(data.execution_speed as any);
+          userTouchedRisk.current = true;
+          aiLogger.log("System", "info", "User settings loaded from cloud");
+        }
+      } catch (e) {
+        console.warn("[Settings] Load failed:", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // ── Persist user's risk/strategy settings (debounced) ──
+  const settingsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!userTouchedRisk.current) return;
+    if (settingsSaveTimer.current) clearTimeout(settingsSaveTimer.current);
+    settingsSaveTimer.current = setTimeout(async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const payload = {
+          take_profit: parseFloat(takeProfit) || null,
+          stop_loss: parseFloat(stopLoss) || null,
+          base_stake: parseFloat(stake) || null,
+          martingale_enabled: martingale,
+          martingale_multiplier: parseFloat(martingaleMultiplier) || null,
+          max_martingale_steps: maxMartingaleSteps,
+          start_martingale_after: startMartingaleAfter,
+          selected_strategy: strategyProfile,
+          execution_speed: executionSpeed,
+          selected_market: selectedMarket,
+        };
+        // Cache to localStorage immediately
+        localStorage.setItem(`dnx_user_settings_${user.id}`, JSON.stringify({
+          takeProfit, stopLoss, baseStake: stake, martingaleEnabled: martingale,
+          martingaleMultiplier, maxMartingaleSteps, startMartingaleAfter,
+          selectedStrategy: strategyProfile, executionSpeed,
+        }));
+        // Upsert to DB
+        await supabase.from("user_trading_settings").upsert({
+          user_id: user.id,
+          ...payload,
+        }, { onConflict: "user_id" });
+      } catch (e) {
+        console.warn("[Settings] Save failed:", e);
+      }
+    }, 1500);
+    return () => { if (settingsSaveTimer.current) clearTimeout(settingsSaveTimer.current); };
+  }, [takeProfit, stopLoss, stake, martingale, martingaleMultiplier, maxMartingaleSteps, startMartingaleAfter, strategyProfile, executionSpeed, selectedMarket]);
 
   // Local signal scoring (runs client-side for speed, mirrors backend logic)
   const calculateLocalSignal = useCallback((digits: number[], pressure: DigitPressure, buffer: { quote: number }[]) => {
@@ -384,11 +484,14 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       if (!data.tick || typeof data.tick.quote !== "number") return;
 
       const quote = data.tick.quote;
-      const quoteStr = quote.toString();
-      const lastDigit = parseInt(quoteStr.charAt(quoteStr.length - 1), 10);
-      
+      // ── CRITICAL: Use bulletproof getLastDigit (preserves trailing zeros) ──
+      const lastDigit = getLastDigit(quote);
+
       const tickData = { quote, digit: lastDigit, epoch: data.tick.epoch || Date.now() / 1000 };
-      
+
+      // Update freshness watchdog timestamp
+      lastTickTs.current = Date.now();
+
       setCurrentTick(quote);
       setLastDigits(prev => [...prev.slice(-999), lastDigit]);
       lastDigitsRef.current = [...lastDigitsRef.current.slice(-999), lastDigit];
