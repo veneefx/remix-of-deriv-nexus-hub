@@ -1,7 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { X, User, Shield, Check, Search, CreditCard, BarChart3, DollarSign, TrendingUp } from "lucide-react";
+import { X, User, Shield, Check, Search, CreditCard, BarChart3, DollarSign, TrendingUp, ShieldCheck } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { adminVerification } from "@/services/admin-verification";
+
+const VERIFIABLE_FEATURES = [
+  "DAT Analyzer",
+  "Strategy Lab",
+  "Market Scanner",
+  "Forex AI",
+  "Digit Edge Analytics",
+  "Probability Engine",
+];
 
 interface Profile {
   id: string;
@@ -12,7 +22,7 @@ interface Profile {
   created_at: string;
 }
 
-type Tab = "users" | "payments" | "trades";
+type Tab = "users" | "payments" | "trades" | "verifications";
 
 const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -81,6 +91,7 @@ const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
   const tabs: { key: Tab; label: string; icon: any }[] = [
     { key: "users", label: "Users", icon: User },
     { key: "payments", label: "Payments", icon: CreditCard },
+    { key: "verifications", label: "Verifications", icon: ShieldCheck },
     { key: "trades", label: "Trade Logs", icon: BarChart3 },
   ];
 
