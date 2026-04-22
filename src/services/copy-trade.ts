@@ -103,7 +103,7 @@ export async function fanOutCopyTrade(req: CopyTradeRequest) {
         symbol: req.symbol,
         duration: req.duration,
         durationUnit: req.durationUnit,
-        barrier: req.barrier,
+        barrier: req.barrier !== undefined ? String(req.barrier) : undefined,
       });
 
       const offProp = ws.on("proposal", (data) => {
