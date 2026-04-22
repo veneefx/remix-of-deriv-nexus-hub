@@ -440,18 +440,45 @@ const TradingHub = () => {
             </span>
             
             {balance !== null ? (
-              <button
-                onClick={() => setTokenManagerOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-card rounded-lg border border-border hover:bg-secondary transition-colors whitespace-nowrap"
-              >
-                <Wallet className="w-4 h-4 text-primary flex-shrink-0" />
-                <span className="text-xs font-bold text-foreground">
-                  {balance.toFixed(2)} {account?.currency || "USD"}
-                </span>
-                <ChevronDown className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setTokenManagerOpen(true)}
+                  className="flex items-center gap-2.5 px-4 py-2.5 bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl border border-primary/30 hover:border-primary/60 hover:shadow-lg hover:shadow-primary/10 transition-all whitespace-nowrap"
+                  title="Switch account"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    <Wallet className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex flex-col items-start leading-tight">
+                    <span className="text-[9px] text-muted-foreground font-medium uppercase tracking-wide">
+                      {account?.is_virtual ? "Demo" : "Real"} · {account?.currency || "USD"}
+                    </span>
+                    <span className="text-base font-bold text-foreground tabular-nums">
+                      {balance.toFixed(2)}
+                    </span>
+                  </div>
+                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                </button>
+                <button
+                  onClick={() => {
+                    // Clear trade history (localStorage transactions buffer)
+                    Object.keys(localStorage).forEach((k) => {
+                      if (k.startsWith("dnx_transactions") || k === "dnx_session") {
+                        localStorage.removeItem(k);
+                      }
+                    });
+                    toast({ title: "🗑 History Cleared", description: "Transaction history has been deleted" });
+                    // Force a reload of the trading panel to reset session
+                    window.dispatchEvent(new Event("dnx_clear_history"));
+                  }}
+                  className="p-2.5 rounded-xl bg-destructive/5 border border-destructive/20 text-destructive hover:bg-destructive/10 hover:border-destructive/40 transition-colors"
+                  title="Clear transaction history"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             ) : (
-              <button onClick={handleLogin} className="px-4 py-1.5 bg-gradient-brand text-primary-foreground text-xs font-semibold rounded-lg hover-lift glow-red">
+              <button onClick={handleLogin} className="px-4 py-2 bg-gradient-brand text-primary-foreground text-xs font-semibold rounded-lg hover-lift glow-red">
                 Connect Account
               </button>
             )}
