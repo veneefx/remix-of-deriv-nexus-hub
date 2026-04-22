@@ -61,10 +61,10 @@ const FloatingAILogPanel = () => {
 
   return (
     <>
-      {/* FAB */}
+      {/* FAB — positioned ABOVE the wallet/footer to avoid covering it */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-32 lg:bottom-24 right-4 z-30 w-14 h-14 rounded-full bg-card border-2 border-primary shadow-xl flex items-center justify-center hover:scale-110 transition-transform ${pulse ? "animate-pulse" : ""}`}
+        className={`fixed bottom-28 lg:bottom-20 right-4 z-30 w-12 h-12 rounded-full bg-card border-2 border-primary shadow-xl flex items-center justify-center hover:scale-110 transition-transform ${pulse ? "animate-pulse" : ""}`}
         title="AI Activity Log"
         style={{ display: isOpen ? "none" : "flex" }}
       >
@@ -84,8 +84,8 @@ const FloatingAILogPanel = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-4 right-4 z-40 w-full max-w-[420px] bg-card border border-border rounded-xl shadow-2xl flex flex-col"
-            style={{ height: collapsed ? "auto" : "min(60vh, 600px)" }}
+            className="fixed bottom-24 lg:bottom-16 right-4 z-40 w-[calc(100vw-2rem)] max-w-[420px] bg-card border border-border rounded-xl shadow-2xl flex flex-col"
+            style={{ height: collapsed ? "auto" : "min(55vh, 520px)" }}
           >
             {/* Header */}
             <div className="flex items-center justify-between p-3 border-b border-border">

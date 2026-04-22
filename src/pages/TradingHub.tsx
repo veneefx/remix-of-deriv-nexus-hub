@@ -11,12 +11,14 @@ import { getOAuthUrl } from "@/services/deriv-auth";
 import TradingPanel from "@/components/trading/TradingPanel";
 import TradingViewChart from "@/components/trading/TradingViewChart";
 import DerivChart from "@/components/trading/DerivChart";
+import DTraderView from "@/components/trading/DTraderView";
 import DATTab from "@/components/trading/DATTab";
 import MarketScannerView from "@/components/trading/MarketScannerView";
 import StrategyLab from "@/components/trading/StrategyLab";
 import ForexAITab from "@/components/trading/ForexAITab";
 import ClientTokenManager from "@/components/trading/ClientTokenManager";
 import TradingHubLoader from "@/components/trading/TradingHubLoader";
+import FloatingAILogPanel from "@/components/trading/FloatingAILogPanel";
 import DerivWebSocket from "@/services/deriv-websocket";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -33,6 +35,8 @@ import { usePremium } from "@/hooks/use-premium";
 import PremiumUpgradeModal from "@/components/trading/PremiumUpgradeModal";
 import AdminDashboard from "@/components/trading/AdminDashboard";
 import PremiumGate from "@/components/trading/PremiumGate";
+import AnalysisPaywall from "@/components/trading/AnalysisPaywall";
+import { Trash2 } from "lucide-react";
 
 const DERIV_APP_ID = "129344";
 
@@ -46,12 +50,13 @@ const sidebarItems = [
   { icon: Settings, label: "Settings", path: "/risk" },
 ];
 
-type ViewMode = "digit-edge" | "trading-view" | "deriv-charts" | "dat" | "market-scanner" | "strategy-lab" | "forex-ai" | "transactions";
+type ViewMode = "digit-edge" | "trading-view" | "deriv-charts" | "deriv" | "dat" | "market-scanner" | "strategy-lab" | "forex-ai" | "transactions";
 
 const viewLabels: Record<ViewMode, string> = {
   "digit-edge": "Digit Edge",
   "trading-view": "Trading View",
   "deriv-charts": "Deriv Charts",
+  "deriv": "Deriv",
   "dat": "DAT",
   "market-scanner": "Market Scanner",
   "strategy-lab": "Strategy Lab",
@@ -435,18 +440,45 @@ const TradingHub = () => {
             </span>
             
             {balance !== null ? (
-              <button
-                onClick={() => setTokenManagerOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-card rounded-lg border border-border hover:bg-secondary transition-colors whitespace-nowrap"
-              >
-                <Wallet className="w-4 h-4 text-primary flex-shrink-0" />
-                <span className="text-xs font-bold text-foreground">
-                  {balance.toFixed(2)} {account?.currency || "USD"}
-                </span>
-                <ChevronDown className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setTokenManagerOpen(true)}
+                  className="flex items-center gap-2.5 px-4 py-2.5 bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl border border-primary/30 hover:border-primary/60 hover:shadow-lg hover:shadow-primary/10 transition-all whitespace-nowrap"
+                  title="Switch account"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    <Wallet className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex flex-col items-start leading-tight">
+                    <span className="text-[9px] text-muted-foreground font-medium uppercase tracking-wide">
+                      {account?.is_virtual ? "Demo" : "Real"} · {account?.currency || "USD"}
+                    </span>
+                    <span className="text-base font-bold text-foreground tabular-nums">
+                      {balance.toFixed(2)}
+                    </span>
+                  </div>
+                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                </button>
+                <button
+                  onClick={() => {
+                    // Clear trade history (localStorage transactions buffer)
+                    Object.keys(localStorage).forEach((k) => {
+                      if (k.startsWith("dnx_transactions") || k === "dnx_session") {
+                        localStorage.removeItem(k);
+                      }
+                    });
+                    toast({ title: "🗑 History Cleared", description: "Transaction history has been deleted" });
+                    // Force a reload of the trading panel to reset session
+                    window.dispatchEvent(new Event("dnx_clear_history"));
+                  }}
+                  className="p-2.5 rounded-xl bg-destructive/5 border border-destructive/20 text-destructive hover:bg-destructive/10 hover:border-destructive/40 transition-colors"
+                  title="Clear transaction history"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             ) : (
-              <button onClick={handleLogin} className="px-4 py-1.5 bg-gradient-brand text-primary-foreground text-xs font-semibold rounded-lg hover-lift glow-red">
+              <button onClick={handleLogin} className="px-4 py-2 bg-gradient-brand text-primary-foreground text-xs font-semibold rounded-lg hover-lift glow-red">
                 Connect Account
               </button>
             )}
@@ -471,25 +503,56 @@ const TradingHub = () => {
           {activeView === "digit-edge" && (
             <TradingPanel ws={ws} account={account} />
           )}
+          {activeView === "trading-view" && (
+            <div className="h-full flex">
+              <div className="flex-1 min-w-0">
+                <TradingViewChart ws={ws} selectedMarket={selectedMarket} />
+              </div>
+              <TradingSidebar
+                ws={ws}
+                account={account}
+                selectedMarket={selectedMarket}
+                setSelectedMarket={setSelectedMarket}
+                onLogin={handleLogin}
+              />
+            </div>
+          )}
+          {activeView === "deriv-charts" && (
+            <div className="h-full flex">
+              <div className="flex-1 min-w-0">
+                <DerivChart ws={ws} selectedMarket={selectedMarket} />
+              </div>
+              <TradingSidebar
+                ws={ws}
+                account={account}
+                selectedMarket={selectedMarket}
+                setSelectedMarket={setSelectedMarket}
+                onLogin={handleLogin}
+              />
+            </div>
+          )}
+          {activeView === "deriv" && (
+            <DTraderView />
+          )}
           {activeView === "dat" && (
-            <PremiumGate isPremium={isPremium} isAdmin={isAdmin} featureName="DAT Analyzer" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
+            <AnalysisPaywall isPremium={isPremium} isAdmin={isAdmin} featureName="DAT Analyzer" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
               <DATTab ws={ws} selectedMarket={selectedMarket} onMarketChange={setSelectedMarket} />
-            </PremiumGate>
+            </AnalysisPaywall>
           )}
           {activeView === "strategy-lab" && (
-            <PremiumGate isPremium={isPremium} isAdmin={isAdmin} featureName="Strategy Lab" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
+            <AnalysisPaywall isPremium={isPremium} isAdmin={isAdmin} featureName="Strategy Lab" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
               <StrategyLab />
-            </PremiumGate>
+            </AnalysisPaywall>
           )}
           {activeView === "market-scanner" && (
-            <PremiumGate isPremium={isPremium} isAdmin={isAdmin} featureName="Market Scanner" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
+            <AnalysisPaywall isPremium={isPremium} isAdmin={isAdmin} featureName="Market Scanner" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
               <MarketScannerView />
-            </PremiumGate>
+            </AnalysisPaywall>
           )}
           {activeView === "forex-ai" && (
-            <PremiumGate isPremium={isPremium} isAdmin={isAdmin} featureName="Forex AI" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
+            <AnalysisPaywall isPremium={isPremium} isAdmin={isAdmin} featureName="Forex AI" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
               <ForexAITab />
-            </PremiumGate>
+            </AnalysisPaywall>
           )}
           {activeView === "transactions" && (
             <div className="p-4 lg:p-6 overflow-y-auto h-full">
@@ -645,6 +708,9 @@ const TradingHub = () => {
           </div>
         </div>
       )}
+
+      {/* Global AI Activity Log Panel — floats above wallet/footer */}
+      <FloatingAILogPanel />
     </div>
   );
 };
