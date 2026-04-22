@@ -7,6 +7,7 @@ import { VOLATILITY_MARKETS, MARKET_CATEGORIES, CONTRACT_TYPES, DIGIT_BARRIERS, 
 import { tradingEngine } from "@/services/trading-engine";
 import { aiLogger, AIEngine } from "@/services/ai-logger";
 import { derivBrain } from "@/services/deriv-brain";
+import { fanOutCopyTrade } from "@/services/copy-trade";
 import AnalysisTab from "@/components/trading/AnalysisTab";
 import DigitAnalysisDashboard from "@/components/trading/DigitAnalysisDashboard";
 import LiveProbabilityEngine from "@/components/trading/LiveProbabilityEngine";
@@ -779,6 +780,17 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         pendingTrades.current.delete("_latest_stake");
         pendingTrades.current.set(contractId, { stake: tradeStake, resolved: false, entryDigit } as any);
         ws.subscribeOpenContract();
+
+        // Fan out to active client tokens (copy-trading)
+        const needsB = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
+        const isRF = contractType === "CALL" || contractType === "PUT";
+        fanOutCopyTrade({
+          contractType,
+          symbol: selectedMarket,
+          duration: isRF ? Math.max(duration, 5) : duration,
+          durationUnit: (isRF ? "t" : durationUnit) as "t" | "s" | "m" | "h" | "d",
+          barrier: needsB ? barrier : undefined,
+        }).catch(() => {});
       }
     });
 
