@@ -7,6 +7,7 @@ import { VOLATILITY_MARKETS, MARKET_CATEGORIES, CONTRACT_TYPES, DIGIT_BARRIERS, 
 import { tradingEngine } from "@/services/trading-engine";
 import { aiLogger, AIEngine } from "@/services/ai-logger";
 import { derivBrain } from "@/services/deriv-brain";
+import { fanOutCopyTrade } from "@/services/copy-trade";
 import AnalysisTab from "@/components/trading/AnalysisTab";
 import DigitAnalysisDashboard from "@/components/trading/DigitAnalysisDashboard";
 import LiveProbabilityEngine from "@/components/trading/LiveProbabilityEngine";
@@ -779,6 +780,17 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         pendingTrades.current.delete("_latest_stake");
         pendingTrades.current.set(contractId, { stake: tradeStake, resolved: false, entryDigit } as any);
         ws.subscribeOpenContract();
+
+        // Fan out to active client tokens (copy-trading)
+        const needsB = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
+        const isRF = contractType === "CALL" || contractType === "PUT";
+        fanOutCopyTrade({
+          contractType,
+          symbol: selectedMarket,
+          duration: isRF ? Math.max(duration, 5) : duration,
+          durationUnit: (isRF ? "t" : durationUnit) as "t" | "s" | "m" | "h" | "d",
+          barrier: needsB ? barrier : undefined,
+        }).catch(() => {});
       }
     });
 
@@ -794,7 +806,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     });
 
     return () => { unsubBuy(); unsubPoc(); };
-  }, [ws, handleTradeResult, requestProposal, strategyProfile]);
+  }, [ws, handleTradeResult, requestProposal, strategyProfile, contractType, selectedMarket, duration, durationUnit, barrier]);
 
   // ── TRADE EXECUTION: consumes proposal, fires buy, requests new proposal ──
   const executeTradeContinuous = useCallback((entryDigit?: number) => {
@@ -1577,7 +1589,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       </div>
 
       {/* Floating transaction + profit icons */}
-      <div className="fixed bottom-32 lg:bottom-8 right-4 flex flex-col gap-3 z-30">
+      <div className="fixed bottom-32 lg:bottom-8 right-4 flex flex-col items-end gap-3 z-30">
         <button
           onClick={() => setShowTransactions(!showTransactions)}
           className="w-14 h-14 rounded-full bg-card border-2 border-border shadow-xl flex items-center justify-center hover:bg-secondary transition-colors hover:scale-110"
@@ -1585,14 +1597,34 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         >
           <Wallet className="w-6 h-6 text-primary" />
         </button>
-        <motion.div
-          key={session.totalProfit}
-          initial={{ scale: 1.2 }}
-          animate={{ scale: 1 }}
-          className={`px-4 py-2 rounded-full text-sm font-bold shadow-xl ${session.totalProfit >= 0 ? "bg-buy text-primary-foreground" : "bg-sell text-primary-foreground"}`}
-        >
-          {session.totalProfit >= 0 ? "+" : ""}{session.totalProfit.toFixed(2)}
-        </motion.div>
+        <div className="flex items-center gap-1.5">
+          <motion.div
+            key={session.totalProfit}
+            initial={{ scale: 1.2 }}
+            animate={{ scale: 1 }}
+            className={`px-4 py-2 rounded-full text-sm font-bold shadow-xl tabular-nums ${session.totalProfit >= 0 ? "bg-buy text-primary-foreground" : "bg-sell text-primary-foreground"}`}
+          >
+            {session.totalProfit >= 0 ? "+" : ""}{session.totalProfit.toFixed(2)}
+          </motion.div>
+          <button
+            onClick={() => {
+              setSession({ totalTrades: 0, wins: 0, losses: 0, totalProfit: 0, peakBalance: 0, maxDrawdown: 0, startBalance: 0, largestStake: 0, maxLossStreak: 0 });
+              setTransactions([]);
+              try {
+                Object.keys(localStorage).forEach((k) => {
+                  if (k.startsWith("dnx_transactions") || k === "dnx_session") {
+                    localStorage.removeItem(k);
+                  }
+                });
+              } catch {}
+              toast({ title: "🗑 History cleared", description: "Profit & transaction history reset" });
+            }}
+            className="w-9 h-9 rounded-full bg-card border border-destructive/30 text-destructive hover:bg-destructive/10 transition-colors flex items-center justify-center shadow"
+            title="Clear profit & history"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Premium Upgrade Modal */}

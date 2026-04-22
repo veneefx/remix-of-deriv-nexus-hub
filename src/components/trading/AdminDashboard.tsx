@@ -1,7 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { X, User, Shield, Check, Search, CreditCard, BarChart3, DollarSign, TrendingUp } from "lucide-react";
+import { X, User, Shield, Check, Search, CreditCard, BarChart3, DollarSign, TrendingUp, ShieldCheck } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { adminVerification } from "@/services/admin-verification";
+
+const VERIFIABLE_FEATURES = [
+  "DAT Analyzer",
+  "Strategy Lab",
+  "Market Scanner",
+  "Forex AI",
+  "Digit Edge Analytics",
+  "Probability Engine",
+];
 
 interface Profile {
   id: string;
@@ -12,7 +22,7 @@ interface Profile {
   created_at: string;
 }
 
-type Tab = "users" | "payments" | "trades";
+type Tab = "users" | "payments" | "trades" | "verifications";
 
 const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -81,6 +91,7 @@ const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
   const tabs: { key: Tab; label: string; icon: any }[] = [
     { key: "users", label: "Users", icon: User },
     { key: "payments", label: "Payments", icon: CreditCard },
+    { key: "verifications", label: "Verifications", icon: ShieldCheck },
     { key: "trades", label: "Trade Logs", icon: BarChart3 },
   ];
 
@@ -208,6 +219,8 @@ const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
                 </div>
               ))}
             </div>
+          ) : activeTab === "verifications" ? (
+            <VerificationsPanel profiles={profiles} />
           ) : (
             <div className="grid gap-2">
               {trades.length === 0 ? (
@@ -240,3 +253,48 @@ const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
 };
 
 export default AdminDashboard;
+
+const verificationSubscribe = (cb: () => void) => adminVerification.subscribe(cb);
+const verificationSnapshot = () => JSON.stringify(adminVerification.list());
+
+function VerificationsPanel({ profiles }: { profiles: Profile[] }) {
+  useSyncExternalStore(verificationSubscribe, verificationSnapshot, verificationSnapshot);
+  const map = adminVerification.list();
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        Toggle per-feature unlock for premium users. Each feature stays blurred until verified here.
+      </p>
+      <div className="grid gap-2">
+        {VERIFIABLE_FEATURES.map((feat) => {
+          const v = map[feat];
+          return (
+            <div key={feat} className="flex items-center justify-between p-3 rounded-xl border border-border bg-secondary/30">
+              <div className="flex items-center gap-3">
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center ${v ? "bg-buy/10" : "bg-warning/10"}`}>
+                  <ShieldCheck className={`w-4 h-4 ${v ? "text-buy" : "text-warning"}`} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{feat}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {v ? `Verified ${new Date(v.verifiedAt).toLocaleString()}` : "Awaiting admin verification"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => v ? adminVerification.revoke(feat) : adminVerification.verify(feat, "admin")}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${v ? "bg-destructive/10 text-destructive hover:bg-destructive/20" : "bg-buy/10 text-buy hover:bg-buy/20"}`}
+              >
+                {v ? "Revoke" : "Verify"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <p className="text-[10px] text-muted-foreground pt-2 border-t border-border">
+        Total profiles: {profiles.length} · Verified features: {Object.keys(map).length}
+      </p>
+    </div>
+  );
+}
+
