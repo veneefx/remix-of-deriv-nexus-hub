@@ -219,6 +219,8 @@ const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
                 </div>
               ))}
             </div>
+          ) : activeTab === "verifications" ? (
+            <VerificationsPanel profiles={profiles} />
           ) : (
             <div className="grid gap-2">
               {trades.length === 0 ? (
