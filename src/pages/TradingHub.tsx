@@ -708,6 +708,9 @@ const TradingHub = () => {
           </div>
         </div>
       )}
+
+      {/* Global AI Activity Log Panel — floats above wallet/footer */}
+      <FloatingAILogPanel />
     </div>
   );
 };
