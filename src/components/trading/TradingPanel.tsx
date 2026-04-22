@@ -12,6 +12,8 @@ import DigitAnalysisDashboard from "@/components/trading/DigitAnalysisDashboard"
 import LiveProbabilityEngine from "@/components/trading/LiveProbabilityEngine";
 import QuantTerminal from "@/components/trading/QuantTerminal";
 import StrategyBooklet from "@/components/trading/StrategyBooklet";
+import DigitEdgeAnalytics from "@/components/trading/DigitEdgeAnalytics";
+import AnalysisPaywall from "@/components/trading/AnalysisPaywall";
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -1041,26 +1043,14 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         </div>
 
         {activeTab === "analysis" ? (
-          !isPremium && !isAdmin ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 bg-card border border-border rounded-xl">
-              <Lock className="w-12 h-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold text-foreground">Premium Analysis</h3>
-              <p className="text-sm text-muted-foreground text-center max-w-xs mt-2">
-                Advanced analysis tools are only available for premium members.
-              </p>
-              <button
-                onClick={() => {
-                  setPremiumFeature("Analysis Tools");
-                  setShowPremiumModal(true);
-                }}
-                className="mt-6 px-6 py-2 bg-gradient-brand text-primary-foreground font-semibold rounded-lg hover-lift"
-              >
-                Upgrade to Premium
-              </button>
-            </div>
-          ) : (
+          <AnalysisPaywall
+            isPremium={isPremium}
+            isAdmin={isAdmin}
+            featureName="Analysis Tools"
+            onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}
+          >
             <AnalysisTab lastDigits={lastDigits} session={session} marketLabel={marketLabel} tickBuffer={tickBufferRef.current} signalScore={signalScore} signalDetails={signalDetails} digitPressure={digitPressure} />
-          )
+          </AnalysisPaywall>
         ) : (
           <div className="space-y-4">
             {showTransactions ? (
