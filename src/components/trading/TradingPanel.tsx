@@ -1136,90 +1136,81 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   </motion.div>
                 )}
 
-                {/* Signal Strength + Digit Pressure */}
+                {/* Signal Strength + Digit Pressure (premium) */}
                 {lastDigits.length > 30 && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 relative">
-                    {!isPremium && !isAdmin && (
-                      <div className="absolute inset-0 z-10 bg-background/60 backdrop-blur-[2px] rounded-xl flex items-center justify-center">
-                        <div className="text-center p-4">
-                          <Lock className="w-8 h-8 text-primary mx-auto mb-2" />
-                          <p className="text-xs font-bold text-foreground">Premium Signals Locked</p>
-                          <button
-                            onClick={() => {
-                              setPremiumFeature("AI Signals & Pressure Analysis");
-                              setShowPremiumModal(true);
-                            }}
-                            className="mt-2 text-[10px] text-primary hover:underline font-bold"
-                          >
-                            Unlock Now
-                          </button>
+                  <AnalysisPaywall
+                    isPremium={isPremium}
+                    isAdmin={isAdmin}
+                    featureName="AI Signals & Pressure Analysis"
+                    onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}
+                    compact
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Signal Scoring */}
+                      <div className="p-4 rounded-xl bg-card border border-border">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Target className="w-4 h-4 text-primary" />
+                          <h3 className="text-sm font-semibold text-foreground">Signal Strength</h3>
                         </div>
-                      </div>
-                    )}
-                    {/* Signal Scoring */}
-                    <div className="p-4 rounded-xl bg-card border border-border">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Target className="w-4 h-4 text-primary" />
-                        <h3 className="text-sm font-semibold text-foreground">Signal Strength</h3>
-                      </div>
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="flex-1 h-3 bg-secondary rounded-full overflow-hidden">
-                          <motion.div
-                            className={`h-full rounded-full ${signalScore >= 0.3 ? "bg-buy" : signalScore >= 0.15 ? "bg-warning" : "bg-muted-foreground"}`}
-                            animate={{ width: `${Math.min(signalScore * 100, 100)}%` }}
-                            transition={{ duration: 0.3 }}
-                          />
-                        </div>
-                        <span className="text-sm font-bold text-foreground">{(signalScore * 100).toFixed(0)}%</span>
-                      </div>
-                      <div className="grid grid-cols-5 gap-1">
-                        {[
-                          { label: "Freq", value: signalDetails.frequencyScore },
-                          { label: "Press", value: signalDetails.pressureScore },
-                          { label: "Strk", value: signalDetails.streakScore },
-                          { label: "Patt", value: signalDetails.patternScore },
-                          { label: "Vol", value: signalDetails.volatilityScore },
-                        ].map((s) => (
-                          <div key={s.label} className="text-center">
-                            <div className="h-10 bg-secondary rounded relative overflow-hidden">
-                              <motion.div
-                                className="absolute bottom-0 w-full bg-primary/40 rounded"
-                                animate={{ height: `${s.value * 100}%` }}
-                                transition={{ duration: 0.3 }}
-                              />
-                            </div>
-                            <span className="text-[8px] text-muted-foreground mt-0.5 block">{s.label}</span>
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="flex-1 h-3 bg-secondary rounded-full overflow-hidden">
+                            <motion.div
+                              className={`h-full rounded-full ${signalScore >= 0.3 ? "bg-buy" : signalScore >= 0.15 ? "bg-warning" : "bg-muted-foreground"}`}
+                              animate={{ width: `${Math.min(signalScore * 100, 100)}%` }}
+                              transition={{ duration: 0.3 }}
+                            />
                           </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Digit Pressure */}
-                    <div className="p-4 rounded-xl bg-card border border-border">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Flame className="w-4 h-4 text-sell" />
-                        <h3 className="text-sm font-semibold text-foreground">Digit Pressure</h3>
-                      </div>
-                      <div className="grid grid-cols-5 gap-2">
-                        {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => {
-                          const pressure = digitPressure[d] || 0;
-                          const isHigh = pressure >= 15;
-                          const isMed = pressure >= 10;
-                          return (
-                            <div key={d} className={`text-center p-1.5 rounded-lg border ${
-                              isHigh ? "border-sell/50 bg-sell/10" : isMed ? "border-warning/30 bg-warning/5" : "border-border"
-                            }`}>
-                              <p className={`text-sm font-bold ${d === highestPressureDigit ? "text-sell" : "text-foreground"}`}>{d}</p>
-                              <p className={`text-[9px] font-mono ${isHigh ? "text-sell" : isMed ? "text-warning" : "text-muted-foreground"}`}>{pressure}</p>
+                          <span className="text-sm font-bold text-foreground">{(signalScore * 100).toFixed(0)}%</span>
+                        </div>
+                        <div className="grid grid-cols-5 gap-1">
+                          {[
+                            { label: "Freq", value: signalDetails.frequencyScore },
+                            { label: "Press", value: signalDetails.pressureScore },
+                            { label: "Strk", value: signalDetails.streakScore },
+                            { label: "Patt", value: signalDetails.patternScore },
+                            { label: "Vol", value: signalDetails.volatilityScore },
+                          ].map((s) => (
+                            <div key={s.label} className="text-center">
+                              <div className="h-10 bg-secondary rounded relative overflow-hidden">
+                                <motion.div
+                                  className="absolute bottom-0 w-full bg-primary/40 rounded"
+                                  animate={{ height: `${s.value * 100}%` }}
+                                  transition={{ duration: 0.3 }}
+                                />
+                              </div>
+                              <span className="text-[8px] text-muted-foreground mt-0.5 block">{s.label}</span>
                             </div>
-                          );
-                        })}
+                          ))}
+                        </div>
                       </div>
-                      <p className="text-[9px] text-muted-foreground mt-2 text-center">
-                        Highest: Digit {highestPressureDigit} ({digitPressure[highestPressureDigit] || 0} ticks absent)
-                      </p>
+
+                      {/* Digit Pressure */}
+                      <div className="p-4 rounded-xl bg-card border border-border">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Flame className="w-4 h-4 text-sell" />
+                          <h3 className="text-sm font-semibold text-foreground">Digit Pressure</h3>
+                        </div>
+                        <div className="grid grid-cols-5 gap-2">
+                          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => {
+                            const pressure = digitPressure[d] || 0;
+                            const isHigh = pressure >= 15;
+                            const isMed = pressure >= 10;
+                            return (
+                              <div key={d} className={`text-center p-1.5 rounded-lg border ${
+                                isHigh ? "border-sell/50 bg-sell/10" : isMed ? "border-warning/30 bg-warning/5" : "border-border"
+                              }`}>
+                                <p className={`text-sm font-bold ${d === highestPressureDigit ? "text-sell" : "text-foreground"}`}>{d}</p>
+                                <p className={`text-[9px] font-mono ${isHigh ? "text-sell" : isMed ? "text-warning" : "text-muted-foreground"}`}>{pressure}</p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <p className="text-[9px] text-muted-foreground mt-2 text-center">
+                          Highest: Digit {highestPressureDigit} ({digitPressure[highestPressureDigit] || 0} ticks absent)
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  </AnalysisPaywall>
                 )}
 
                 {/* Digit History Circles */}
@@ -1236,23 +1227,63 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   </div>
                 )}
 
-                {/* Live Probability Engine */}
-                <LiveProbabilityEngine lastDigits={lastDigits} tickBuffer={tickBufferRef.current} />
-
-                {/* Quant Terminal */}
-                {lastDigits.length > 50 && (
-                  <QuantTerminal lastDigits={lastDigits} tickBuffer={tickBufferRef.current} signalScore={signalScore} />
+                {/* Digit Edge Analytics Panel — premium frequency view (100/500/1000) */}
+                {lastDigits.length > 0 && (
+                  <AnalysisPaywall
+                    isPremium={isPremium}
+                    isAdmin={isAdmin}
+                    featureName="Digit Edge Analytics"
+                    onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}
+                    compact
+                  >
+                    <DigitEdgeAnalytics
+                      lastDigits={lastDigits}
+                      currentDigit={lastDigits.length > 0 ? lastDigits[lastDigits.length - 1] : null}
+                    />
+                  </AnalysisPaywall>
                 )}
 
-                {/* Advanced Analysis Dashboard */}
+                {/* Live Probability Engine (premium) */}
+                <AnalysisPaywall
+                  isPremium={isPremium}
+                  isAdmin={isAdmin}
+                  featureName="Live Probability Engine"
+                  onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}
+                  compact
+                >
+                  <LiveProbabilityEngine lastDigits={lastDigits} tickBuffer={tickBufferRef.current} />
+                </AnalysisPaywall>
+
+                {/* Quant Terminal (premium) */}
+                {lastDigits.length > 50 && (
+                  <AnalysisPaywall
+                    isPremium={isPremium}
+                    isAdmin={isAdmin}
+                    featureName="Quant Terminal"
+                    onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}
+                    compact
+                  >
+                    <QuantTerminal lastDigits={lastDigits} tickBuffer={tickBufferRef.current} signalScore={signalScore} />
+                  </AnalysisPaywall>
+                )}
+
+                {/* Advanced Analysis Dashboard (premium) */}
                 {lastDigits.length > 30 && (
-                  <DigitAnalysisDashboard
-                    lastDigits={lastDigits}
-                    tickBuffer={tickBufferRef.current}
-                    digitPressure={digitPressure}
-                    signalScore={signalScore}
-                    signalDetails={signalDetails}
-                  />
+                  <AnalysisPaywall
+                    isPremium={isPremium}
+                    isAdmin={isAdmin}
+                    featureName="Advanced Digit Analysis"
+                    onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}
+                    compact
+                  >
+                    <DigitAnalysisDashboard
+                      lastDigits={lastDigits}
+                      tickBuffer={tickBufferRef.current}
+                      digitPressure={digitPressure}
+                      signalScore={signalScore}
+                      signalDetails={signalDetails}
+                    />
+                  </AnalysisPaywall>
                 )}
 
                 {/* Sign in prompt */}
