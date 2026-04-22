@@ -806,7 +806,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     });
 
     return () => { unsubBuy(); unsubPoc(); };
-  }, [ws, handleTradeResult, requestProposal, strategyProfile]);
+  }, [ws, handleTradeResult, requestProposal, strategyProfile, contractType, selectedMarket, duration, durationUnit, barrier]);
 
   // ── TRADE EXECUTION: consumes proposal, fires buy, requests new proposal ──
   const executeTradeContinuous = useCallback((entryDigit?: number) => {
