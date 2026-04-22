@@ -11,12 +11,14 @@ import { getOAuthUrl } from "@/services/deriv-auth";
 import TradingPanel from "@/components/trading/TradingPanel";
 import TradingViewChart from "@/components/trading/TradingViewChart";
 import DerivChart from "@/components/trading/DerivChart";
+import DTraderView from "@/components/trading/DTraderView";
 import DATTab from "@/components/trading/DATTab";
 import MarketScannerView from "@/components/trading/MarketScannerView";
 import StrategyLab from "@/components/trading/StrategyLab";
 import ForexAITab from "@/components/trading/ForexAITab";
 import ClientTokenManager from "@/components/trading/ClientTokenManager";
 import TradingHubLoader from "@/components/trading/TradingHubLoader";
+import FloatingAILogPanel from "@/components/trading/FloatingAILogPanel";
 import DerivWebSocket from "@/services/deriv-websocket";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -33,6 +35,8 @@ import { usePremium } from "@/hooks/use-premium";
 import PremiumUpgradeModal from "@/components/trading/PremiumUpgradeModal";
 import AdminDashboard from "@/components/trading/AdminDashboard";
 import PremiumGate from "@/components/trading/PremiumGate";
+import AnalysisPaywall from "@/components/trading/AnalysisPaywall";
+import { Trash2 } from "lucide-react";
 
 const DERIV_APP_ID = "129344";
 
@@ -46,12 +50,13 @@ const sidebarItems = [
   { icon: Settings, label: "Settings", path: "/risk" },
 ];
 
-type ViewMode = "digit-edge" | "trading-view" | "deriv-charts" | "dat" | "market-scanner" | "strategy-lab" | "forex-ai" | "transactions";
+type ViewMode = "digit-edge" | "trading-view" | "deriv-charts" | "deriv" | "dat" | "market-scanner" | "strategy-lab" | "forex-ai" | "transactions";
 
 const viewLabels: Record<ViewMode, string> = {
   "digit-edge": "Digit Edge",
   "trading-view": "Trading View",
   "deriv-charts": "Deriv Charts",
+  "deriv": "Deriv",
   "dat": "DAT",
   "market-scanner": "Market Scanner",
   "strategy-lab": "Strategy Lab",
