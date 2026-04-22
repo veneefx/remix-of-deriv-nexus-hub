@@ -16,11 +16,28 @@ interface DigitEdgeAnalyticsProps {
 type BufferSize = 100 | 500 | 1000;
 
 const BUFFERS: BufferSize[] = [100, 500, 1000];
+const STORAGE_KEY = "dnx_digit_edge_buffer";
+
+const loadBuffer = (): BufferSize => {
+  if (typeof window === "undefined") return 1000;
+  const raw = window.localStorage.getItem(STORAGE_KEY);
+  const parsed = raw ? parseInt(raw, 10) : NaN;
+  return (BUFFERS as number[]).includes(parsed) ? (parsed as BufferSize) : 1000;
+};
 
 const DigitEdgeAnalytics = ({ lastDigits, currentDigit }: DigitEdgeAnalyticsProps) => {
-  const [bufferSize, setBufferSize] = useState<BufferSize>(1000);
+  const [bufferSize, setBufferSize] = useState<BufferSize>(loadBuffer);
   const [pulseDigit, setPulseDigit] = useState<number | null>(null);
   const lastDigitRef = useRef<number | null>(null);
+
+  // Persist buffer choice
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, String(bufferSize));
+    } catch {
+      /* ignore quota / privacy errors */
+    }
+  }, [bufferSize]);
 
   // Pulse animation when a new tick arrives
   useEffect(() => {
