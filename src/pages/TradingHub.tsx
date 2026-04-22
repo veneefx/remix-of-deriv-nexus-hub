@@ -476,25 +476,56 @@ const TradingHub = () => {
           {activeView === "digit-edge" && (
             <TradingPanel ws={ws} account={account} />
           )}
+          {activeView === "trading-view" && (
+            <div className="h-full flex">
+              <div className="flex-1 min-w-0">
+                <TradingViewChart ws={ws} selectedMarket={selectedMarket} />
+              </div>
+              <TradingSidebar
+                ws={ws}
+                account={account}
+                selectedMarket={selectedMarket}
+                setSelectedMarket={setSelectedMarket}
+                onLogin={handleLogin}
+              />
+            </div>
+          )}
+          {activeView === "deriv-charts" && (
+            <div className="h-full flex">
+              <div className="flex-1 min-w-0">
+                <DerivChart ws={ws} selectedMarket={selectedMarket} />
+              </div>
+              <TradingSidebar
+                ws={ws}
+                account={account}
+                selectedMarket={selectedMarket}
+                setSelectedMarket={setSelectedMarket}
+                onLogin={handleLogin}
+              />
+            </div>
+          )}
+          {activeView === "deriv" && (
+            <DTraderView />
+          )}
           {activeView === "dat" && (
-            <PremiumGate isPremium={isPremium} isAdmin={isAdmin} featureName="DAT Analyzer" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
+            <AnalysisPaywall isPremium={isPremium} isAdmin={isAdmin} featureName="DAT Analyzer" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
               <DATTab ws={ws} selectedMarket={selectedMarket} onMarketChange={setSelectedMarket} />
-            </PremiumGate>
+            </AnalysisPaywall>
           )}
           {activeView === "strategy-lab" && (
-            <PremiumGate isPremium={isPremium} isAdmin={isAdmin} featureName="Strategy Lab" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
+            <AnalysisPaywall isPremium={isPremium} isAdmin={isAdmin} featureName="Strategy Lab" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
               <StrategyLab />
-            </PremiumGate>
+            </AnalysisPaywall>
           )}
           {activeView === "market-scanner" && (
-            <PremiumGate isPremium={isPremium} isAdmin={isAdmin} featureName="Market Scanner" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
+            <AnalysisPaywall isPremium={isPremium} isAdmin={isAdmin} featureName="Market Scanner" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
               <MarketScannerView />
-            </PremiumGate>
+            </AnalysisPaywall>
           )}
           {activeView === "forex-ai" && (
-            <PremiumGate isPremium={isPremium} isAdmin={isAdmin} featureName="Forex AI" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
+            <AnalysisPaywall isPremium={isPremium} isAdmin={isAdmin} featureName="Forex AI" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
               <ForexAITab />
-            </PremiumGate>
+            </AnalysisPaywall>
           )}
           {activeView === "transactions" && (
             <div className="p-4 lg:p-6 overflow-y-auto h-full">
