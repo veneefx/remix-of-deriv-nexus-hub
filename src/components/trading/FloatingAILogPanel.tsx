@@ -89,10 +89,10 @@ const FloatingAILogPanel = () => {
 
   return (
     <>
-      {/* FAB — green like wallet, sits above the mobile bottom-nav (~52px) and the wallet/profit stack */}
+      {/* FAB — green like wallet, lifted ~3in higher to clear transactions/wallet */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-44 lg:bottom-28 right-4 z-30 w-14 h-14 rounded-full bg-buy text-primary-foreground shadow-xl shadow-buy/30 flex items-center justify-center hover:scale-110 transition-transform border-2 border-buy/60 ${pulse ? "animate-pulse" : ""}`}
+        className={`fixed bottom-60 lg:bottom-40 right-4 z-30 w-14 h-14 rounded-full bg-buy text-primary-foreground shadow-xl shadow-buy/30 flex items-center justify-center hover:scale-110 transition-transform border-2 border-buy/60 ${pulse ? "animate-pulse" : ""}`}
         title="AI Activity Log"
         style={{ display: isOpen ? "none" : "flex" }}
       >
