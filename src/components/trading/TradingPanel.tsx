@@ -8,6 +8,9 @@ import { tradingEngine } from "@/services/trading-engine";
 import { aiLogger, AIEngine } from "@/services/ai-logger";
 import { derivBrain } from "@/services/deriv-brain";
 import { fanOutCopyTrade } from "@/services/copy-trade";
+import { tradeLock } from "@/services/trade-lock";
+import { engineMemory, buildPatternKey } from "@/services/engine-memory";
+import { notifications } from "@/services/notifications";
 import AnalysisTab from "@/components/trading/AnalysisTab";
 import DigitAnalysisDashboard from "@/components/trading/DigitAnalysisDashboard";
 import LiveProbabilityEngine from "@/components/trading/LiveProbabilityEngine";
@@ -652,6 +655,21 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       strategyProfile === "elit" ? "ELIT" :
       strategyProfile === "aggressive" ? "Aggressive" :
       strategyProfile === "conservative" ? "Conservative" : "Balanced";
+
+    // ── Cross-engine self-learning: record this trade's pattern outcome ──
+    try {
+      const recent = lastDigitsRef.current.slice(-200);
+      const counts = Array(10).fill(0);
+      recent.forEach((d) => { if (d >= 0 && d <= 9) counts[d]++; });
+      const total = recent.length || 1;
+      const freq = counts.map((c) => (c / total) * 100);
+      const patternKey = buildPatternKey(contractType, freq);
+      engineMemory.record(engine, patternKey, won);
+    } catch {}
+
+    // ── Release the global trade lock (next trade may proceed) ──
+    tradeLock.release(engine);
+
     aiLogger.trade({
       engine,
       contractId,
@@ -748,9 +766,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       setShowTpModal(true);
       stopBot();
       toast({ title: "🎉 Take Profit Hit!", description: `Profit: $${totalP.toFixed(2)}` });
+      notifications.notify("🎉 Take Profit Hit", `Session profit: $${totalP.toFixed(2)}`, "success");
     } else if (totalP <= -sl) {
       stopBot();
       toast({ title: "⛔ Stop Loss Hit", description: `Loss limit reached: $${Math.abs(totalP).toFixed(2)}` });
+      notifications.notify("⛔ Stop Loss Hit", `Loss limit reached: $${Math.abs(totalP).toFixed(2)}`, "error");
     }
 
     // After stake changes, refresh proposal ONCE with new stake
@@ -766,9 +786,10 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       if (data.error) {
         openContracts.current = Math.max(0, openContracts.current - 1);
         console.warn("[TradeEngine] Buy error:", data.error.message);
-        // Release Brain in-flight guard so it can re-evaluate
         if (strategyProfile === "brain") derivBrain.cancelInFlight();
+        tradeLock.release();
         aiLogger.log("System", "error", `Buy error: ${data.error.message}`);
+        notifications.notify("Trade error", data.error.message, "error");
         requestProposal();
         return;
       }
@@ -811,7 +832,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   // ── TRADE EXECUTION: consumes proposal, fires buy, requests new proposal ──
   const executeTradeContinuous = useCallback((entryDigit?: number) => {
     if (!ws || !proposalReady.current || !proposalIdRef.current || !isLoggedIn) {
-      // Release Brain in-flight if it was guarding
       if (strategyProfile === "brain") derivBrain.cancelInFlight();
       return false;
     }
@@ -823,6 +843,17 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     const now = Date.now();
     tradeTimestamps.current = tradeTimestamps.current.filter(t => t > now - 1000);
     if (tradeTimestamps.current.length >= MAX_TRADES_PER_SEC) {
+      if (strategyProfile === "brain") derivBrain.cancelInFlight();
+      return false;
+    }
+
+    // ── GLOBAL THROTTLE: only one trade in flight regardless of tick speed ──
+    const engineName: AIEngine =
+      strategyProfile === "brain" ? "Brain" :
+      strategyProfile === "elit" ? "ELIT" :
+      strategyProfile === "aggressive" ? "Aggressive" :
+      strategyProfile === "conservative" ? "Conservative" : "Balanced";
+    if (!tradeLock.tryAcquire(engineName)) {
       if (strategyProfile === "brain") derivBrain.cancelInFlight();
       return false;
     }
