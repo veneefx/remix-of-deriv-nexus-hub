@@ -229,12 +229,12 @@ const DigitEdgeAnalytics = ({ lastDigits, currentDigit }: DigitEdgeAnalyticsProp
                           )}
                         </AnimatePresence>
 
-                        {/* Circular digit */}
+                        {/* Circular digit — adapts to small screens */}
                         <div
-                          className={`flex items-center justify-center w-10 h-10 sm:w-14 sm:h-14 rounded-full bg-card border ${cls.border}`}
+                          className={`flex items-center justify-center w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full bg-card border-2 ${cls.border}`}
                         >
                           <span
-                            className={`text-lg sm:text-2xl font-black ${cls.text} tabular-nums leading-none`}
+                            className={`text-base sm:text-xl md:text-2xl font-black ${cls.text} tabular-nums leading-none`}
                           >
                             {digit}
                           </span>
