@@ -65,15 +65,19 @@ const FloatingAILogPanel = () => {
     const total = filteredTrades.length;
     const profit = filteredTrades.reduce((acc, t) => acc + t.profit, 0);
     const winRate = total > 0 ? (wins / total) * 100 : 0;
-    const byEngine: Record<string, { wins: number; total: number; profit: number }> = {};
-    filteredTrades.forEach((t) => {
-      if (!byEngine[t.engine]) byEngine[t.engine] = { wins: 0, total: 0, profit: 0 };
+    const byEngine: Record<string, { wins: number; losses: number; total: number; profit: number }> = {};
+    // Always aggregate ALL trades for engine stats (so per-engine view is independent of filter)
+    trades.forEach((t) => {
+      if (!byEngine[t.engine]) byEngine[t.engine] = { wins: 0, losses: 0, total: 0, profit: 0 };
       byEngine[t.engine].total++;
-      if (t.won) byEngine[t.engine].wins++;
+      if (t.won) byEngine[t.engine].wins++; else byEngine[t.engine].losses++;
       byEngine[t.engine].profit += t.profit;
     });
-    return { wins, losses, total, profit, winRate, byEngine };
-  }, [filteredTrades]);
+    // Detect last active engine (most recent log)
+    const lastLog = logs[logs.length - 1];
+    const activeEngine = lastLog?.engine ?? null;
+    return { wins, losses, total, profit, winRate, byEngine, activeEngine };
+  }, [filteredTrades, trades, logs]);
 
   // Pulse the FAB when new logs arrive
   const [pulse, setPulse] = useState(false);
