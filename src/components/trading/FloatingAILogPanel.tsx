@@ -133,8 +133,14 @@ const FloatingAILogPanel = () => {
                       AI Command Center
                       <Sparkles className="w-3 h-3 text-warning" />
                     </h3>
-                    <p className="text-[10px] text-muted-foreground">
-                      {logs.length} events · {trades.length} trades · {stats.winRate.toFixed(0)}% win
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+                      {stats.activeEngine && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-buy/15 text-buy font-bold border border-buy/30">
+                          <span className="w-1.5 h-1.5 rounded-full bg-buy animate-pulse" />
+                          {stats.activeEngine}
+                        </span>
+                      )}
+                      <span>{logs.length} events · {trades.length} trades · {stats.winRate.toFixed(0)}% WR</span>
                     </p>
                   </div>
                 </div>
