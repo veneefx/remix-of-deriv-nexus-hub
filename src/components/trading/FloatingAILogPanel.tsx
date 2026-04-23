@@ -306,10 +306,11 @@ const FloatingAILogPanel = () => {
                                 {s.profit >= 0 ? "+" : ""}{s.profit.toFixed(2)}
                               </span>
                             </div>
-                            <div className="flex items-center gap-3 text-muted-foreground">
-                              <span>Trades: <span className="text-foreground">{s.total}</span></span>
-                              <span>Wins: <span className="text-buy">{s.wins}</span></span>
-                              <span>Win rate: <span className="text-foreground">{wr.toFixed(0)}%</span></span>
+                            <div className="flex items-center gap-3 text-muted-foreground flex-wrap">
+                              <span>Trades: <span className="text-foreground font-semibold">{s.total}</span></span>
+                              <span>Wins: <span className="text-buy font-semibold">{s.wins}</span></span>
+                              <span>Losses: <span className="text-sell font-semibold">{s.losses}</span></span>
+                              <span>WR: <span className="text-foreground font-semibold">{wr.toFixed(0)}%</span></span>
                             </div>
                             <div className="mt-1.5 h-1 bg-muted rounded-full overflow-hidden">
                               <div
