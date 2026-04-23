@@ -65,15 +65,19 @@ const FloatingAILogPanel = () => {
     const total = filteredTrades.length;
     const profit = filteredTrades.reduce((acc, t) => acc + t.profit, 0);
     const winRate = total > 0 ? (wins / total) * 100 : 0;
-    const byEngine: Record<string, { wins: number; total: number; profit: number }> = {};
-    filteredTrades.forEach((t) => {
-      if (!byEngine[t.engine]) byEngine[t.engine] = { wins: 0, total: 0, profit: 0 };
+    const byEngine: Record<string, { wins: number; losses: number; total: number; profit: number }> = {};
+    // Always aggregate ALL trades for engine stats (so per-engine view is independent of filter)
+    trades.forEach((t) => {
+      if (!byEngine[t.engine]) byEngine[t.engine] = { wins: 0, losses: 0, total: 0, profit: 0 };
       byEngine[t.engine].total++;
-      if (t.won) byEngine[t.engine].wins++;
+      if (t.won) byEngine[t.engine].wins++; else byEngine[t.engine].losses++;
       byEngine[t.engine].profit += t.profit;
     });
-    return { wins, losses, total, profit, winRate, byEngine };
-  }, [filteredTrades]);
+    // Detect last active engine (most recent log)
+    const lastLog = logs[logs.length - 1];
+    const activeEngine = lastLog?.engine ?? null;
+    return { wins, losses, total, profit, winRate, byEngine, activeEngine };
+  }, [filteredTrades, trades, logs]);
 
   // Pulse the FAB when new logs arrive
   const [pulse, setPulse] = useState(false);
@@ -89,10 +93,10 @@ const FloatingAILogPanel = () => {
 
   return (
     <>
-      {/* FAB — green like wallet, sits above the mobile bottom-nav (~52px) and the wallet/profit stack */}
+      {/* FAB — green like wallet, lifted ~3in higher to clear transactions/wallet */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-44 lg:bottom-28 right-4 z-30 w-14 h-14 rounded-full bg-buy text-primary-foreground shadow-xl shadow-buy/30 flex items-center justify-center hover:scale-110 transition-transform border-2 border-buy/60 ${pulse ? "animate-pulse" : ""}`}
+        className={`fixed bottom-60 lg:bottom-40 right-4 z-30 w-14 h-14 rounded-full bg-buy text-primary-foreground shadow-xl shadow-buy/30 flex items-center justify-center hover:scale-110 transition-transform border-2 border-buy/60 ${pulse ? "animate-pulse" : ""}`}
         title="AI Activity Log"
         style={{ display: isOpen ? "none" : "flex" }}
       >
@@ -112,7 +116,7 @@ const FloatingAILogPanel = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-44 lg:bottom-28 right-4 z-40 w-[calc(100vw-2rem)] max-w-[460px] bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            className="fixed bottom-60 lg:bottom-40 right-4 z-40 w-[calc(100vw-2rem)] max-w-[460px] bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
             style={{ height: collapsed ? "auto" : "min(60vh, 560px)" }}
           >
             {/* Premium header with gradient */}
@@ -129,8 +133,14 @@ const FloatingAILogPanel = () => {
                       AI Command Center
                       <Sparkles className="w-3 h-3 text-warning" />
                     </h3>
-                    <p className="text-[10px] text-muted-foreground">
-                      {logs.length} events · {trades.length} trades · {stats.winRate.toFixed(0)}% win
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1.5">
+                      {stats.activeEngine && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-buy/15 text-buy font-bold border border-buy/30">
+                          <span className="w-1.5 h-1.5 rounded-full bg-buy animate-pulse" />
+                          {stats.activeEngine}
+                        </span>
+                      )}
+                      <span>{logs.length} events · {trades.length} trades · {stats.winRate.toFixed(0)}% WR</span>
                     </p>
                   </div>
                 </div>
@@ -296,10 +306,11 @@ const FloatingAILogPanel = () => {
                                 {s.profit >= 0 ? "+" : ""}{s.profit.toFixed(2)}
                               </span>
                             </div>
-                            <div className="flex items-center gap-3 text-muted-foreground">
-                              <span>Trades: <span className="text-foreground">{s.total}</span></span>
-                              <span>Wins: <span className="text-buy">{s.wins}</span></span>
-                              <span>Win rate: <span className="text-foreground">{wr.toFixed(0)}%</span></span>
+                            <div className="flex items-center gap-3 text-muted-foreground flex-wrap">
+                              <span>Trades: <span className="text-foreground font-semibold">{s.total}</span></span>
+                              <span>Wins: <span className="text-buy font-semibold">{s.wins}</span></span>
+                              <span>Losses: <span className="text-sell font-semibold">{s.losses}</span></span>
+                              <span>WR: <span className="text-foreground font-semibold">{wr.toFixed(0)}%</span></span>
                             </div>
                             <div className="mt-1.5 h-1 bg-muted rounded-full overflow-hidden">
                               <div
