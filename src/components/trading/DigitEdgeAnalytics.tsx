@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Activity, Target } from "lucide-react";
+import { Activity, Target, TrendingUp, TrendingDown } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -30,16 +30,14 @@ const DigitEdgeAnalytics = ({ lastDigits, currentDigit }: DigitEdgeAnalyticsProp
   const [pulseDigit, setPulseDigit] = useState<number | null>(null);
   const lastDigitRef = useRef<number | null>(null);
 
-  // Persist buffer choice
   useEffect(() => {
     try {
       window.localStorage.setItem(STORAGE_KEY, String(bufferSize));
     } catch {
-      /* ignore quota / privacy errors */
+      /* ignore */
     }
   }, [bufferSize]);
 
-  // Pulse animation when a new tick arrives
   useEffect(() => {
     if (currentDigit !== null && currentDigit !== lastDigitRef.current) {
       setPulseDigit(currentDigit);
@@ -68,19 +66,16 @@ const DigitEdgeAnalytics = ({ lastDigits, currentDigit }: DigitEdgeAnalyticsProp
     });
     const percentages = counts.map((c) => (c / total) * 100);
 
-    // Highest %
     let highest = 0;
     percentages.forEach((p, i) => {
       if (p > percentages[highest]) highest = i;
     });
 
-    // Lowest %
     let lowest = 0;
     percentages.forEach((p, i) => {
       if (p < percentages[lowest]) lowest = i;
     });
 
-    // Second lowest (closest to lowest, excluding lowest itself)
     let secondLowest = -1;
     percentages.forEach((p, i) => {
       if (i === lowest) return;
@@ -92,11 +87,9 @@ const DigitEdgeAnalytics = ({ lastDigits, currentDigit }: DigitEdgeAnalyticsProp
     return { percentages, counts, highest, lowest, secondLowest, total };
   }, [lastDigits, bufferSize]);
 
-  // Sparkline data per digit (last 50 ticks → presence as 0/1)
   const sparklines = useMemo(() => {
     const recent = lastDigits.slice(-50);
     const lines: number[][] = Array.from({ length: 10 }, () => []);
-    // Build cumulative percentage across windows of 10
     for (let d = 0; d < 10; d++) {
       const window: number[] = [];
       let runningCount = 0;
@@ -112,69 +105,89 @@ const DigitEdgeAnalytics = ({ lastDigits, currentDigit }: DigitEdgeAnalyticsProp
   }, [lastDigits]);
 
   const getColor = (digit: number) => {
-    if (digit === stats.highest && stats.total > 0) return "blue";
+    if (digit === stats.highest && stats.total > 0) return "sky";
     if (digit === stats.lowest && stats.total > 0) return "red";
     if (digit === stats.secondLowest && stats.total > 0) return "yellow";
     return "neutral";
   };
 
-  const colorClasses: Record<string, { bar: string; text: string; border: string; glow: string }> = {
-    blue: {
-      bar: "bg-primary",
-      text: "text-primary",
-      border: "border-primary/40",
-      glow: "shadow-[0_0_12px_hsl(var(--primary)/0.4)]",
+  // Premium color palette — true sky blue for highest, deep red for lowest
+  const colorClasses: Record<
+    string,
+    { ring: string; text: string; bg: string; bar: string; glow: string; gradient: string; label: string }
+  > = {
+    sky: {
+      ring: "ring-sky/60",
+      text: "text-sky",
+      bg: "bg-sky/10",
+      bar: "bg-sky",
+      glow: "shadow-[0_0_24px_hsl(var(--sky)/0.55)]",
+      gradient: "from-sky to-sky/70",
+      label: "Highest",
     },
     red: {
-      bar: "bg-sell",
+      ring: "ring-sell/60",
       text: "text-sell",
-      border: "border-sell/40",
-      glow: "shadow-[0_0_12px_hsl(var(--sell)/0.4)]",
+      bg: "bg-sell/10",
+      bar: "bg-sell",
+      glow: "shadow-[0_0_24px_hsl(var(--sell)/0.55)]",
+      gradient: "from-sell to-sell/70",
+      label: "Lowest",
     },
     yellow: {
-      bar: "bg-warning",
+      ring: "ring-warning/60",
       text: "text-warning",
-      border: "border-warning/40",
-      glow: "shadow-[0_0_12px_hsl(var(--warning)/0.4)]",
+      bg: "bg-warning/10",
+      bar: "bg-warning",
+      glow: "shadow-[0_0_18px_hsl(var(--warning)/0.5)]",
+      gradient: "from-warning to-warning/70",
+      label: "2nd Lowest",
     },
     neutral: {
+      ring: "ring-border",
+      text: "text-foreground",
+      bg: "bg-card",
       bar: "bg-muted-foreground/30",
-      text: "text-muted-foreground",
-      border: "border-border",
       glow: "",
+      gradient: "from-secondary to-card",
+      label: "",
     },
   };
 
   return (
-    <TooltipProvider delayDuration={200}>
+    <TooltipProvider delayDuration={150}>
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
-        className="p-4 rounded-2xl bg-card/80 backdrop-blur-sm border border-border shadow-lg"
+        className="relative p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-card to-card/60 backdrop-blur-xl border border-border shadow-xl overflow-hidden"
       >
+        {/* Decorative top gradient */}
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-sky/40 to-transparent" />
+
         {/* Header */}
-        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Activity className="w-4 h-4 text-primary" />
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-sky to-sky/60 flex items-center justify-center shadow-lg shadow-sky/30">
+              <Activity className="w-4 h-4 text-sky-foreground" />
+              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-buy border-2 border-card animate-pulse" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-foreground">Digit Edge Analytics</h3>
-              <p className="text-[10px] text-muted-foreground">
-                Live frequency · {stats.total}/{bufferSize} ticks
+              <h3 className="text-sm font-bold text-foreground tracking-tight">Digit Edge Analytics</h3>
+              <p className="text-[10px] text-muted-foreground tabular-nums">
+                Live frequency · {stats.total.toLocaleString()}/{bufferSize.toLocaleString()} ticks
               </p>
             </div>
           </div>
 
           {/* Buffer toggle */}
-          <div className="flex gap-0.5 p-0.5 bg-secondary rounded-lg">
+          <div className="flex gap-0.5 p-0.5 bg-secondary/60 backdrop-blur rounded-xl border border-border/60">
             {BUFFERS.map((b) => (
               <button
                 key={b}
                 onClick={() => setBufferSize(b)}
-                className={`px-3 py-1 text-[10px] font-bold rounded transition-all ${
+                className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition-all ${
                   bufferSize === b
-                    ? "bg-primary text-primary-foreground shadow-sm"
+                    ? "bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-md"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -184,13 +197,10 @@ const DigitEdgeAnalytics = ({ lastDigits, currentDigit }: DigitEdgeAnalyticsProp
           </div>
         </div>
 
-        {/* Two-row circular digit grid: 0-4 top / 5-9 bottom */}
-        <div className="space-y-2 sm:space-y-3">
+        {/* 2-row circular grid: 0-4 / 5-9 */}
+        <div className="space-y-3">
           {[0, 5].map((rowStart) => (
-            <div
-              key={rowStart}
-              className="grid grid-cols-5 gap-1.5 sm:gap-3"
-            >
+            <div key={rowStart} className="grid grid-cols-5 gap-2 sm:gap-4">
               {Array.from({ length: 5 }, (_, i) => {
                 const digit = rowStart + i;
                 const pct = stats.percentages[digit];
@@ -204,13 +214,11 @@ const DigitEdgeAnalytics = ({ lastDigits, currentDigit }: DigitEdgeAnalyticsProp
                     <TooltipTrigger asChild>
                       <motion.div
                         layout
-                        animate={{ scale: isPulsing ? 1.06 : 1 }}
+                        animate={{ scale: isPulsing ? 1.08 : 1 }}
                         transition={{ duration: 0.25, ease: "easeOut" }}
-                        className={`relative flex flex-col items-center gap-1 p-2 sm:p-3 rounded-2xl bg-background/60 border ${cls.border} ${
-                          isLive ? cls.glow : ""
-                        } cursor-help transition-shadow`}
+                        className={`relative flex flex-col items-center gap-1.5 cursor-help`}
                       >
-                        {/* Live pointer above the active card */}
+                        {/* Live pointer */}
                         <AnimatePresence>
                           {isLive && (
                             <motion.div
@@ -219,34 +227,43 @@ const DigitEdgeAnalytics = ({ lastDigits, currentDigit }: DigitEdgeAnalyticsProp
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0 }}
                               transition={{ type: "spring", stiffness: 400, damping: 25 }}
-                              className="absolute -top-3 flex flex-col items-center pointer-events-none"
+                              className="absolute -top-4 z-10 flex flex-col items-center pointer-events-none"
                             >
-                              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary text-primary-foreground text-[8px] font-bold shadow-lg">
+                              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-gradient-to-r from-buy to-buy/80 text-primary-foreground text-[8px] font-bold shadow-lg">
                                 <Target className="w-2 h-2" />
                                 LIVE
                               </div>
+                              <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-t-[4px] border-t-buy/80" />
                             </motion.div>
                           )}
                         </AnimatePresence>
 
-                        {/* Circular digit — adapts to small screens */}
+                        {/* TRUE CIRCLE — perfect aspect, gradient bg, ring */}
                         <div
-                          className={`flex items-center justify-center w-9 h-9 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full bg-card border-2 ${cls.border}`}
+                          className={`relative aspect-square w-full max-w-[64px] rounded-full bg-gradient-to-br ${cls.gradient} ring-2 ${cls.ring} ${
+                            isLive ? cls.glow : "shadow-md"
+                          } flex items-center justify-center transition-shadow`}
                         >
                           <span
-                            className={`text-base sm:text-xl md:text-2xl font-black ${cls.text} tabular-nums leading-none`}
+                            className={`text-lg sm:text-2xl md:text-3xl font-black ${
+                              color === "neutral" ? "text-foreground" : "text-white"
+                            } tabular-nums leading-none drop-shadow-sm`}
                           >
                             {digit}
                           </span>
+                          {/* Inner glossy ring */}
+                          <div className="absolute inset-1 rounded-full ring-1 ring-white/20 pointer-events-none" />
                         </div>
 
-                        {/* Percentage */}
-                        <span className="text-[10px] sm:text-xs text-muted-foreground font-mono tabular-nums">
+                        {/* Percentage pill */}
+                        <span
+                          className={`text-[10px] sm:text-xs font-bold ${cls.text} tabular-nums px-2 py-0.5 rounded-full ${cls.bg} border border-current/20`}
+                        >
                           {pct.toFixed(1)}%
                         </span>
 
-                        {/* Animated bar */}
-                        <div className="w-full h-1.5 bg-muted/50 rounded-full overflow-hidden mt-0.5">
+                        {/* Bar */}
+                        <div className="w-full h-1 bg-muted/40 rounded-full overflow-hidden">
                           <motion.div
                             className={`h-full ${cls.bar} rounded-full`}
                             initial={{ width: 0 }}
@@ -255,19 +272,20 @@ const DigitEdgeAnalytics = ({ lastDigits, currentDigit }: DigitEdgeAnalyticsProp
                           />
                         </div>
 
-                        {/* Mini sparkline */}
+                        {/* Sparkline (sm+ only) */}
                         <svg
                           viewBox="0 0 50 12"
-                          className="w-full h-2 hidden sm:block"
+                          className="w-full h-2 hidden sm:block opacity-60"
                           preserveAspectRatio="none"
                         >
                           {sparklines[digit].length > 1 && (
                             <polyline
                               fill="none"
                               stroke="currentColor"
-                              strokeWidth="1"
+                              strokeWidth="1.2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
                               className={cls.text}
-                              opacity={0.6}
                               points={sparklines[digit]
                                 .map((v, idx) => {
                                   const x =
@@ -289,11 +307,11 @@ const DigitEdgeAnalytics = ({ lastDigits, currentDigit }: DigitEdgeAnalyticsProp
                           {pct.toFixed(2)}% · {stats.counts[digit]} hits
                         </p>
                         <p className="text-[10px] text-muted-foreground">
-                          Last {bufferSize} ticks
+                          Last {bufferSize.toLocaleString()} ticks
                         </p>
-                        {color === "blue" && <p className="text-primary text-[10px]">⬆ Highest</p>}
-                        {color === "red" && <p className="text-sell text-[10px]">⬇ Lowest</p>}
-                        {color === "yellow" && <p className="text-warning text-[10px]">↘ 2nd Lowest</p>}
+                        {color !== "neutral" && (
+                          <p className={`text-[10px] ${cls.text}`}>{cls.label}</p>
+                        )}
                       </div>
                     </TooltipContent>
                   </Tooltip>
@@ -304,19 +322,23 @@ const DigitEdgeAnalytics = ({ lastDigits, currentDigit }: DigitEdgeAnalyticsProp
         </div>
 
         {/* Legend */}
-        <div className="flex items-center justify-center gap-3 mt-3 pt-3 border-t border-border text-[9px] text-muted-foreground flex-wrap">
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-primary" /> Highest
+        <div className="flex items-center justify-center gap-3 mt-4 pt-3 border-t border-border/60 text-[10px] text-muted-foreground flex-wrap">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-sky shadow-[0_0_6px_hsl(var(--sky)/0.6)]" />
+            <TrendingUp className="w-2.5 h-2.5 text-sky" /> Highest
           </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-sell" /> Lowest
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-sell shadow-[0_0_6px_hsl(var(--sell)/0.6)]" />
+            <TrendingDown className="w-2.5 h-2.5 text-sell" /> Lowest
           </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-warning" /> 2nd Lowest
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-warning shadow-[0_0_6px_hsl(var(--warning)/0.6)]" />
+            2nd Lowest
           </span>
           {currentDigit !== null && (
-            <span className="flex items-center gap-1 ml-auto">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" /> Live: {currentDigit}
+            <span className="flex items-center gap-1.5 ml-auto font-bold text-foreground">
+              <span className="w-1.5 h-1.5 rounded-full bg-buy animate-pulse" />
+              Live: {currentDigit}
             </span>
           )}
         </div>

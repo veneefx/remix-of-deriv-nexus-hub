@@ -34,6 +34,8 @@
     --warning: 38 92% 50%;          /* #f59e0b */
     --success: 142 71% 45%;
     --neutral: 215 16% 47%;
+    --sky: 199 89% 48%;             /* #0ea5e9 — premium sky blue */
+    --sky-foreground: 0 0% 100%;
 
     /* Sidebar */
     --sidebar-background: 0 0% 100%;
@@ -78,6 +80,8 @@
     --warning: 38 92% 50%;
     --success: 142 71% 45%;
     --neutral: 215 20% 65%;
+    --sky: 199 89% 55%;
+    --sky-foreground: 222 47% 11%;
 
     /* Sidebar dark */
     --sidebar-background: 222 47% 11%;

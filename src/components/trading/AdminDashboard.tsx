@@ -1,8 +1,9 @@
 import { useState, useEffect, useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { X, User, Shield, Check, Search, CreditCard, BarChart3, DollarSign, TrendingUp, ShieldCheck } from "lucide-react";
+import { X, User, Shield, Check, Search, CreditCard, BarChart3, DollarSign, TrendingUp, ShieldCheck, Brain } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { adminVerification } from "@/services/admin-verification";
+import { engineMemory } from "@/services/engine-memory";
 
 const VERIFIABLE_FEATURES = [
   "DAT Analyzer",
@@ -22,7 +23,7 @@ interface Profile {
   created_at: string;
 }
 
-type Tab = "users" | "payments" | "trades" | "verifications";
+type Tab = "users" | "payments" | "trades" | "verifications" | "learning";
 
 const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -92,6 +93,7 @@ const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
     { key: "users", label: "Users", icon: User },
     { key: "payments", label: "Payments", icon: CreditCard },
     { key: "verifications", label: "Verifications", icon: ShieldCheck },
+    { key: "learning", label: "AI Learning", icon: Brain },
     { key: "trades", label: "Trade Logs", icon: BarChart3 },
   ];
 
@@ -221,7 +223,8 @@ const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
             </div>
           ) : activeTab === "verifications" ? (
             <VerificationsPanel profiles={profiles} />
-          ) : (
+          ) : activeTab === "learning" ? (
+            <LearningPanel />
             <div className="grid gap-2">
               {trades.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">No trade logs yet.</p>

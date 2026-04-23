@@ -67,6 +67,10 @@ export default {
         buy: "hsl(var(--buy))",
         sell: "hsl(var(--sell))",
         neutral: "hsl(var(--neutral))",
+        sky: {
+          DEFAULT: "hsl(var(--sky))",
+          foreground: "hsl(var(--sky-foreground))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
