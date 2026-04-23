@@ -36,7 +36,9 @@ import PremiumUpgradeModal from "@/components/trading/PremiumUpgradeModal";
 import AdminDashboard from "@/components/trading/AdminDashboard";
 import PremiumGate from "@/components/trading/PremiumGate";
 import AnalysisPaywall from "@/components/trading/AnalysisPaywall";
-import { Trash2 } from "lucide-react";
+import { Trash2, Plus } from "lucide-react";
+import { formatBalance, DERIV_DEPOSIT_URL } from "@/lib/format";
+import { notifications } from "@/services/notifications";
 
 const DERIV_APP_ID = "129344";
 
@@ -114,7 +116,10 @@ const TradingHub = () => {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Clock
+  // Register notification SW once (production only) so push/background works
+  useEffect(() => {
+    notifications.registerServiceWorker();
+  }, []);
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -176,6 +181,7 @@ const TradingHub = () => {
     }).catch(() => {
       setWsConnected(false);
       toast({ title: "❌ Connection Failed", description: "Could not connect to Deriv. Retrying..." });
+      notifications.notify("Connection failed", "Could not reach Deriv. Retrying…", "error");
     });
 
     // Auto-reconnect if disconnected
@@ -190,8 +196,10 @@ const TradingHub = () => {
       setWsConnected(connected);
       if (connected) {
         toast({ title: "✅ Reconnected", description: "WebSocket reconnected" });
+        notifications.notify("Reconnected", "Trading connection restored.", "success");
       } else {
         toast({ title: "⚠️ Disconnected", description: "Connection lost. Reconnecting..." });
+        notifications.notify("Disconnected", "Trading connection lost. Reconnecting…", "warn");
       }
     });
 
@@ -440,22 +448,34 @@ const TradingHub = () => {
             </span>
             
             {balance !== null ? (
-              <button
-                onClick={() => setTokenManagerOpen(true)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-card rounded-lg border border-border hover:bg-secondary transition-colors whitespace-nowrap"
-                title="Switch account"
-              >
-                <Wallet className="w-4 h-4 text-primary" />
-                <div className="flex flex-col items-start leading-tight">
-                  <span className="text-[9px] text-muted-foreground uppercase tracking-wide">
-                    {account?.is_virtual ? "Demo" : "Real"} · {account?.currency || "USD"}
-                  </span>
-                  <span className="text-xs font-bold text-foreground tabular-nums">
-                    {balance.toFixed(2)}
-                  </span>
-                </div>
-                <ChevronDown className="w-3 h-3 text-muted-foreground" />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setTokenManagerOpen(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-card rounded-lg border border-border hover:bg-secondary transition-colors whitespace-nowrap"
+                  title="Switch account"
+                >
+                  <Wallet className="w-4 h-4 text-primary" />
+                  <div className="flex flex-col items-start leading-tight">
+                    <span className="text-[9px] text-muted-foreground uppercase tracking-wide">
+                      {account?.is_virtual ? "Demo" : "Real"} · {account?.currency || "USD"}
+                    </span>
+                    <span className="text-xs font-bold text-foreground tabular-nums">
+                      {formatBalance(balance)}
+                    </span>
+                  </div>
+                  <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                </button>
+                <a
+                  href={DERIV_DEPOSIT_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-buy text-primary-foreground text-[11px] font-bold shadow hover:opacity-90 transition-opacity whitespace-nowrap"
+                  title="Deposit on Deriv"
+                >
+                  <Plus className="w-3 h-3" />
+                  Deposit
+                </a>
+              </div>
             ) : (
               <button onClick={handleLogin} className="px-4 py-2 bg-gradient-brand text-primary-foreground text-xs font-semibold rounded-lg hover-lift glow-red">
                 Connect Account
@@ -652,9 +672,9 @@ const TradingHub = () => {
                                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-buy/20 text-buy">Active</span>
                               )}
                             </div>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-muted-foreground tabular-nums">
                               {accBalance !== undefined && accBalance !== null
-                                ? `${accBalance.toFixed(2)} ${acc.currency}`
+                                ? `${formatBalance(accBalance)} ${acc.currency}`
                                 : `0.00 ${acc.currency}`}
                             </p>
                           </div>
