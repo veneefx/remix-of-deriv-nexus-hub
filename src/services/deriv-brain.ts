@@ -325,7 +325,10 @@ class DerivBrain {
   }
 
   // ── EVEN / ODD RECOVERY ─────────────────────────────────────────
-  private tryEvenOddRecovery(digits: number[], freq: number[], minScore: number): BrainDecision {
+  private tryEvenOddRecovery(
+    digits: number[], freq: number[], minScore: number,
+    seq: ReturnType<DerivBrain["analyzeSequence"]>
+  ): BrainDecision {
     // Use last 100-500 ticks
     const window = digits.slice(-500);
     let evenCount = 0;
