@@ -93,10 +93,10 @@ const FloatingAILogPanel = () => {
 
   return (
     <>
-      {/* FAB — green like wallet, lifted ~3in higher to clear transactions/wallet */}
+      {/* FAB — green like wallet, lifted clear of transactions strip & wallet */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`fixed bottom-60 lg:bottom-40 right-4 z-30 w-14 h-14 rounded-full bg-buy text-primary-foreground shadow-xl shadow-buy/30 flex items-center justify-center hover:scale-110 transition-transform border-2 border-buy/60 ${pulse ? "animate-pulse" : ""}`}
+        className={`fixed bottom-72 lg:bottom-44 right-4 z-30 w-14 h-14 rounded-full bg-buy text-primary-foreground shadow-xl shadow-buy/30 flex items-center justify-center hover:scale-110 transition-transform border-2 border-buy/60 ${pulse ? "animate-pulse" : ""}`}
         title="AI Activity Log"
         style={{ display: isOpen ? "none" : "flex" }}
       >
@@ -116,7 +116,7 @@ const FloatingAILogPanel = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-60 lg:bottom-40 right-4 z-40 w-[calc(100vw-2rem)] max-w-[460px] bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+            className="fixed bottom-72 lg:bottom-44 right-4 z-40 w-[calc(100vw-2rem)] max-w-[460px] bg-card/95 backdrop-blur-xl border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden"
             style={{ height: collapsed ? "auto" : "min(60vh, 560px)" }}
           >
             {/* Premium header with gradient */}
