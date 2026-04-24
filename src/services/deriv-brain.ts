@@ -237,28 +237,16 @@ class DerivBrain {
   private analyzeSequence(digits: number[]) {
     const last20 = digits.slice(-20);
     const last30 = digits.slice(-30);
-    let evenRun = 0, oddRun = 0, lowRun = 0, highRun = 0;
-    let curEven = 0, curOdd = 0, curLow = 0, curHigh = 0;
-    for (let i = last30.length - 1; i >= 0; i--) {
-      const d = last30[i];
-      const isEven = d % 2 === 0;
-      const isLow = d < 5;
-      // Trailing runs stop counting at the first break
-      if (i === last30.length - 1 || curEven > 0 && isEven) curEven = isEven ? curEven + 1 : 0;
-      if (i === last30.length - 1 || curOdd > 0 && !isEven) curOdd = !isEven ? curOdd + 1 : 0;
-      if (i === last30.length - 1 || curLow > 0 && isLow) curLow = isLow ? curLow + 1 : 0;
-      if (i === last30.length - 1 || curHigh > 0 && !isLow) curHigh = !isLow ? curHigh + 1 : 0;
-    }
-    // Simple trailing-run computation
-    evenRun = trailingRun(last30, (d) => d % 2 === 0);
-    oddRun  = trailingRun(last30, (d) => d % 2 !== 0);
-    lowRun  = trailingRun(last30, (d) => d < 5);
-    highRun = trailingRun(last30, (d) => d > 4);
+
+    const evenRun = trailingRun(last30, (d) => d % 2 === 0);
+    const oddRun  = trailingRun(last30, (d) => d % 2 !== 0);
+    const lowRun  = trailingRun(last30, (d) => d < 5);
+    const highRun = trailingRun(last30, (d) => d > 4);
 
     const below5InLast20 = last20.filter((d) => d < 5).length;
     const above4InLast20 = last20.filter((d) => d > 4).length;
-    const last8and9Frac  = last20.filter((d) => d >= 8).length / last20.length;
-    const last0and1Frac  = last20.filter((d) => d <= 1).length / last20.length;
+    const last8and9Frac  = last20.filter((d) => d >= 8).length / Math.max(1, last20.length);
+    const last0and1Frac  = last20.filter((d) => d <= 1).length / Math.max(1, last20.length);
 
     // Flip rate (alternation density) — high = chaos
     let flips = 0;
