@@ -1464,8 +1464,45 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         )}
       </div>
 
-      {/* Right Panel - Trading Controls */}
-      <div className="hidden lg:block w-[320px] border-l border-border bg-card/50 overflow-y-auto">
+      {/* Mobile FAB to open the trading-controls bottom sheet */}
+      <button
+        onClick={() => setMobileSheetOpen(true)}
+        className="lg:hidden fixed bottom-44 right-4 z-40 h-14 px-5 rounded-full bg-buy text-primary-foreground font-bold text-xs shadow-2xl shadow-buy/30 flex items-center gap-2 active:scale-95 transition-transform"
+        aria-label="Open trade controls"
+      >
+        <Activity className="w-4 h-4" /> Trade
+      </button>
+
+      {/* Mobile backdrop */}
+      {mobileSheetOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-40 bg-background/70 backdrop-blur-sm"
+          onClick={() => setMobileSheetOpen(false)}
+        />
+      )}
+
+      {/* Right Panel — desktop side panel + mobile bottom-sheet popup */}
+      <div
+        className={`bg-card/50 overflow-y-auto border-border ${
+          mobileSheetOpen
+            ? "fixed inset-x-0 bottom-0 z-50 max-h-[85vh] rounded-t-2xl border-t shadow-2xl block animate-in slide-in-from-bottom duration-300 lg:relative lg:max-h-none lg:rounded-none lg:border-l lg:border-t-0 lg:shadow-none lg:w-[320px] lg:animate-none"
+            : "hidden lg:block w-[320px] border-l"
+        }`}
+      >
+        {/* Mobile sheet handle + close */}
+        {mobileSheetOpen && (
+          <div className="lg:hidden sticky top-0 z-10 bg-card/95 backdrop-blur border-b border-border px-4 py-2 flex items-center justify-between">
+            <div className="mx-auto w-10 h-1 rounded-full bg-muted absolute left-1/2 -translate-x-1/2 top-1.5" />
+            <p className="text-xs font-bold text-foreground">Trade Controls</p>
+            <button
+              onClick={() => setMobileSheetOpen(false)}
+              className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         <div className="p-4 space-y-4">
           {/* Market */}
           <div>
