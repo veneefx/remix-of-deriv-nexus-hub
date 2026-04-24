@@ -191,6 +191,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [freqBasedTrading, setFreqBasedTrading] = useState(false);
   const [freqThreshold, setFreqThreshold] = useState(12);
   const [strategyProfile, setStrategyProfile] = useState<"aggressive" | "balanced" | "conservative" | "elit" | "brain">(() => (localStorage.getItem("dnx_profile") as any) || "balanced");
+  const [recoveryMode, setRecoveryModeState] = useState<"digit" | "evenodd">(() => derivBrain.getRecoveryMode());
   const [strategyVersion, setStrategyVersion] = useState<number | null>(null);
 
   // Track whether the user has manually edited risk settings.
@@ -1480,7 +1481,28 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
               ))}
             </div>
             {strategyProfile === "brain" && (
-              <p className="text-[9px] text-primary/80 mt-1">🧠 Adaptive UNDER 8 / OVER 2 — strict entry triggers + self-learning</p>
+              <div className="mt-2 p-2 rounded-lg bg-buy/5 border border-buy/20 space-y-1.5">
+                <p className="text-[9px] text-buy font-bold flex items-center gap-1">
+                  🧠 Adaptive UNDER 8 / OVER 2 — strict entry triggers + self-learning
+                </p>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] text-muted-foreground font-semibold">Recovery:</span>
+                  {(["digit", "evenodd"] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      onClick={() => { setRecoveryModeState(m); derivBrain.setRecoveryMode(m); }}
+                      className={`flex-1 px-2 py-1 rounded text-[10px] font-bold transition-colors border ${
+                        recoveryMode === m
+                          ? "bg-buy text-primary-foreground border-buy"
+                          : "bg-secondary text-muted-foreground border-border hover:border-buy/40"
+                      }`}
+                    >
+                      {m === "digit" ? "Digit Recovery" : "Even/Odd Recovery"}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 
