@@ -269,27 +269,33 @@ class DerivBrain {
   }
 
   // ── DIGIT RECOVERY ──────────────────────────────────────────────
-  private tryDigitRecovery(freq: number[], sumLow0_4: number, sumHigh5_9: number, minScore: number): BrainDecision {
+  private tryDigitRecovery(
+    freq: number[], sumLow0_4: number, sumHigh5_9: number, minScore: number,
+    seq: ReturnType<DerivBrain["analyzeSequence"]>
+  ): BrainDecision {
     const sumLow0_4Strict = freq[0] + freq[1] + freq[2] + freq[3]; // for UNDER 5
     const sumHigh5_9Strict = freq[5] + freq[6] + freq[7] + freq[8] + freq[9]; // for OVER 5 (>5 means 6-9)
 
     if (this.state.recoveryFor === "UNDER_8") {
-      // RECOVERY = UNDER 5
+      // RECOVERY = UNDER 5 — fire on probability OR clear sequence pattern
       const score = this.computeReadinessScore(freq, "DIGITUNDER", 5);
       const each04Ok = [0, 1, 2, 3, 4].every((d) => freq[d] >= 9.0);
       const digit5NotExtreme = freq[5] < 14 && freq[5] > 7;
+      const sequenceFire = seq.lowRun >= 4 && seq.below5InLast20 >= 13 && seq.flipRate < 65;
 
       aiLogger.log("Brain", "info",
-        `Recovery UNDER 5 — score ${score}/100 • P[<5]=${sumLow0_4Strict.toFixed(1)}% • need ${minScore}+`);
+        `Recovery UNDER 5 — score ${score}/100 • P[<5]=${sumLow0_4Strict.toFixed(1)}% • lowRun=${seq.lowRun} • need ${minScore}+`);
 
-      if (score >= minScore && sumLow0_4Strict >= 53 && each04Ok && digit5NotExtreme) {
-        const key = `RU5|low04=${bucket(sumLow0_4Strict)}|d5=${bucket(freq[5])}`;
+      const probOk = score >= minScore && sumLow0_4Strict >= 53 && each04Ok && digit5NotExtreme;
+      if (probOk || sequenceFire) {
+        const key = `RU5|low04=${bucket(sumLow0_4Strict)}|d5=${bucket(freq[5])}|seq=${sequenceFire ? "lowRun" : "prob"}`;
         if (this.shouldSkipPattern(key)) return wait(`Pattern ${key} avoided (poor history)`);
         this.fireRecovery("RECOVERY_UNDER_5", key);
-        aiLogger.log("Brain", "success", `Confidence ${score}% → Executing UNDER 5`);
+        aiLogger.log("Brain", "success",
+          `${sequenceFire && !probOk ? `Sequence-fire (lowRun ${seq.lowRun})` : `Confidence ${score}%`} → Executing UNDER 5`);
         return { shouldTrade: true, contractType: "DIGITUNDER", barrier: "5", strategy: "RECOVERY_UNDER_5", reason: "UNDER 5 recovery", confidence: score };
       }
-      return wait(`Recovery (UNDER 5) — score ${score}, P[<5]=${sumLow0_4Strict.toFixed(1)}%`);
+      return wait(`Recovery (UNDER 5) — score ${score}, P[<5]=${sumLow0_4Strict.toFixed(1)}%, lowRun=${seq.lowRun}`);
     }
 
     if (this.state.recoveryFor === "OVER_2") {
@@ -298,18 +304,21 @@ class DerivBrain {
       const score = this.computeReadinessScore(freq, "DIGITOVER", 5);
       const each69Ok = [6, 7, 8, 9].every((d) => freq[d] >= 9.0);
       const digit5NotExtreme = freq[5] < 14 && freq[5] > 7;
+      const sequenceFire = seq.highRun >= 4 && seq.above4InLast20 >= 13 && seq.flipRate < 65;
 
       aiLogger.log("Brain", "info",
-        `Recovery OVER 5 — score ${score}/100 • P[>5]=${sumHigh6_9.toFixed(1)}% • need ${minScore}+`);
+        `Recovery OVER 5 — score ${score}/100 • P[>5]=${sumHigh6_9.toFixed(1)}% • highRun=${seq.highRun} • need ${minScore}+`);
 
-      if (score >= minScore && sumHigh6_9 >= 45 && each69Ok && digit5NotExtreme) {
-        const key = `RO5|high69=${bucket(sumHigh6_9)}|d5=${bucket(freq[5])}`;
+      const probOk = score >= minScore && sumHigh6_9 >= 45 && each69Ok && digit5NotExtreme;
+      if (probOk || sequenceFire) {
+        const key = `RO5|high69=${bucket(sumHigh6_9)}|d5=${bucket(freq[5])}|seq=${sequenceFire ? "highRun" : "prob"}`;
         if (this.shouldSkipPattern(key)) return wait(`Pattern ${key} avoided (poor history)`);
         this.fireRecovery("RECOVERY_OVER_5", key);
-        aiLogger.log("Brain", "success", `Confidence ${score}% → Executing OVER 5`);
+        aiLogger.log("Brain", "success",
+          `${sequenceFire && !probOk ? `Sequence-fire (highRun ${seq.highRun})` : `Confidence ${score}%`} → Executing OVER 5`);
         return { shouldTrade: true, contractType: "DIGITOVER", barrier: "5", strategy: "RECOVERY_OVER_5", reason: "OVER 5 recovery", confidence: score };
       }
-      return wait(`Recovery (OVER 5) — score ${score}, P[>5]=${sumHigh6_9.toFixed(1)}%`);
+      return wait(`Recovery (OVER 5) — score ${score}, P[>5]=${sumHigh6_9.toFixed(1)}%, highRun=${seq.highRun}`);
     }
 
     return wait("Recovery armed but no target");
