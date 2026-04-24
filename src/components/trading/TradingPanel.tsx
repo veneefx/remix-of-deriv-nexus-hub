@@ -11,6 +11,7 @@ import { fanOutCopyTrade } from "@/services/copy-trade";
 import { tradeLock } from "@/services/trade-lock";
 import { engineMemory, buildPatternKey } from "@/services/engine-memory";
 import { notifications } from "@/services/notifications";
+import { sounds } from "@/services/sounds";
 import AnalysisTab from "@/components/trading/AnalysisTab";
 import DigitAnalysisDashboard from "@/components/trading/DigitAnalysisDashboard";
 import LiveProbabilityEngine from "@/components/trading/LiveProbabilityEngine";
