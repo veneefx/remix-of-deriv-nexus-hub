@@ -4,10 +4,16 @@
 //
 // Uses the standard Notification API + (when available) the registered Service
 // Worker to show notifications from background context. Falls back gracefully.
+//
+// Each notification also plays a distinctive WebAudio jingle so the user gets
+// audible feedback (TP fanfare, SL alarm, etc.) without requiring asset files.
+
+import { sounds, type SoundKind } from "./sounds";
 
 const STORAGE_KEY = "dnx_notifications_enabled";
+const DISMISS_KEY = "dnx_notif_prompt_dismissed_v1";
 
-export type NotifyKind = "success" | "warn" | "error" | "info";
+export type NotifyKind = "success" | "warn" | "error" | "info" | "tp" | "sl";
 
 const ICON = "/icon-192.png";
 const BADGE = "/icon-192.png";
