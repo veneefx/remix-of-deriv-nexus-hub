@@ -569,4 +569,14 @@ function bucket(p: number): string {
   return `${Math.floor(p / 5) * 5}-${Math.floor(p / 5) * 5 + 5}`;
 }
 
+/** Count how many trailing elements (from end) match `pred` consecutively. */
+function trailingRun<T>(arr: T[], pred: (v: T) => boolean): number {
+  let n = 0;
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (pred(arr[i])) n++;
+    else break;
+  }
+  return n;
+}
+
 export const derivBrain = new DerivBrain();
