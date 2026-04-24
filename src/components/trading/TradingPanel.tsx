@@ -765,11 +765,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       setShowTpModal(true);
       stopBot();
       toast({ title: "🎉 Take Profit Hit!", description: `Profit: $${totalP.toFixed(2)}` });
-      notifications.notify("🎉 Take Profit Hit", `Session profit: $${totalP.toFixed(2)}`, "success");
+      notifications.notify("🎉 Take Profit Hit", `Session profit: $${totalP.toFixed(2)}`, "tp");
     } else if (totalP <= -sl) {
       stopBot();
       toast({ title: "⛔ Stop Loss Hit", description: `Loss limit reached: $${Math.abs(totalP).toFixed(2)}` });
-      notifications.notify("⛔ Stop Loss Hit", `Loss limit reached: $${Math.abs(totalP).toFixed(2)}`, "error");
+      notifications.notify("⛔ Stop Loss Hit", `Loss limit reached: $${Math.abs(totalP).toFixed(2)}`, "sl");
     }
 
     // After stake changes, refresh proposal ONCE with new stake
