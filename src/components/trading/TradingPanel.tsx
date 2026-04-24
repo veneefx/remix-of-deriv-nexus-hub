@@ -11,6 +11,7 @@ import { fanOutCopyTrade } from "@/services/copy-trade";
 import { tradeLock } from "@/services/trade-lock";
 import { engineMemory, buildPatternKey } from "@/services/engine-memory";
 import { notifications } from "@/services/notifications";
+import { sounds } from "@/services/sounds";
 import AnalysisTab from "@/components/trading/AnalysisTab";
 import DigitAnalysisDashboard from "@/components/trading/DigitAnalysisDashboard";
 import LiveProbabilityEngine from "@/components/trading/LiveProbabilityEngine";
@@ -243,6 +244,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [tpAmount, setTpAmount] = useState(0);
 
   const [activeTab, setActiveTab] = useState<"trading" | "analysis">("trading");
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const prevMarketRef = useRef(selectedMarket);
   const botRunning = useRef(false);
   const consecutiveLosses = useRef(0);
@@ -739,14 +741,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       currentStake.current = parseFloat(stake);
     } else {
       consecutiveLosses.current++;
-      if (martingale && consecutiveLosses.current >= startMartingaleAfter && consecutiveLosses.current < maxMartingaleSteps) {
-        // Calculate martingale stake from BASE, not by multiplying current
-        // This prevents parallel losses from compounding the multiplier incorrectly
+      if (martingale && consecutiveLosses.current >= startMartingaleAfter) {
+        // PERSISTENT MARTINGALE: keep stake at the max-step level after maxMartingaleSteps
+        // is reached — do NOT reset to base until a real win occurs.
         const lossStep = consecutiveLosses.current - startMartingaleAfter + 1;
-        currentStake.current = parseFloat(stake) * Math.pow(parseFloat(martingaleMultiplier), lossStep);
-      } else if (martingale && consecutiveLosses.current >= maxMartingaleSteps) {
-        currentStake.current = parseFloat(stake);
-        consecutiveLosses.current = 0;
+        const cappedStep = Math.min(lossStep, maxMartingaleSteps);
+        currentStake.current = parseFloat(stake) * Math.pow(parseFloat(martingaleMultiplier), cappedStep);
       }
     }
 
@@ -767,11 +767,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       setShowTpModal(true);
       stopBot();
       toast({ title: "🎉 Take Profit Hit!", description: `Profit: $${totalP.toFixed(2)}` });
-      notifications.notify("🎉 Take Profit Hit", `Session profit: $${totalP.toFixed(2)}`, "success");
+      notifications.notify("🎉 Take Profit Hit", `Session profit: $${totalP.toFixed(2)}`, "tp");
     } else if (totalP <= -sl) {
       stopBot();
       toast({ title: "⛔ Stop Loss Hit", description: `Loss limit reached: $${Math.abs(totalP).toFixed(2)}` });
-      notifications.notify("⛔ Stop Loss Hit", `Loss limit reached: $${Math.abs(totalP).toFixed(2)}`, "error");
+      notifications.notify("⛔ Stop Loss Hit", `Loss limit reached: $${Math.abs(totalP).toFixed(2)}`, "sl");
     }
 
     // After stake changes, refresh proposal ONCE with new stake
@@ -907,6 +907,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     partialProfitTaken.current = 0;
     openContracts.current = 0;
     pendingTrades.current.clear();
+    sounds.prime(); // user gesture → unlocks audible alerts
     setSession({ totalTrades: 0, wins: 0, losses: 0, totalProfit: 0, peakBalance: 0, maxDrawdown: 0, startBalance: 0, largestStake: 0, maxLossStreak: 0 });
     setTransactions([]);
     toast({ title: "▶ Bot Started", description: `${strategyProfile} profile • ${executionSpeed} mode` });
@@ -923,9 +924,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     if (softwareStatus !== "ACTIVE" || !botRunning.current || mode !== "Automated") return;
 
     const intervalMs = executionSpeed === "Turbo" ? 200 :
-                       executionSpeed === "Fast" ? 1000 : 4000;
+                       executionSpeed === "Fast" ? 700 : 4000;
     // Brain trades only ONE contract at a time, no spamming
     const brainIntervalMs = strategyProfile === "brain" ? 300 : intervalMs;
+
+    let lastEngineLogTs = 0;
 
     const timer = setInterval(() => {
       if (!botRunning.current) return;
@@ -965,27 +968,81 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
       if (!proposalReady.current) return;
 
+      // ── DigitEdge full-analytics gate for non-Brain engines ──
+      // Engines must "think" before firing: read frequency imbalance, digit
+      // pressure (highest-pressure pointer), recent streaks, parity bias and
+      // probability surface — not just a single signal score.
+      const digits = lastDigitsRef.current;
+      const total = digits.length;
+      const freq = new Array(10).fill(0);
+      digits.forEach((d) => freq[d]++);
+      const freqPct = total > 0 ? freq.map((c) => (c / total) * 100) : freq;
+      const maxDev = Math.max(...freqPct.map((p) => Math.abs(p - 10)));
+      const last30 = digits.slice(-30);
+      let trailEven = 0, trailOdd = 0, trailLow = 0, trailHigh = 0;
+      for (let i = last30.length - 1; i >= 0; i--) {
+        const d = last30[i];
+        if (d % 2 === 0) { if (trailOdd === 0) trailEven++; else break; }
+        else { if (trailEven === 0) trailOdd++; else break; }
+      }
+      for (let i = last30.length - 1; i >= 0; i--) {
+        const d = last30[i];
+        if (d < 5) { if (trailHigh === 0) trailLow++; else break; }
+        else { if (trailLow === 0) trailHigh++; else break; }
+      }
+      const evenInLast20 = digits.slice(-20).filter((d) => d % 2 === 0).length;
+      const evenBias = evenInLast20 / 20;
+
       const { score, elitScore } = latestSignalRef.current;
       let shouldTrade = false;
+      let analyticsReason = "";
       const threshold = strategyProfile === "aggressive" ? 0.05 :
                         strategyProfile === "conservative" ? 0.25 : 0.15;
 
+      const engineName: AIEngine =
+        strategyProfile === "elit" ? "ELIT" :
+        strategyProfile === "aggressive" ? "Aggressive" :
+        strategyProfile === "conservative" ? "Conservative" : "Balanced";
+
+      // Cross-engine memory veto — skip patterns this engine consistently loses on
+      const patternKey = buildPatternKey(contractType, freqPct);
+      if (engineMemory.shouldSkip(engineName, patternKey)) {
+        if (now - lastEngineLogTs > 5000) {
+          aiLogger.log(engineName, "warn", `Skipping pattern ${patternKey} (poor history)`);
+          lastEngineLogTs = now;
+        }
+        return;
+      }
+
       if (strategyProfile === "elit") {
         shouldTrade = elitScore >= 70;
-        if (shouldTrade) aiLogger.log("ELIT", "success", `Confluence ${elitScore}% — firing ${elitContract.replace("DIGIT","")}`);
+        if (shouldTrade) aiLogger.log("ELIT", "success", `Confluence ${elitScore}% — firing ${elitContract.replace("DIGIT","")} • freqDev ${maxDev.toFixed(1)}% • lowRun ${trailLow} • highRun ${trailHigh}`);
       } else {
-        shouldTrade = score >= threshold;
+        // Conservative / Balanced / Aggressive — read full DigitEdge surface
+        // Require at least one of: signal-score threshold, strong sequence streak,
+        // strong parity bias, or strong frequency dominance.
+        const sigOk = score >= threshold;
+        const streakOk = trailLow >= 4 || trailHigh >= 4 || trailEven >= 4 || trailOdd >= 4;
+        const biasOk = evenBias <= 0.30 || evenBias >= 0.70; // >=70% one parity in last 20
+        const dominanceOk = maxDev >= 5; // any digit ≥15% or ≤5%
+        // Conservative needs 2 confluences, balanced 1, aggressive 1
+        const confluenceCount = [sigOk, streakOk, biasOk, dominanceOk].filter(Boolean).length;
+        const required = strategyProfile === "conservative" ? 2 : 1;
+        shouldTrade = confluenceCount >= required;
+        if (shouldTrade) {
+          analyticsReason = `sig ${(score * 100).toFixed(0)}% • dev ${maxDev.toFixed(1)}% • E/O ${(evenBias * 100).toFixed(0)}% • run L${trailLow}/H${trailHigh} E${trailEven}/O${trailOdd}`;
+          aiLogger.log(engineName, "success", `Firing ${contractType.replace("DIGIT", "")} — ${analyticsReason}`);
+        } else if (now - lastEngineLogTs > 4000) {
+          aiLogger.log(engineName, "info", `Reading edge — sig ${(score * 100).toFixed(0)}% • dev ${maxDev.toFixed(1)}% • runs L${trailLow}/H${trailHigh} E${trailEven}/O${trailOdd} • need ${required} confluence`);
+          lastEngineLogTs = now;
+        }
       }
 
       if (shouldTrade) {
-        const remaining = MAX_TRADES_PER_SEC - tradeTimestamps.current.length;
-        const maxSlots = MAX_CONCURRENT - openContracts.current;
-        const tradeCount = bulkModeRef.current ? Math.min(bulkCountRef.current, remaining, maxSlots) : 1;
-        const actualCount = executionSpeed === "Turbo" ? Math.min(tradeCount, remaining) : 1;
-        const lastDigit = lastDigitsRef.current[lastDigitsRef.current.length - 1];
-        for (let i = 0; i < actualCount; i++) {
-          executeTradeContinuous(lastDigit);
-        }
+        const lastDigit = digits[digits.length - 1];
+        // Aggressive / Conservative / Balanced / ELIT all fire ONE trade per
+        // tick — never batch. Lock + proposal-refresh handle continuous flow.
+        executeTradeContinuous(lastDigit);
       }
     }, brainIntervalMs);
 
@@ -1407,8 +1464,45 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         )}
       </div>
 
-      {/* Right Panel - Trading Controls */}
-      <div className="hidden lg:block w-[320px] border-l border-border bg-card/50 overflow-y-auto">
+      {/* Mobile FAB to open the trading-controls bottom sheet */}
+      <button
+        onClick={() => setMobileSheetOpen(true)}
+        className="lg:hidden fixed bottom-44 right-4 z-40 h-14 px-5 rounded-full bg-buy text-primary-foreground font-bold text-xs shadow-2xl shadow-buy/30 flex items-center gap-2 active:scale-95 transition-transform"
+        aria-label="Open trade controls"
+      >
+        <Activity className="w-4 h-4" /> Trade
+      </button>
+
+      {/* Mobile backdrop */}
+      {mobileSheetOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-40 bg-background/70 backdrop-blur-sm"
+          onClick={() => setMobileSheetOpen(false)}
+        />
+      )}
+
+      {/* Right Panel — desktop side panel + mobile bottom-sheet popup */}
+      <div
+        className={`bg-card/50 overflow-y-auto border-border ${
+          mobileSheetOpen
+            ? "fixed inset-x-0 bottom-0 z-50 max-h-[85vh] rounded-t-2xl border-t shadow-2xl block animate-in slide-in-from-bottom duration-300 lg:relative lg:max-h-none lg:rounded-none lg:border-l lg:border-t-0 lg:shadow-none lg:w-[320px] lg:animate-none"
+            : "hidden lg:block w-[320px] border-l"
+        }`}
+      >
+        {/* Mobile sheet handle + close */}
+        {mobileSheetOpen && (
+          <div className="lg:hidden sticky top-0 z-10 bg-card/95 backdrop-blur border-b border-border px-4 py-2 flex items-center justify-between">
+            <div className="mx-auto w-10 h-1 rounded-full bg-muted absolute left-1/2 -translate-x-1/2 top-1.5" />
+            <p className="text-xs font-bold text-foreground">Trade Controls</p>
+            <button
+              onClick={() => setMobileSheetOpen(false)}
+              className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"
+              aria-label="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
         <div className="p-4 space-y-4">
           {/* Market */}
           <div>
@@ -1481,26 +1575,39 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
               ))}
             </div>
             {strategyProfile === "brain" && (
-              <div className="mt-2 p-2 rounded-lg bg-buy/5 border border-buy/20 space-y-1.5">
+              <div className="mt-2 p-2.5 rounded-lg bg-buy/5 border border-buy/30 space-y-2">
                 <p className="text-[9px] text-buy font-bold flex items-center gap-1">
-                  🧠 Adaptive UNDER 8 / OVER 2 — strict entry triggers + self-learning
+                  🧠 Adaptive UNDER 8 / OVER 2 — sequence-pattern entry + self-learning
                 </p>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[9px] text-muted-foreground font-semibold">Recovery:</span>
-                  {(["digit", "evenodd"] as const).map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => { setRecoveryModeState(m); derivBrain.setRecoveryMode(m); }}
-                      className={`flex-1 px-2 py-1 rounded text-[10px] font-bold transition-colors border ${
-                        recoveryMode === m
-                          ? "bg-buy text-primary-foreground border-buy"
-                          : "bg-secondary text-muted-foreground border-border hover:border-buy/40"
-                      }`}
-                    >
-                      {m === "digit" ? "Digit Recovery" : "Even/Odd Recovery"}
-                    </button>
-                  ))}
+                <div>
+                  <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-bold mb-1">Recovery Mode</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {(["digit", "evenodd"] as const).map((m) => {
+                      const active = recoveryMode === m;
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => {
+                            setRecoveryModeState(m);
+                            derivBrain.setRecoveryMode(m);
+                            toast({ title: "Recovery mode updated", description: m === "digit" ? "Digit Recovery (UNDER 5 / OVER 5)" : "Even/Odd Recovery" });
+                          }}
+                          className={`relative px-2 py-1.5 rounded-md text-[10px] font-bold transition-all border ${
+                            active
+                              ? "bg-buy text-primary-foreground border-buy ring-2 ring-buy/40 shadow shadow-buy/20"
+                              : "bg-secondary text-muted-foreground border-border hover:border-buy/40 hover:text-foreground"
+                          }`}
+                        >
+                          {active && <span className="absolute top-0.5 right-1 text-[8px]">✓</span>}
+                          {m === "digit" ? "Digit Recovery" : "Even/Odd Recovery"}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[8px] text-muted-foreground mt-1.5 italic">
+                    {recoveryMode === "digit" ? "After loss → UNDER 5 / OVER 5 when sequence/probability aligns." : "After loss → EVEN / ODD when parity bias > 52% or run ≥ 4."}
+                  </p>
                 </div>
               </div>
             )}

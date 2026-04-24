@@ -158,6 +158,10 @@ class DerivBrain {
     const sumLow0_4 = freq[0] + freq[1] + freq[2] + freq[3] + freq[4];
     const sumHigh5_9 = freq[5] + freq[6] + freq[7] + freq[8] + freq[9];
 
+    // ── SEQUENCE-PATTERN ANALYSIS (last 30/100 ticks) ─────────────
+    // The Brain reads what's actually happening, not just thresholds.
+    const seq = this.analyzeSequence(digits);
+
     // ── RECOVERY MODE ─────────────────────────────────────────────
     if (this.state.recoveryArmed && this.state.recoveryFor) {
       if (volSpike) return wait("Vol spike — holding recovery");
@@ -166,9 +170,9 @@ class DerivBrain {
       const minScore = this.state.recoveryAttempts >= 2 ? 80 : 70;
 
       if (this.state.recoveryMode === "evenodd") {
-        return this.tryEvenOddRecovery(digits, freq, minScore);
+        return this.tryEvenOddRecovery(digits, freq, minScore, seq);
       }
-      return this.tryDigitRecovery(freq, sumLow0_4, sumHigh5_9, minScore);
+      return this.tryDigitRecovery(freq, sumLow0_4, sumHigh5_9, minScore, seq);
     }
 
     // ── PRIMARY STRATEGIES ────────────────────────────────────────
@@ -179,59 +183,107 @@ class DerivBrain {
     const under8Valid = this.checkUnder8(freq);
     const over2Valid = this.checkOver2(freq);
 
-    if (under8Valid.valid && lastDigit === 6) {
+    // Pattern-driven entry: read last sequence, fire when pattern aligns even
+    // if the user-defined entry digit hasn't appeared yet. Brain chooses for itself.
+    const lowRunDriven = seq.lowRun >= 4 || seq.below5InLast20 >= 14; // sustained low cluster
+    const highRunDriven = seq.highRun >= 4 || seq.above4InLast20 >= 14; // sustained high cluster
+
+    if (under8Valid.valid) {
       const stat = this.state.stats.UNDER_8;
       if (!(stat.trades > 20 && under8WinRate < 40)) {
-        const key = `U8|high89=${bucket(freq[8] + freq[9])}|low04=${bucket(sumLow0_4)}`;
-        if (!this.shouldSkipPattern(key)) {
-          this.firePrimary("UNDER_8", key);
-          aiLogger.log("Brain", "success",
-            `UNDER 8 firing — entry 6 [8:${freq[8].toFixed(1)} 9:${freq[9].toFixed(1)}]`);
-          return { shouldTrade: true, contractType: "DIGITUNDER", barrier: "8", strategy: "UNDER_8", reason: "UNDER 8 entry" };
+        const entryByDigit = lastDigit === 6;
+        const entryByPattern = lowRunDriven && seq.last8and9Frac < 0.15;
+        if (entryByDigit || entryByPattern) {
+          const key = `U8|high89=${bucket(freq[8] + freq[9])}|low04=${bucket(sumLow0_4)}|seq=${seq.lowRun >= 4 ? "lowRun" : "freq"}`;
+          if (!this.shouldSkipPattern(key)) {
+            this.firePrimary("UNDER_8", key);
+            const trigger = entryByPattern && !entryByDigit
+              ? `pattern-fire (lowRun ${seq.lowRun}, <5 in last20: ${seq.below5InLast20})`
+              : `entry digit 6`;
+            aiLogger.log("Brain", "success",
+              `UNDER 8 firing — ${trigger} [8:${freq[8].toFixed(1)} 9:${freq[9].toFixed(1)}]`);
+            return { shouldTrade: true, contractType: "DIGITUNDER", barrier: "8", strategy: "UNDER_8", reason: "UNDER 8 entry" };
+          }
         }
       }
     }
 
-    if (over2Valid.valid && lastDigit === 4) {
+    if (over2Valid.valid) {
       const stat = this.state.stats.OVER_2;
       if (!(stat.trades > 20 && over2WinRate < 40)) {
-        const key = `O2|low01=${bucket(freq[0] + freq[1])}|high59=${bucket(sumHigh5_9)}`;
-        if (!this.shouldSkipPattern(key)) {
-          this.firePrimary("OVER_2", key);
-          aiLogger.log("Brain", "success",
-            `OVER 2 firing — entry 4 [0:${freq[0].toFixed(1)} 1:${freq[1].toFixed(1)}]`);
-          return { shouldTrade: true, contractType: "DIGITOVER", barrier: "2", strategy: "OVER_2", reason: "OVER 2 entry" };
+        const entryByDigit = lastDigit === 4;
+        const entryByPattern = highRunDriven && seq.last0and1Frac < 0.15;
+        if (entryByDigit || entryByPattern) {
+          const key = `O2|low01=${bucket(freq[0] + freq[1])}|high59=${bucket(sumHigh5_9)}|seq=${seq.highRun >= 4 ? "highRun" : "freq"}`;
+          if (!this.shouldSkipPattern(key)) {
+            this.firePrimary("OVER_2", key);
+            const trigger = entryByPattern && !entryByDigit
+              ? `pattern-fire (highRun ${seq.highRun}, >4 in last20: ${seq.above4InLast20})`
+              : `entry digit 4`;
+            aiLogger.log("Brain", "success",
+              `OVER 2 firing — ${trigger} [0:${freq[0].toFixed(1)} 1:${freq[1].toFixed(1)}]`);
+            return { shouldTrade: true, contractType: "DIGITOVER", barrier: "2", strategy: "OVER_2", reason: "OVER 2 entry" };
+          }
         }
       }
     }
 
-    if (under8Valid.valid && lastDigit !== 6) return wait(`UNDER 8 ready — waiting entry digit 6 (got ${lastDigit})`);
-    if (over2Valid.valid && lastDigit !== 4) return wait(`OVER 2 ready — waiting entry digit 4 (got ${lastDigit})`);
-    return wait(`No valid setup [U8:${under8Valid.reason} | O2:${over2Valid.reason}]`);
+    if (under8Valid.valid && lastDigit !== 6 && !lowRunDriven) return wait(`UNDER 8 ready — entry digit 6 or low-run (got ${lastDigit}, lowRun=${seq.lowRun})`);
+    if (over2Valid.valid && lastDigit !== 4 && !highRunDriven) return wait(`OVER 2 ready — entry digit 4 or high-run (got ${lastDigit}, highRun=${seq.highRun})`);
+    return wait(`No pattern [U8:${under8Valid.reason} | O2:${over2Valid.reason} | seq E${seq.evenRun}/O${seq.oddRun} L${seq.lowRun}/H${seq.highRun}]`);
+  }
+
+  // ── SEQUENCE PATTERN READER ────────────────────────────────────
+  private analyzeSequence(digits: number[]) {
+    const last20 = digits.slice(-20);
+    const last30 = digits.slice(-30);
+
+    const evenRun = trailingRun(last30, (d) => d % 2 === 0);
+    const oddRun  = trailingRun(last30, (d) => d % 2 !== 0);
+    const lowRun  = trailingRun(last30, (d) => d < 5);
+    const highRun = trailingRun(last30, (d) => d > 4);
+
+    const below5InLast20 = last20.filter((d) => d < 5).length;
+    const above4InLast20 = last20.filter((d) => d > 4).length;
+    const last8and9Frac  = last20.filter((d) => d >= 8).length / Math.max(1, last20.length);
+    const last0and1Frac  = last20.filter((d) => d <= 1).length / Math.max(1, last20.length);
+
+    // Flip rate (alternation density) — high = chaos
+    let flips = 0;
+    for (let i = 1; i < last30.length; i++) if ((last30[i] % 2) !== (last30[i - 1] % 2)) flips++;
+    const flipRate = (flips / Math.max(1, last30.length - 1)) * 100;
+
+    return { evenRun, oddRun, lowRun, highRun, below5InLast20, above4InLast20, last8and9Frac, last0and1Frac, flipRate };
   }
 
   // ── DIGIT RECOVERY ──────────────────────────────────────────────
-  private tryDigitRecovery(freq: number[], sumLow0_4: number, sumHigh5_9: number, minScore: number): BrainDecision {
+  private tryDigitRecovery(
+    freq: number[], sumLow0_4: number, sumHigh5_9: number, minScore: number,
+    seq: ReturnType<DerivBrain["analyzeSequence"]>
+  ): BrainDecision {
     const sumLow0_4Strict = freq[0] + freq[1] + freq[2] + freq[3]; // for UNDER 5
     const sumHigh5_9Strict = freq[5] + freq[6] + freq[7] + freq[8] + freq[9]; // for OVER 5 (>5 means 6-9)
 
     if (this.state.recoveryFor === "UNDER_8") {
-      // RECOVERY = UNDER 5
+      // RECOVERY = UNDER 5 — fire on probability OR clear sequence pattern
       const score = this.computeReadinessScore(freq, "DIGITUNDER", 5);
       const each04Ok = [0, 1, 2, 3, 4].every((d) => freq[d] >= 9.0);
       const digit5NotExtreme = freq[5] < 14 && freq[5] > 7;
+      const sequenceFire = seq.lowRun >= 4 && seq.below5InLast20 >= 13 && seq.flipRate < 65;
 
       aiLogger.log("Brain", "info",
-        `Recovery UNDER 5 — score ${score}/100 • P[<5]=${sumLow0_4Strict.toFixed(1)}% • need ${minScore}+`);
+        `Recovery UNDER 5 — score ${score}/100 • P[<5]=${sumLow0_4Strict.toFixed(1)}% • lowRun=${seq.lowRun} • need ${minScore}+`);
 
-      if (score >= minScore && sumLow0_4Strict >= 53 && each04Ok && digit5NotExtreme) {
-        const key = `RU5|low04=${bucket(sumLow0_4Strict)}|d5=${bucket(freq[5])}`;
+      const probOk = score >= minScore && sumLow0_4Strict >= 53 && each04Ok && digit5NotExtreme;
+      if (probOk || sequenceFire) {
+        const key = `RU5|low04=${bucket(sumLow0_4Strict)}|d5=${bucket(freq[5])}|seq=${sequenceFire ? "lowRun" : "prob"}`;
         if (this.shouldSkipPattern(key)) return wait(`Pattern ${key} avoided (poor history)`);
         this.fireRecovery("RECOVERY_UNDER_5", key);
-        aiLogger.log("Brain", "success", `Confidence ${score}% → Executing UNDER 5`);
+        aiLogger.log("Brain", "success",
+          `${sequenceFire && !probOk ? `Sequence-fire (lowRun ${seq.lowRun})` : `Confidence ${score}%`} → Executing UNDER 5`);
         return { shouldTrade: true, contractType: "DIGITUNDER", barrier: "5", strategy: "RECOVERY_UNDER_5", reason: "UNDER 5 recovery", confidence: score };
       }
-      return wait(`Recovery (UNDER 5) — score ${score}, P[<5]=${sumLow0_4Strict.toFixed(1)}%`);
+      return wait(`Recovery (UNDER 5) — score ${score}, P[<5]=${sumLow0_4Strict.toFixed(1)}%, lowRun=${seq.lowRun}`);
     }
 
     if (this.state.recoveryFor === "OVER_2") {
@@ -240,25 +292,31 @@ class DerivBrain {
       const score = this.computeReadinessScore(freq, "DIGITOVER", 5);
       const each69Ok = [6, 7, 8, 9].every((d) => freq[d] >= 9.0);
       const digit5NotExtreme = freq[5] < 14 && freq[5] > 7;
+      const sequenceFire = seq.highRun >= 4 && seq.above4InLast20 >= 13 && seq.flipRate < 65;
 
       aiLogger.log("Brain", "info",
-        `Recovery OVER 5 — score ${score}/100 • P[>5]=${sumHigh6_9.toFixed(1)}% • need ${minScore}+`);
+        `Recovery OVER 5 — score ${score}/100 • P[>5]=${sumHigh6_9.toFixed(1)}% • highRun=${seq.highRun} • need ${minScore}+`);
 
-      if (score >= minScore && sumHigh6_9 >= 45 && each69Ok && digit5NotExtreme) {
-        const key = `RO5|high69=${bucket(sumHigh6_9)}|d5=${bucket(freq[5])}`;
+      const probOk = score >= minScore && sumHigh6_9 >= 45 && each69Ok && digit5NotExtreme;
+      if (probOk || sequenceFire) {
+        const key = `RO5|high69=${bucket(sumHigh6_9)}|d5=${bucket(freq[5])}|seq=${sequenceFire ? "highRun" : "prob"}`;
         if (this.shouldSkipPattern(key)) return wait(`Pattern ${key} avoided (poor history)`);
         this.fireRecovery("RECOVERY_OVER_5", key);
-        aiLogger.log("Brain", "success", `Confidence ${score}% → Executing OVER 5`);
+        aiLogger.log("Brain", "success",
+          `${sequenceFire && !probOk ? `Sequence-fire (highRun ${seq.highRun})` : `Confidence ${score}%`} → Executing OVER 5`);
         return { shouldTrade: true, contractType: "DIGITOVER", barrier: "5", strategy: "RECOVERY_OVER_5", reason: "OVER 5 recovery", confidence: score };
       }
-      return wait(`Recovery (OVER 5) — score ${score}, P[>5]=${sumHigh6_9.toFixed(1)}%`);
+      return wait(`Recovery (OVER 5) — score ${score}, P[>5]=${sumHigh6_9.toFixed(1)}%, highRun=${seq.highRun}`);
     }
 
     return wait("Recovery armed but no target");
   }
 
   // ── EVEN / ODD RECOVERY ─────────────────────────────────────────
-  private tryEvenOddRecovery(digits: number[], freq: number[], minScore: number): BrainDecision {
+  private tryEvenOddRecovery(
+    digits: number[], freq: number[], minScore: number,
+    seq: ReturnType<DerivBrain["analyzeSequence"]>
+  ): BrainDecision {
     // Use last 100-500 ticks
     const window = digits.slice(-500);
     let evenCount = 0;
@@ -280,21 +338,27 @@ class DerivBrain {
     aiLogger.log("Brain", "info",
       `Recovery E/O — Even ${evenPct.toFixed(1)}% • Odd ${oddPct.toFixed(1)}% • flips ${flipRate.toFixed(0)}% • score ${score}`);
 
-    if (!stable) return wait(`E/O recovery — flipping (${flipRate.toFixed(0)}%) — wait`);
-    if (score < minScore) return wait(`E/O recovery — low score ${score}`);
+    // Pattern-driven fire even if probability not met yet
+    const evenSeqFire = seq.evenRun >= 4 && seq.flipRate < 55;
+    const oddSeqFire  = seq.oddRun  >= 4 && seq.flipRate < 55;
 
-    if (evenPct >= 52) {
-      const key = `REven|even=${bucket(evenPct)}|flips=${bucket(flipRate)}`;
+    if (!stable && !evenSeqFire && !oddSeqFire) return wait(`E/O recovery — flipping (${flipRate.toFixed(0)}%) — wait`);
+    if (score < minScore && !evenSeqFire && !oddSeqFire) return wait(`E/O recovery — low score ${score}`);
+
+    if (evenPct >= 52 || evenSeqFire) {
+      const key = `REven|even=${bucket(evenPct)}|flips=${bucket(flipRate)}|seq=${evenSeqFire ? "evenRun" : "prob"}`;
       if (this.shouldSkipPattern(key)) return wait(`Pattern ${key} avoided`);
       this.fireRecovery("RECOVERY_EVEN", key);
-      aiLogger.log("Brain", "success", `Confidence ${score}% → Executing EVEN`);
+      aiLogger.log("Brain", "success",
+        `${evenSeqFire ? `Even-run ${seq.evenRun}` : `Confidence ${score}%`} → Executing EVEN`);
       return { shouldTrade: true, contractType: "DIGITEVEN", barrier: null, strategy: "RECOVERY_EVEN", reason: "EVEN bias", confidence: score };
     }
-    if (oddPct >= 52) {
-      const key = `ROdd|odd=${bucket(oddPct)}|flips=${bucket(flipRate)}`;
+    if (oddPct >= 52 || oddSeqFire) {
+      const key = `ROdd|odd=${bucket(oddPct)}|flips=${bucket(flipRate)}|seq=${oddSeqFire ? "oddRun" : "prob"}`;
       if (this.shouldSkipPattern(key)) return wait(`Pattern ${key} avoided`);
       this.fireRecovery("RECOVERY_ODD", key);
-      aiLogger.log("Brain", "success", `Confidence ${score}% → Executing ODD`);
+      aiLogger.log("Brain", "success",
+        `${oddSeqFire ? `Odd-run ${seq.oddRun}` : `Confidence ${score}%`} → Executing ODD`);
       return { shouldTrade: true, contractType: "DIGITODD", barrier: null, strategy: "RECOVERY_ODD", reason: "ODD bias", confidence: score };
     }
 
@@ -503,6 +567,16 @@ function computeFrequency(digits: number[]): number[] {
 
 function bucket(p: number): string {
   return `${Math.floor(p / 5) * 5}-${Math.floor(p / 5) * 5 + 5}`;
+}
+
+/** Count how many trailing elements (from end) match `pred` consecutively. */
+function trailingRun<T>(arr: T[], pred: (v: T) => boolean): number {
+  let n = 0;
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (pred(arr[i])) n++;
+    else break;
+  }
+  return n;
 }
 
 export const derivBrain = new DerivBrain();

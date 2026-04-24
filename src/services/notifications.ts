@@ -4,10 +4,16 @@
 //
 // Uses the standard Notification API + (when available) the registered Service
 // Worker to show notifications from background context. Falls back gracefully.
+//
+// Each notification also plays a distinctive WebAudio jingle so the user gets
+// audible feedback (TP fanfare, SL alarm, etc.) without requiring asset files.
+
+import { sounds, type SoundKind } from "./sounds";
 
 const STORAGE_KEY = "dnx_notifications_enabled";
+const DISMISS_KEY = "dnx_notif_prompt_dismissed_v1";
 
-export type NotifyKind = "success" | "warn" | "error" | "info";
+export type NotifyKind = "success" | "warn" | "error" | "info" | "tp" | "sl";
 
 const ICON = "/icon-192.png";
 const BADGE = "/icon-192.png";
@@ -53,8 +59,24 @@ export const notifications = {
   disable() {
     setPersisted(false);
   },
-  /** Show a notification using SW when available, falling back to direct API. */
+  /** Clear the "Not now" dismissal so the prompt can re-appear (used by Retry). */
+  resetPromptDismissal() {
+    try { localStorage.removeItem(DISMISS_KEY); } catch {}
+  },
+  /** Show a notification using SW when available, falling back to direct API.
+   *  Always plays an audible cue, even when system notifications are blocked. */
   async notify(title: string, body: string, kind: NotifyKind = "info") {
+    // Audible cue (works even without notification permission)
+    try {
+      const soundKind: SoundKind =
+        kind === "tp" ? "tp" :
+        kind === "sl" ? "sl" :
+        kind === "success" ? "success" :
+        kind === "error" ? "error" :
+        kind === "warn" ? "warn" : "info";
+      sounds.play(soundKind);
+    } catch {}
+
     if (!this.isEnabled()) return;
     const tag = `dnx-${kind}-${Date.now()}`;
     const opts: NotificationOptions = {
@@ -63,8 +85,9 @@ export const notifications = {
       badge: BADGE,
       tag,
       // @ts-expect-error vibrate is not in the standard NotificationOptions type
-      vibrate: kind === "error" ? [200, 100, 200] : [100],
-      requireInteraction: kind === "error" || kind === "success",
+      vibrate: kind === "error" || kind === "sl" ? [200, 100, 200, 100, 200] :
+               kind === "tp" ? [80, 60, 80, 60, 200] : [100],
+      requireInteraction: kind === "error" || kind === "success" || kind === "tp" || kind === "sl",
     };
     try {
       if ("serviceWorker" in navigator) {
