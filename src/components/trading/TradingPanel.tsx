@@ -906,6 +906,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     partialProfitTaken.current = 0;
     openContracts.current = 0;
     pendingTrades.current.clear();
+    sounds.prime(); // user gesture → unlocks audible alerts
     setSession({ totalTrades: 0, wins: 0, losses: 0, totalProfit: 0, peakBalance: 0, maxDrawdown: 0, startBalance: 0, largestStake: 0, maxLossStreak: 0 });
     setTransactions([]);
     toast({ title: "▶ Bot Started", description: `${strategyProfile} profile • ${executionSpeed} mode` });
