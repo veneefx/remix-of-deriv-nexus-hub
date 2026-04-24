@@ -41,23 +41,28 @@ class AILoggerStore {
     const last = this.logs[this.logs.length - 1];
     if (last && last.engine === engine && last.message === message && Date.now() - last.ts < 800) return;
 
-    this.logs.push({
+    const entry: AILogEntry = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       ts: Date.now(),
       engine,
       level,
       message,
-    });
+    };
+    // CRITICAL: replace array reference so useSyncExternalStore detects change
+    this.logs = [...this.logs, entry];
     if (this.logs.length > this.maxLogs) this.logs = this.logs.slice(-this.maxLogs);
     this.notify();
   }
 
   trade(entry: Omit<AITradeEntry, "id" | "ts">) {
-    this.trades.unshift({
+    const full: AITradeEntry = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       ts: Date.now(),
       ...entry,
-    });
+      // Defensive: derive `won` from profit if caller passed inconsistent flag
+      won: entry.won || entry.profit > 0,
+    };
+    this.trades = [full, ...this.trades];
     if (this.trades.length > this.maxTrades) this.trades = this.trades.slice(0, this.maxTrades);
     this.notify();
   }

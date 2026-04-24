@@ -19,6 +19,7 @@ import ForexAITab from "@/components/trading/ForexAITab";
 import ClientTokenManager from "@/components/trading/ClientTokenManager";
 import TradingHubLoader from "@/components/trading/TradingHubLoader";
 import FloatingAILogPanel from "@/components/trading/FloatingAILogPanel";
+import NotificationsPrompt from "@/components/trading/NotificationsPrompt";
 import DerivWebSocket from "@/services/deriv-websocket";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -710,6 +711,7 @@ const TradingHub = () => {
 
       {/* Global AI Activity Log Panel — floats above wallet/footer */}
       <FloatingAILogPanel />
+      <NotificationsPrompt />
     </div>
   );
 };
