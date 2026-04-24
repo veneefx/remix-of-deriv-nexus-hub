@@ -922,9 +922,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     if (softwareStatus !== "ACTIVE" || !botRunning.current || mode !== "Automated") return;
 
     const intervalMs = executionSpeed === "Turbo" ? 200 :
-                       executionSpeed === "Fast" ? 1000 : 4000;
+                       executionSpeed === "Fast" ? 700 : 4000;
     // Brain trades only ONE contract at a time, no spamming
     const brainIntervalMs = strategyProfile === "brain" ? 300 : intervalMs;
+
+    let lastEngineLogTs = 0;
 
     const timer = setInterval(() => {
       if (!botRunning.current) return;
@@ -964,27 +966,81 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
       if (!proposalReady.current) return;
 
+      // ── DigitEdge full-analytics gate for non-Brain engines ──
+      // Engines must "think" before firing: read frequency imbalance, digit
+      // pressure (highest-pressure pointer), recent streaks, parity bias and
+      // probability surface — not just a single signal score.
+      const digits = lastDigitsRef.current;
+      const total = digits.length;
+      const freq = new Array(10).fill(0);
+      digits.forEach((d) => freq[d]++);
+      const freqPct = total > 0 ? freq.map((c) => (c / total) * 100) : freq;
+      const maxDev = Math.max(...freqPct.map((p) => Math.abs(p - 10)));
+      const last30 = digits.slice(-30);
+      let trailEven = 0, trailOdd = 0, trailLow = 0, trailHigh = 0;
+      for (let i = last30.length - 1; i >= 0; i--) {
+        const d = last30[i];
+        if (d % 2 === 0) { if (trailOdd === 0) trailEven++; else break; }
+        else { if (trailEven === 0) trailOdd++; else break; }
+      }
+      for (let i = last30.length - 1; i >= 0; i--) {
+        const d = last30[i];
+        if (d < 5) { if (trailHigh === 0) trailLow++; else break; }
+        else { if (trailLow === 0) trailHigh++; else break; }
+      }
+      const evenInLast20 = digits.slice(-20).filter((d) => d % 2 === 0).length;
+      const evenBias = evenInLast20 / 20;
+
       const { score, elitScore } = latestSignalRef.current;
       let shouldTrade = false;
+      let analyticsReason = "";
       const threshold = strategyProfile === "aggressive" ? 0.05 :
                         strategyProfile === "conservative" ? 0.25 : 0.15;
 
+      const engineName: AIEngine =
+        strategyProfile === "elit" ? "ELIT" :
+        strategyProfile === "aggressive" ? "Aggressive" :
+        strategyProfile === "conservative" ? "Conservative" : "Balanced";
+
+      // Cross-engine memory veto — skip patterns this engine consistently loses on
+      const patternKey = buildPatternKey(contractType, freqPct);
+      if (engineMemory.shouldSkip(engineName, patternKey)) {
+        if (now - lastEngineLogTs > 5000) {
+          aiLogger.log(engineName, "warn", `Skipping pattern ${patternKey} (poor history)`);
+          lastEngineLogTs = now;
+        }
+        return;
+      }
+
       if (strategyProfile === "elit") {
         shouldTrade = elitScore >= 70;
-        if (shouldTrade) aiLogger.log("ELIT", "success", `Confluence ${elitScore}% — firing ${elitContract.replace("DIGIT","")}`);
+        if (shouldTrade) aiLogger.log("ELIT", "success", `Confluence ${elitScore}% — firing ${elitContract.replace("DIGIT","")} • freqDev ${maxDev.toFixed(1)}% • lowRun ${trailLow} • highRun ${trailHigh}`);
       } else {
-        shouldTrade = score >= threshold;
+        // Conservative / Balanced / Aggressive — read full DigitEdge surface
+        // Require at least one of: signal-score threshold, strong sequence streak,
+        // strong parity bias, or strong frequency dominance.
+        const sigOk = score >= threshold;
+        const streakOk = trailLow >= 4 || trailHigh >= 4 || trailEven >= 4 || trailOdd >= 4;
+        const biasOk = evenBias <= 0.30 || evenBias >= 0.70; // >=70% one parity in last 20
+        const dominanceOk = maxDev >= 5; // any digit ≥15% or ≤5%
+        // Conservative needs 2 confluences, balanced 1, aggressive 1
+        const confluenceCount = [sigOk, streakOk, biasOk, dominanceOk].filter(Boolean).length;
+        const required = strategyProfile === "conservative" ? 2 : 1;
+        shouldTrade = confluenceCount >= required;
+        if (shouldTrade) {
+          analyticsReason = `sig ${(score * 100).toFixed(0)}% • dev ${maxDev.toFixed(1)}% • E/O ${(evenBias * 100).toFixed(0)}% • run L${trailLow}/H${trailHigh} E${trailEven}/O${trailOdd}`;
+          aiLogger.log(engineName, "success", `Firing ${contractType.replace("DIGIT", "")} — ${analyticsReason}`);
+        } else if (now - lastEngineLogTs > 4000) {
+          aiLogger.log(engineName, "info", `Reading edge — sig ${(score * 100).toFixed(0)}% • dev ${maxDev.toFixed(1)}% • runs L${trailLow}/H${trailHigh} E${trailEven}/O${trailOdd} • need ${required} confluence`);
+          lastEngineLogTs = now;
+        }
       }
 
       if (shouldTrade) {
-        const remaining = MAX_TRADES_PER_SEC - tradeTimestamps.current.length;
-        const maxSlots = MAX_CONCURRENT - openContracts.current;
-        const tradeCount = bulkModeRef.current ? Math.min(bulkCountRef.current, remaining, maxSlots) : 1;
-        const actualCount = executionSpeed === "Turbo" ? Math.min(tradeCount, remaining) : 1;
-        const lastDigit = lastDigitsRef.current[lastDigitsRef.current.length - 1];
-        for (let i = 0; i < actualCount; i++) {
-          executeTradeContinuous(lastDigit);
-        }
+        const lastDigit = digits[digits.length - 1];
+        // Aggressive / Conservative / Balanced / ELIT all fire ONE trade per
+        // tick — never batch. Lock + proposal-refresh handle continuous flow.
+        executeTradeContinuous(lastDigit);
       }
     }, brainIntervalMs);
 
