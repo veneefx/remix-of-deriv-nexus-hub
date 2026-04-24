@@ -225,6 +225,7 @@ const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => v
             <VerificationsPanel profiles={profiles} />
           ) : activeTab === "learning" ? (
             <LearningPanel />
+          ) : (
             <div className="grid gap-2">
               {trades.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">No trade logs yet.</p>
