@@ -244,6 +244,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [tpAmount, setTpAmount] = useState(0);
 
   const [activeTab, setActiveTab] = useState<"trading" | "analysis">("trading");
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const prevMarketRef = useRef(selectedMarket);
   const botRunning = useRef(false);
   const consecutiveLosses = useRef(0);
