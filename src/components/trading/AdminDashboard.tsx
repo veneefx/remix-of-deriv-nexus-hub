@@ -302,3 +302,99 @@ function VerificationsPanel({ profiles }: { profiles: Profile[] }) {
   );
 }
 
+const memorySubscribe = (cb: () => void) => engineMemory.subscribe(cb);
+const memorySnapshot = () => JSON.stringify(engineMemory.getDaily()).slice(0, 32) + engineMemory.getDaily().length;
+
+function LearningPanel() {
+  useSyncExternalStore(memorySubscribe, memorySnapshot, memorySnapshot);
+  const daily = engineMemory.getDaily();
+  const all = engineMemory.getAll();
+
+  // Aggregate per-engine totals
+  const engineTotals: Record<string, { wins: number; losses: number; patterns: number }> = {};
+  for (const [engine, patterns] of Object.entries(all)) {
+    let w = 0, l = 0;
+    for (const rec of Object.values(patterns)) { w += rec.wins; l += rec.losses; }
+    engineTotals[engine] = { wins: w, losses: l, patterns: Object.keys(patterns).length };
+  }
+
+  // Group daily by date
+  const byDate: Record<string, typeof daily> = {};
+  daily.forEach(d => {
+    if (!byDate[d.date]) byDate[d.date] = [];
+    byDate[d.date].push(d);
+  });
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-muted-foreground">
+        Live read of every AI engine's pattern memory. Engines auto-skip patterns with &lt;35% WR after 5+ samples.
+      </p>
+
+      {/* Per-engine totals */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
+        {Object.entries(engineTotals).map(([engine, t]) => {
+          const total = t.wins + t.losses;
+          const wr = total > 0 ? (t.wins / total) * 100 : 0;
+          return (
+            <div key={engine} className="p-3 rounded-xl border border-border bg-secondary/30">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-bold text-foreground">{engine}</span>
+                <span className={`text-[10px] font-bold ${wr >= 50 ? "text-buy" : "text-destructive"}`}>{wr.toFixed(0)}% WR</span>
+              </div>
+              <div className="text-[10px] text-muted-foreground">
+                {total} trades • {t.patterns} patterns • W {t.wins} / L {t.losses}
+              </div>
+              <div className="mt-1.5 h-1 bg-muted rounded-full overflow-hidden">
+                <div className={`h-full ${wr >= 50 ? "bg-buy" : "bg-destructive"}`} style={{ width: `${wr}%` }} />
+              </div>
+            </div>
+          );
+        })}
+        {Object.keys(engineTotals).length === 0 && (
+          <p className="col-span-full text-xs text-muted-foreground italic text-center py-4">
+            No engine has recorded a pattern yet.
+          </p>
+        )}
+      </div>
+
+      {/* Daily learning log */}
+      <div className="space-y-2">
+        <p className="text-xs font-bold text-foreground">Daily Learning Log</p>
+        {Object.keys(byDate).length === 0 ? (
+          <p className="text-xs text-muted-foreground italic">No daily entries yet.</p>
+        ) : (
+          Object.entries(byDate).slice(0, 7).map(([date, entries]) => (
+            <div key={date} className="rounded-xl border border-border overflow-hidden">
+              <div className="px-3 py-1.5 bg-secondary/50 text-[10px] font-bold text-foreground">{date}</div>
+              <div className="divide-y divide-border">
+                {entries.slice(0, 20).map((e, i) => {
+                  const total = e.wins + e.losses;
+                  const wr = total > 0 ? (e.wins / total) * 100 : 0;
+                  return (
+                    <div key={i} className="px-3 py-1.5 flex items-center justify-between text-[10px]">
+                      <span className="font-mono text-muted-foreground truncate flex-1 mr-2">
+                        <span className="text-foreground font-bold">{e.engine}</span> · {e.pattern}
+                      </span>
+                      <span className={`font-semibold tabular-nums ${wr >= 50 ? "text-buy" : "text-destructive"}`}>
+                        {e.wins}W / {e.losses}L
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <button
+        onClick={() => { if (confirm("Reset ALL engine learning memory?")) engineMemory.reset(); }}
+        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20"
+      >
+        Reset all learning memory
+      </button>
+    </div>
+  );
+}
+
