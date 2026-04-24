@@ -1537,26 +1537,39 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
               ))}
             </div>
             {strategyProfile === "brain" && (
-              <div className="mt-2 p-2 rounded-lg bg-buy/5 border border-buy/20 space-y-1.5">
+              <div className="mt-2 p-2.5 rounded-lg bg-buy/5 border border-buy/30 space-y-2">
                 <p className="text-[9px] text-buy font-bold flex items-center gap-1">
-                  🧠 Adaptive UNDER 8 / OVER 2 — strict entry triggers + self-learning
+                  🧠 Adaptive UNDER 8 / OVER 2 — sequence-pattern entry + self-learning
                 </p>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[9px] text-muted-foreground font-semibold">Recovery:</span>
-                  {(["digit", "evenodd"] as const).map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => { setRecoveryModeState(m); derivBrain.setRecoveryMode(m); }}
-                      className={`flex-1 px-2 py-1 rounded text-[10px] font-bold transition-colors border ${
-                        recoveryMode === m
-                          ? "bg-buy text-primary-foreground border-buy"
-                          : "bg-secondary text-muted-foreground border-border hover:border-buy/40"
-                      }`}
-                    >
-                      {m === "digit" ? "Digit Recovery" : "Even/Odd Recovery"}
-                    </button>
-                  ))}
+                <div>
+                  <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-bold mb-1">Recovery Mode</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {(["digit", "evenodd"] as const).map((m) => {
+                      const active = recoveryMode === m;
+                      return (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => {
+                            setRecoveryModeState(m);
+                            derivBrain.setRecoveryMode(m);
+                            toast({ title: "Recovery mode updated", description: m === "digit" ? "Digit Recovery (UNDER 5 / OVER 5)" : "Even/Odd Recovery" });
+                          }}
+                          className={`relative px-2 py-1.5 rounded-md text-[10px] font-bold transition-all border ${
+                            active
+                              ? "bg-buy text-primary-foreground border-buy ring-2 ring-buy/40 shadow shadow-buy/20"
+                              : "bg-secondary text-muted-foreground border-border hover:border-buy/40 hover:text-foreground"
+                          }`}
+                        >
+                          {active && <span className="absolute top-0.5 right-1 text-[8px]">✓</span>}
+                          {m === "digit" ? "Digit Recovery" : "Even/Odd Recovery"}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[8px] text-muted-foreground mt-1.5 italic">
+                    {recoveryMode === "digit" ? "After loss → UNDER 5 / OVER 5 when sequence/probability aligns." : "After loss → EVEN / ODD when parity bias > 52% or run ≥ 4."}
+                  </p>
                 </div>
               </div>
             )}
