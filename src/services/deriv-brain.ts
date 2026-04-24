@@ -350,21 +350,27 @@ class DerivBrain {
     aiLogger.log("Brain", "info",
       `Recovery E/O — Even ${evenPct.toFixed(1)}% • Odd ${oddPct.toFixed(1)}% • flips ${flipRate.toFixed(0)}% • score ${score}`);
 
-    if (!stable) return wait(`E/O recovery — flipping (${flipRate.toFixed(0)}%) — wait`);
-    if (score < minScore) return wait(`E/O recovery — low score ${score}`);
+    // Pattern-driven fire even if probability not met yet
+    const evenSeqFire = seq.evenRun >= 4 && seq.flipRate < 55;
+    const oddSeqFire  = seq.oddRun  >= 4 && seq.flipRate < 55;
 
-    if (evenPct >= 52) {
-      const key = `REven|even=${bucket(evenPct)}|flips=${bucket(flipRate)}`;
+    if (!stable && !evenSeqFire && !oddSeqFire) return wait(`E/O recovery — flipping (${flipRate.toFixed(0)}%) — wait`);
+    if (score < minScore && !evenSeqFire && !oddSeqFire) return wait(`E/O recovery — low score ${score}`);
+
+    if (evenPct >= 52 || evenSeqFire) {
+      const key = `REven|even=${bucket(evenPct)}|flips=${bucket(flipRate)}|seq=${evenSeqFire ? "evenRun" : "prob"}`;
       if (this.shouldSkipPattern(key)) return wait(`Pattern ${key} avoided`);
       this.fireRecovery("RECOVERY_EVEN", key);
-      aiLogger.log("Brain", "success", `Confidence ${score}% → Executing EVEN`);
+      aiLogger.log("Brain", "success",
+        `${evenSeqFire ? `Even-run ${seq.evenRun}` : `Confidence ${score}%`} → Executing EVEN`);
       return { shouldTrade: true, contractType: "DIGITEVEN", barrier: null, strategy: "RECOVERY_EVEN", reason: "EVEN bias", confidence: score };
     }
-    if (oddPct >= 52) {
-      const key = `ROdd|odd=${bucket(oddPct)}|flips=${bucket(flipRate)}`;
+    if (oddPct >= 52 || oddSeqFire) {
+      const key = `ROdd|odd=${bucket(oddPct)}|flips=${bucket(flipRate)}|seq=${oddSeqFire ? "oddRun" : "prob"}`;
       if (this.shouldSkipPattern(key)) return wait(`Pattern ${key} avoided`);
       this.fireRecovery("RECOVERY_ODD", key);
-      aiLogger.log("Brain", "success", `Confidence ${score}% → Executing ODD`);
+      aiLogger.log("Brain", "success",
+        `${oddSeqFire ? `Odd-run ${seq.oddRun}` : `Confidence ${score}%`} → Executing ODD`);
       return { shouldTrade: true, contractType: "DIGITODD", barrier: null, strategy: "RECOVERY_ODD", reason: "ODD bias", confidence: score };
     }
 
