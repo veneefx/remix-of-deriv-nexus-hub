@@ -861,6 +861,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     tradeTimestamps.current = tradeTimestamps.current.filter(t => t > now - 1000);
     if (tradeTimestamps.current.length >= MAX_TRADES_PER_SEC) {
       if (strategyProfile === "brain") derivBrain.cancelInFlight();
+      setLastExecutionStatus(`Throttle active • max ${MAX_TRADES_PER_SEC}/sec`);
       return false;
     }
 
@@ -872,6 +873,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       strategyProfile === "conservative" ? "Conservative" : "Balanced";
     if (!tradeLock.tryAcquire(engineName)) {
       if (strategyProfile === "brain") derivBrain.cancelInFlight();
+      setLastExecutionStatus("Trade lock active • waiting for result");
       return false;
     }
 
@@ -887,6 +889,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     lastTradeAttemptTs.current = now;
 
     ws.buyContract(currentProposalId, tradeStake);
+    setLastExecutionStatus(`Sent buy • step ${currentStakeStep} • stake ${tradeStake.toFixed(2)}`);
     requestProposal();
     lastProposalReqTs.current = now;
     return true;
