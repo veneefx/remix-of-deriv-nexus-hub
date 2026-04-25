@@ -1148,6 +1148,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
               Strategy v{strategyVersion} • {strategyProfile}
             </span>
           )}
+          <span className="text-[9px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-bold flex items-center gap-1">
+            <Gauge className="w-3 h-3" /> {executionSpeed}: {MAX_TRADES_PER_SEC}/s • {MAX_CONCURRENT} open
+          </span>
+          <span className="text-[9px] px-2 py-0.5 rounded-full bg-buy/10 text-buy font-bold">
+            Stake step {currentStakeStep} • {martingalePersistence === "persistent" ? "persist" : "reset-step"}
+          </span>
           {/* Signal Score Badge */}
           {lastDigits.length > 30 && (
             <motion.span
@@ -1164,7 +1170,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           {/* High Speed indicator */}
           {softwareStatus === "ACTIVE" && (
             <span className="text-[9px] px-2 py-0.5 rounded-full bg-buy/10 text-buy border border-buy/20 font-bold animate-pulse flex items-center gap-1">
-              <Zap className="w-3 h-3" /> {tradesPerSec}t/s • {openContracts.current} open
+              <Zap className="w-3 h-3" /> {tradesPerSec}t/s • {openContracts.current} open • {proposalStatus}
             </span>
           )}
           {currentTick !== null && (
