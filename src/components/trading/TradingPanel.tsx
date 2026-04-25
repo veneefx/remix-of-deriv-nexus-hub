@@ -803,6 +803,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       if (data.error) {
         openContracts.current = Math.max(0, openContracts.current - 1);
         console.warn("[TradeEngine] Buy error:", data.error.message);
+        setLastExecutionStatus(`Buy error: ${data.error.message}`);
         if (strategyProfile === "brain") derivBrain.cancelInFlight();
         tradeLock.release();
         aiLogger.log("System", "error", `Buy error: ${data.error.message}`);
@@ -818,6 +819,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         pendingTrades.current.delete("_latest_stake");
         pendingTrades.current.set(contractId, { stake: tradeStake, resolved: false, entryDigit } as any);
         ws.subscribeOpenContract();
+        setLastExecutionStatus(`Open contract ${contractId} • stake ${tradeStake.toFixed(2)}`);
 
         // Fan out to active client tokens (copy-trading)
         const needsB = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
