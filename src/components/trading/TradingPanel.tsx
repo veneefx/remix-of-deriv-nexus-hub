@@ -202,6 +202,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [strategyProfile, setStrategyProfile] = useState<"aggressive" | "balanced" | "conservative" | "elit" | "brain">(() => (localStorage.getItem("dnx_profile") as any) || "balanced");
   const [recoveryMode, setRecoveryModeState] = useState<"digit" | "evenodd">(() => derivBrain.getRecoveryMode());
   const [strategyVersion, setStrategyVersion] = useState<number | null>(null);
+  const [proposalStatus, setProposalStatus] = useState("Waiting for proposal…");
+  const [lastExecutionStatus, setLastExecutionStatus] = useState("Idle");
 
   // Track whether the user has manually edited risk settings.
   // If true, we DO NOT overwrite them when global_strategy reloads.
@@ -271,8 +273,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const pendingTrades = useRef<Map<string, { stake: number; resolved: boolean }>>(new Map());
   // Trade queue for continuous mode
   const tradeQueueRef = useRef<number>(0);
-  const MAX_TRADES_PER_SEC = 10;
-  const MAX_CONCURRENT = 15;
+  const MAX_TRADES_PER_SEC = executionSpeed === "Turbo" ? 5 : executionSpeed === "Fast" ? 2 : 1;
+  const MAX_CONCURRENT = strategyProfile === "brain" ? 1 : executionSpeed === "Turbo" ? 5 : executionSpeed === "Fast" ? 2 : 1;
   // Latest signal ref for decoupled decision loop
   const latestSignalRef = useRef<{ score: number; elitScore: number }>({ score: 0, elitScore: 0 });
 
