@@ -1387,6 +1387,15 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   <RecoveryDebugPanel snapshot={recoveryDebug} stakeStep={currentStakeStep} />
                 </div>
 
+                <SmartTraderPanel
+                  ws={ws}
+                  account={account}
+                  selectedMarket={selectedMarket}
+                  onMarketChange={setSelectedMarket}
+                  onLogin={() => toast({ title: "Connect account", description: "Use the Connect Account button in the header to trade." })}
+                  embedded
+                />
+
                 {/* Live Probability Engine (premium) */}
                 <AnalysisPaywall
                   isPremium={isPremium}
