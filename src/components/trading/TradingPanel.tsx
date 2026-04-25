@@ -19,6 +19,10 @@ import QuantTerminal from "@/components/trading/QuantTerminal";
 import StrategyBooklet from "@/components/trading/StrategyBooklet";
 import DigitEdgeAnalytics from "@/components/trading/DigitEdgeAnalytics";
 import AnalysisPaywall from "@/components/trading/AnalysisPaywall";
+import DecisionFeed from "@/components/trading/DecisionFeed";
+import RecoveryDebugPanel from "@/components/trading/RecoveryDebugPanel";
+import { decisionFeed } from "@/services/decision-feed";
+import type { RecoveryDebugSnapshot } from "@/services/deriv-brain";
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -186,6 +190,9 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [martingaleMultiplier, setMartingaleMultiplier] = useState("2.2");
   const [maxMartingaleSteps, setMaxMartingaleSteps] = useState(10);
   const [stopAfterMaxMartingale, setStopAfterMaxMartingale] = useState(true);
+  const [martingalePersistence, setMartingalePersistence] = useState<"persistent" | "reset-step">(() => (localStorage.getItem("dnx_martingale_persistence") as any) || "persistent");
+  const [currentStakeStep, setCurrentStakeStep] = useState(0);
+  const [recoveryDebug, setRecoveryDebug] = useState<RecoveryDebugSnapshot>(() => derivBrain.getRecoveryDebug());
   const [startMartingaleAfter, setStartMartingaleAfter] = useState(1);
   const [tradeDiffers, setTradeDiffers] = useState(false);
   const [smartRisker, setSmartRisker] = useState(false);
