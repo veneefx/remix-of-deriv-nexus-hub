@@ -328,6 +328,8 @@ class DerivBrain {
         const key = `RU5|low04=${bucket(sumLow0_4Strict)}|d5=${bucket(freq[5])}|seq=${sequenceFire ? "lowRun" : "prob"}`;
         if (this.shouldSkipPattern(key)) return wait(`Pattern ${key} avoided (poor history)`);
         this.fireRecovery("RECOVERY_UNDER_5", key);
+        this.lastRecoveryReason = `${sequenceFire ? `Matched low-run ${seq.lowRun}` : `Score ${score}%`} • martingale recovery attempt ${this.state.recoveryAttempts + 1}`;
+        decisionFeed.push({ engine: "Brain", action: "recovery", score, contractType: "DIGITUNDER", barrier: "5", reason: this.lastRecoveryReason, breakdown: { lowRun: seq.lowRun, flipRate: Math.round(seq.flipRate), minScore } });
         aiLogger.log("Brain", "success",
           `${sequenceFire && !probOk ? `Sequence-fire (lowRun ${seq.lowRun})` : `Confidence ${score}%`} → Executing UNDER 5`);
         return { shouldTrade: true, contractType: "DIGITUNDER", barrier: "5", strategy: "RECOVERY_UNDER_5", reason: "UNDER 5 recovery", confidence: score };
@@ -351,6 +353,8 @@ class DerivBrain {
         const key = `RO5|high69=${bucket(sumHigh6_9)}|d5=${bucket(freq[5])}|seq=${sequenceFire ? "highRun" : "prob"}`;
         if (this.shouldSkipPattern(key)) return wait(`Pattern ${key} avoided (poor history)`);
         this.fireRecovery("RECOVERY_OVER_5", key);
+        this.lastRecoveryReason = `${sequenceFire ? `Matched high-run ${seq.highRun}` : `Score ${score}%`} • martingale recovery attempt ${this.state.recoveryAttempts + 1}`;
+        decisionFeed.push({ engine: "Brain", action: "recovery", score, contractType: "DIGITOVER", barrier: "5", reason: this.lastRecoveryReason, breakdown: { highRun: seq.highRun, flipRate: Math.round(seq.flipRate), minScore } });
         aiLogger.log("Brain", "success",
           `${sequenceFire && !probOk ? `Sequence-fire (highRun ${seq.highRun})` : `Confidence ${score}%`} → Executing OVER 5`);
         return { shouldTrade: true, contractType: "DIGITOVER", barrier: "5", strategy: "RECOVERY_OVER_5", reason: "OVER 5 recovery", confidence: score };
@@ -398,6 +402,8 @@ class DerivBrain {
       const key = `REven|even=${bucket(evenPct)}|flips=${bucket(flipRate)}|seq=${evenSeqFire ? "evenRun" : "prob"}`;
       if (this.shouldSkipPattern(key)) return wait(`Pattern ${key} avoided`);
       this.fireRecovery("RECOVERY_EVEN", key);
+      this.lastRecoveryReason = `${evenSeqFire ? `Matched even-run ${seq.evenRun}` : `Even bias ${evenPct.toFixed(1)}%`} • martingale recovery attempt ${this.state.recoveryAttempts + 1}`;
+      decisionFeed.push({ engine: "Brain", action: "recovery", score, contractType: "DIGITEVEN", reason: this.lastRecoveryReason, breakdown: { evenPct: evenPct.toFixed(1), flipRate: Math.round(flipRate), minScore } });
       aiLogger.log("Brain", "success",
         `${evenSeqFire ? `Even-run ${seq.evenRun}` : `Confidence ${score}%`} → Executing EVEN`);
       return { shouldTrade: true, contractType: "DIGITEVEN", barrier: null, strategy: "RECOVERY_EVEN", reason: "EVEN bias", confidence: score };
@@ -406,6 +412,8 @@ class DerivBrain {
       const key = `ROdd|odd=${bucket(oddPct)}|flips=${bucket(flipRate)}|seq=${oddSeqFire ? "oddRun" : "prob"}`;
       if (this.shouldSkipPattern(key)) return wait(`Pattern ${key} avoided`);
       this.fireRecovery("RECOVERY_ODD", key);
+      this.lastRecoveryReason = `${oddSeqFire ? `Matched odd-run ${seq.oddRun}` : `Odd bias ${oddPct.toFixed(1)}%`} • martingale recovery attempt ${this.state.recoveryAttempts + 1}`;
+      decisionFeed.push({ engine: "Brain", action: "recovery", score, contractType: "DIGITODD", reason: this.lastRecoveryReason, breakdown: { oddPct: oddPct.toFixed(1), flipRate: Math.round(flipRate), minScore } });
       aiLogger.log("Brain", "success",
         `${oddSeqFire ? `Odd-run ${seq.oddRun}` : `Confidence ${score}%`} → Executing ODD`);
       return { shouldTrade: true, contractType: "DIGITODD", barrier: null, strategy: "RECOVERY_ODD", reason: "ODD bias", confidence: score };
