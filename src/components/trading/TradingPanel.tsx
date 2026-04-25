@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Wallet, List, Table, ChevronRight, Settings, TrendingUp, BarChart3, Shield, Zap, Activity, Flame, Target, AlertTriangle, Lock, Brain } from "lucide-react";
+import { X, Wallet, List, Table, ChevronRight, Settings, TrendingUp, BarChart3, Shield, Zap, Activity, Flame, Target, AlertTriangle, Lock, Brain, Gauge } from "lucide-react";
 import DerivWebSocket from "@/services/deriv-websocket";
 import { DerivAccount } from "@/services/deriv-auth";
 import { VOLATILITY_MARKETS, MARKET_CATEGORIES, CONTRACT_TYPES, DIGIT_BARRIERS, getLastDigit } from "@/lib/trading-constants";
@@ -21,6 +21,7 @@ import DigitEdgeAnalytics from "@/components/trading/DigitEdgeAnalytics";
 import AnalysisPaywall from "@/components/trading/AnalysisPaywall";
 import DecisionFeed from "@/components/trading/DecisionFeed";
 import RecoveryDebugPanel from "@/components/trading/RecoveryDebugPanel";
+import SmartTraderPanel from "@/components/trading/SmartTraderPanel";
 import { decisionFeed } from "@/services/decision-feed";
 import type { RecoveryDebugSnapshot } from "@/services/deriv-brain";
 
