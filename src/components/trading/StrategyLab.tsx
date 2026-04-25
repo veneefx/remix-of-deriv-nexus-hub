@@ -5,6 +5,7 @@ import {
   TrendingUp, TrendingDown, AlertTriangle, Save, FolderOpen,
   ChevronDown, BarChart3, Zap, Shield, Activity, Check, X
 } from "lucide-react";
+import { DEFAULT_BRAIN_THRESHOLDS, loadBrainThresholds, saveBrainThresholds } from "@/services/brain-settings";
 
 const DERIV_WS_URL = "wss://ws.derivws.com/websockets/v3";
 const APP_ID = "129344";
@@ -112,6 +113,7 @@ const StrategyLab = () => {
   const [saveName, setSaveName] = useState("");
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showLoadModal, setShowLoadModal] = useState(false);
+  const [brainThresholds, setBrainThresholds] = useState(() => loadBrainThresholds());
   const playbackRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -352,6 +354,12 @@ const StrategyLab = () => {
 
   const updateCondition = (key: keyof StrategyConfig["conditions"], value: boolean | number) => {
     setConfig(prev => ({ ...prev, conditions: { ...prev.conditions, [key]: value } }));
+  };
+
+  const updateBrainThreshold = (key: keyof typeof brainThresholds, value: number) => {
+    const next = { ...brainThresholds, [key]: value };
+    setBrainThresholds(next);
+    saveBrainThresholds(next);
   };
 
   const scoreLabel = (s: number) => s >= 80 ? "Excellent Strategy" : s >= 60 ? "Strong Strategy" : s >= 40 ? "Moderately Strong" : s >= 20 ? "Needs Improvement" : "Weak Strategy";
