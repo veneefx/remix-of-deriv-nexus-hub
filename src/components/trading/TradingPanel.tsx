@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Wallet, List, Table, ChevronRight, Settings, TrendingUp, BarChart3, Shield, Zap, Activity, Flame, Target, AlertTriangle, Lock, Brain } from "lucide-react";
+import { X, Wallet, List, Table, ChevronRight, Settings, TrendingUp, BarChart3, Shield, Zap, Activity, Flame, Target, AlertTriangle, Lock, Brain, Gauge } from "lucide-react";
 import DerivWebSocket from "@/services/deriv-websocket";
 import { DerivAccount } from "@/services/deriv-auth";
 import { VOLATILITY_MARKETS, MARKET_CATEGORIES, CONTRACT_TYPES, DIGIT_BARRIERS, getLastDigit } from "@/lib/trading-constants";
@@ -21,6 +21,7 @@ import DigitEdgeAnalytics from "@/components/trading/DigitEdgeAnalytics";
 import AnalysisPaywall from "@/components/trading/AnalysisPaywall";
 import DecisionFeed from "@/components/trading/DecisionFeed";
 import RecoveryDebugPanel from "@/components/trading/RecoveryDebugPanel";
+import SmartTraderPanel from "@/components/trading/SmartTraderPanel";
 import { decisionFeed } from "@/services/decision-feed";
 import type { RecoveryDebugSnapshot } from "@/services/deriv-brain";
 
@@ -201,6 +202,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [strategyProfile, setStrategyProfile] = useState<"aggressive" | "balanced" | "conservative" | "elit" | "brain">(() => (localStorage.getItem("dnx_profile") as any) || "balanced");
   const [recoveryMode, setRecoveryModeState] = useState<"digit" | "evenodd">(() => derivBrain.getRecoveryMode());
   const [strategyVersion, setStrategyVersion] = useState<number | null>(null);
+  const [proposalStatus, setProposalStatus] = useState("Waiting for proposal…");
+  const [lastExecutionStatus, setLastExecutionStatus] = useState("Idle");
 
   // Track whether the user has manually edited risk settings.
   // If true, we DO NOT overwrite them when global_strategy reloads.
@@ -270,8 +273,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const pendingTrades = useRef<Map<string, { stake: number; resolved: boolean }>>(new Map());
   // Trade queue for continuous mode
   const tradeQueueRef = useRef<number>(0);
-  const MAX_TRADES_PER_SEC = 10;
-  const MAX_CONCURRENT = 15;
+  const MAX_TRADES_PER_SEC = executionSpeed === "Turbo" ? 5 : executionSpeed === "Fast" ? 2 : 1;
+  const MAX_CONCURRENT = strategyProfile === "brain" ? 1 : executionSpeed === "Turbo" ? 5 : executionSpeed === "Fast" ? 2 : 1;
   // Latest signal ref for decoupled decision loop
   const latestSignalRef = useRef<{ score: number; elitScore: number }>({ score: 0, elitScore: 0 });
 
@@ -603,6 +606,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     const needsB = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
     const isRF = contractType === "CALL" || contractType === "PUT";
     proposalReady.current = false; // Mark not ready until response arrives
+    setProposalStatus(`Refreshing ${contractType.replace("DIGIT", "")} proposal…`);
     ws.getProposal({
       amount: currentStake.current,
       contractType,
@@ -630,10 +634,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         proposalIdRef.current = data.proposal.id;
         proposalReady.current = true;
         setPayout(data.proposal.payout);
+        setProposalStatus(`Ready • payout ${Number(data.proposal.payout).toFixed(2)} USD`);
       }
       if (data.error) {
         // Force a re-request soon if proposal failed
         proposalReady.current = false;
+        setProposalStatus(data.error.message || "Proposal error");
         aiLogger.log("System", "warn", `Proposal error: ${data.error.message || "unknown"}`);
       }
     });
@@ -797,6 +803,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       if (data.error) {
         openContracts.current = Math.max(0, openContracts.current - 1);
         console.warn("[TradeEngine] Buy error:", data.error.message);
+        setLastExecutionStatus(`Buy error: ${data.error.message}`);
         if (strategyProfile === "brain") derivBrain.cancelInFlight();
         tradeLock.release();
         aiLogger.log("System", "error", `Buy error: ${data.error.message}`);
@@ -812,6 +819,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         pendingTrades.current.delete("_latest_stake");
         pendingTrades.current.set(contractId, { stake: tradeStake, resolved: false, entryDigit } as any);
         ws.subscribeOpenContract();
+        setLastExecutionStatus(`Open contract ${contractId} • stake ${tradeStake.toFixed(2)}`);
 
         // Fan out to active client tokens (copy-trading)
         const needsB = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
@@ -855,6 +863,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     tradeTimestamps.current = tradeTimestamps.current.filter(t => t > now - 1000);
     if (tradeTimestamps.current.length >= MAX_TRADES_PER_SEC) {
       if (strategyProfile === "brain") derivBrain.cancelInFlight();
+      setLastExecutionStatus(`Throttle active • max ${MAX_TRADES_PER_SEC}/sec`);
       return false;
     }
 
@@ -866,6 +875,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       strategyProfile === "conservative" ? "Conservative" : "Balanced";
     if (!tradeLock.tryAcquire(engineName)) {
       if (strategyProfile === "brain") derivBrain.cancelInFlight();
+      setLastExecutionStatus("Trade lock active • waiting for result");
       return false;
     }
 
@@ -881,6 +891,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     lastTradeAttemptTs.current = now;
 
     ws.buyContract(currentProposalId, tradeStake);
+    setLastExecutionStatus(`Sent buy • step ${currentStakeStep} • stake ${tradeStake.toFixed(2)}`);
     requestProposal();
     lastProposalReqTs.current = now;
     return true;
@@ -1137,6 +1148,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
               Strategy v{strategyVersion} • {strategyProfile}
             </span>
           )}
+          <span className="text-[9px] px-2 py-0.5 rounded-full bg-secondary text-muted-foreground font-bold flex items-center gap-1">
+            <Gauge className="w-3 h-3" /> {executionSpeed}: {MAX_TRADES_PER_SEC}/s • {MAX_CONCURRENT} open
+          </span>
+          <span className="text-[9px] px-2 py-0.5 rounded-full bg-buy/10 text-buy font-bold">
+            Stake step {currentStakeStep} • {martingalePersistence === "persistent" ? "persist" : "reset-step"}
+          </span>
           {/* Signal Score Badge */}
           {lastDigits.length > 30 && (
             <motion.span
@@ -1153,7 +1170,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           {/* High Speed indicator */}
           {softwareStatus === "ACTIVE" && (
             <span className="text-[9px] px-2 py-0.5 rounded-full bg-buy/10 text-buy border border-buy/20 font-bold animate-pulse flex items-center gap-1">
-              <Zap className="w-3 h-3" /> {tradesPerSec}t/s • {openContracts.current} open
+              <Zap className="w-3 h-3" /> {tradesPerSec}t/s • {openContracts.current} open • {proposalStatus}
             </span>
           )}
           {currentTick !== null && (
@@ -1369,6 +1386,15 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   <DecisionFeed />
                   <RecoveryDebugPanel snapshot={recoveryDebug} stakeStep={currentStakeStep} />
                 </div>
+
+                <SmartTraderPanel
+                  ws={ws}
+                  account={account}
+                  selectedMarket={selectedMarket}
+                  onMarketChange={setSelectedMarket}
+                  onLogin={() => toast({ title: "Connect account", description: "Use the Connect Account button in the header to trade." })}
+                  embedded
+                />
 
                 {/* Live Probability Engine (premium) */}
                 <AnalysisPaywall
@@ -1772,6 +1798,18 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           </button>
 
           {/* Last trade result */}
+          <div className="p-3 rounded-lg bg-secondary/50 border border-border space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] text-muted-foreground font-bold">Live Proposal</span>
+              <span className="text-[10px] text-primary font-semibold truncate">{proposalStatus}</span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] text-muted-foreground font-bold">Execution</span>
+              <span className="text-[10px] text-foreground font-semibold truncate">{lastExecutionStatus}</span>
+            </div>
+          </div>
+
+          {/* Last trade result */}
           <AnimatePresence>
             {tradeResult && (
               <motion.div
@@ -1864,6 +1902,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                 </FormField>
                 {martingale && (
                   <>
+                    <FormField label="Martingale Persistence" hint="Persist keeps max stake until win; reset-step cycles after max step.">
+                      <select value={martingalePersistence} onChange={(e) => updateMartingalePersistence(e.target.value as "persistent" | "reset-step")} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground">
+                        <option value="persistent">Persistent to max until win</option>
+                        <option value="reset-step">Reset on step cycle</option>
+                      </select>
+                    </FormField>
                     <FormField label="Martingale Multiplier" hint="Multiplier on loss.">
                       <input type="number" value={martingaleMultiplier} onChange={(e) => { setMartingaleMultiplier(e.target.value); userTouchedRisk.current = true; }} step="0.1" className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                     </FormField>
