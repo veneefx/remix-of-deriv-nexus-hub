@@ -746,14 +746,16 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     if (won) {
       consecutiveLosses.current = 0;
       currentStake.current = parseFloat(stake);
+      setCurrentStakeStep(0);
     } else {
       consecutiveLosses.current++;
       if (martingale && consecutiveLosses.current >= startMartingaleAfter) {
-        // PERSISTENT MARTINGALE: keep stake at the max-step level after maxMartingaleSteps
-        // is reached — do NOT reset to base until a real win occurs.
         const lossStep = consecutiveLosses.current - startMartingaleAfter + 1;
-        const cappedStep = Math.min(lossStep, maxMartingaleSteps);
+        const cappedStep = martingalePersistence === "persistent"
+          ? Math.min(lossStep, maxMartingaleSteps)
+          : ((lossStep - 1) % Math.max(1, maxMartingaleSteps)) + 1;
         currentStake.current = parseFloat(stake) * Math.pow(parseFloat(martingaleMultiplier), cappedStep);
+        setCurrentStakeStep(cappedStep);
       }
     }
 
@@ -784,7 +786,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     // After stake changes, refresh proposal ONCE with new stake
     requestProposal();
     lastProposalReqTs.current = Date.now();
-  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, smartRisker, selectedMarket, requestProposal, strategyProfile]);
+    setRecoveryDebug(derivBrain.getRecoveryDebug());
+  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, martingalePersistence, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, smartRisker, selectedMarket, requestProposal, strategyProfile]);
 
   // ── PERSISTENT LISTENERS: registered ONCE, dispatch by contract_id ──
   useEffect(() => {
