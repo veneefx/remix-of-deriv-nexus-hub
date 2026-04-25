@@ -606,6 +606,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     const needsB = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
     const isRF = contractType === "CALL" || contractType === "PUT";
     proposalReady.current = false; // Mark not ready until response arrives
+    setProposalStatus(`Refreshing ${contractType.replace("DIGIT", "")} proposal…`);
     ws.getProposal({
       amount: currentStake.current,
       contractType,
@@ -633,10 +634,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         proposalIdRef.current = data.proposal.id;
         proposalReady.current = true;
         setPayout(data.proposal.payout);
+        setProposalStatus(`Ready • payout ${Number(data.proposal.payout).toFixed(2)} USD`);
       }
       if (data.error) {
         // Force a re-request soon if proposal failed
         proposalReady.current = false;
+        setProposalStatus(data.error.message || "Proposal error");
         aiLogger.log("System", "warn", `Proposal error: ${data.error.message || "unknown"}`);
       }
     });
