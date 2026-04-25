@@ -248,8 +248,8 @@ class DerivBrain {
 
   // ── SEQUENCE PATTERN READER ────────────────────────────────────
   private analyzeSequence(digits: number[]) {
-    const last20 = digits.slice(-20);
-    const last30 = digits.slice(-30);
+    const last20 = digits.slice(-this.thresholds.recentWindow);
+    const last30 = digits.slice(-Math.max(30, this.thresholds.recentWindow));
 
     const evenRun = trailingRun(last30, (d) => d % 2 === 0);
     const oddRun  = trailingRun(last30, (d) => d % 2 !== 0);
@@ -267,6 +267,32 @@ class DerivBrain {
     const flipRate = (flips / Math.max(1, last30.length - 1)) * 100;
 
     return { evenRun, oddRun, lowRun, highRun, below5InLast20, above4InLast20, last8and9Frac, last0and1Frac, flipRate };
+  }
+
+  private computeDecisionScore(freq: number[], seq: ReturnType<DerivBrain["analyzeSequence"]>, under8Ok: boolean, over2Ok: boolean) {
+    const freqScore = Math.round((under8Ok || over2Ok ? 20 : 0) + (Math.max(...freq.map((p) => Math.abs(p - 10))) >= 2 ? 5 : 0));
+    const flowScore = Math.min(20, (seq.lowRun >= this.thresholds.runLength || seq.highRun >= this.thresholds.runLength ? 14 : 0) + (seq.flipRate <= this.thresholds.flipRateMax ? 6 : 0));
+    const patternScore = Math.min(15, (seq.below5InLast20 >= Math.ceil(this.thresholds.recentWindow * 0.65) || seq.above4InLast20 >= Math.ceil(this.thresholds.recentWindow * 0.65) ? 15 : 7));
+    const momentumScore = Math.min(15, Math.round(Math.max(seq.below5InLast20, seq.above4InLast20) / Math.max(1, this.thresholds.recentWindow) * 15));
+    const parityScore = Math.min(10, seq.evenRun >= this.thresholds.parityRunLength || seq.oddRun >= this.thresholds.parityRunLength ? 10 : 5);
+    const volatilityScore = this.detectVolSpike() ? 0 : 10;
+    const memoryScore = this.state.lastFiredPatternKey && this.shouldSkipPattern(this.state.lastFiredPatternKey) ? 0 : 10;
+    const parts = {
+      "Digit Frequency": Math.min(freqScore, 20),
+      "Digit Flow": flowScore,
+      "Pattern Radar": patternScore,
+      "Probability Momentum": momentumScore,
+      "Odd/Even Bias": parityScore,
+      "Volatility": volatilityScore,
+      "Outcome Memory": memoryScore,
+    };
+    return { total: Math.min(100, Object.values(parts).reduce((a, b) => a + b, 0)), parts };
+  }
+
+  private waitDecision(reason: string, score = 0, breakdown?: Record<string, number | string>): BrainDecision {
+    const action = score >= this.thresholds.waitScore ? "wait" : "block";
+    decisionFeed.push({ engine: "Brain", action, score, reason, breakdown });
+    return wait(reason);
   }
 
   // ── DIGIT RECOVERY ──────────────────────────────────────────────
