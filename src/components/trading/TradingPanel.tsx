@@ -952,6 +952,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       if (strategyProfile === "brain") {
         const lastQuote = tickBufferRef.current[tickBufferRef.current.length - 1]?.quote ?? 0;
         const decision = derivBrain.decide(lastDigitsRef.current, lastQuote);
+        setRecoveryDebug(derivBrain.getRecoveryDebug());
         if (decision.shouldTrade && decision.contractType && decision.barrier) {
           // Brain trades one at a time — guard with openContracts check
           if (openContracts.current > 0) {
@@ -1021,6 +1022,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           aiLogger.log(engineName, "warn", `Skipping pattern ${patternKey} (poor history)`);
           lastEngineLogTs = now;
         }
+        decisionFeed.push({ engine: engineName, action: "block", score: 0, reason: `Skipped ${patternKey} — poor outcome memory`, breakdown: { patternKey } });
         return;
       }
 
@@ -1041,9 +1043,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         shouldTrade = confluenceCount >= required;
         if (shouldTrade) {
           analyticsReason = `sig ${(score * 100).toFixed(0)}% • dev ${maxDev.toFixed(1)}% • E/O ${(evenBias * 100).toFixed(0)}% • run L${trailLow}/H${trailHigh} E${trailEven}/O${trailOdd}`;
-          aiLogger.log(engineName, "success", `Firing ${contractType.replace("DIGIT", "")} — ${analyticsReason}`);
+          const finalScore = Math.min(100, confluenceCount * 25 + Math.round(score * 25));
+          aiLogger.log(engineName, "success", `Score: ${finalScore}% → Trade Executed • ${contractType.replace("DIGIT", "")} — ${analyticsReason}`);
+          decisionFeed.push({ engine: engineName, action: "trade", score: finalScore, contractType, barrier, reason: analyticsReason, breakdown: { Signal: `${(score * 100).toFixed(0)}%`, Frequency: `${maxDev.toFixed(1)}%`, Runs: `L${trailLow}/H${trailHigh}`, Bias: `${(evenBias * 100).toFixed(0)}%` } });
         } else if (now - lastEngineLogTs > 4000) {
           aiLogger.log(engineName, "info", `Reading edge — sig ${(score * 100).toFixed(0)}% • dev ${maxDev.toFixed(1)}% • runs L${trailLow}/H${trailHigh} E${trailEven}/O${trailOdd} • need ${required} confluence`);
+          decisionFeed.push({ engine: engineName, action: confluenceCount > 0 ? "wait" : "block", score: Math.min(100, confluenceCount * 25 + Math.round(score * 25)), reason: confluenceCount > 0 ? "WAIT — confluence not strong enough" : "Market condition: RANDOM → No Trade", breakdown: { Signal: `${(score * 100).toFixed(0)}%`, Frequency: `${maxDev.toFixed(1)}%`, Runs: `L${trailLow}/H${trailHigh}`, Required: required } });
           lastEngineLogTs = now;
         }
       }
