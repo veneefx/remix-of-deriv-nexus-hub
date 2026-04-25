@@ -1635,6 +1635,21 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                     {recoveryMode === "digit" ? "After loss → UNDER 5 / OVER 5 when sequence/probability aligns." : "After loss → EVEN / ODD when parity bias > 52% or run ≥ 4."}
                   </p>
                 </div>
+                <div>
+                  <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-bold mb-1">Martingale Persistence • step {currentStakeStep}</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {(["persistent", "reset-step"] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => updateMartingalePersistence(m)}
+                        className={`px-2 py-1.5 rounded-md text-[10px] font-bold border transition-all ${martingalePersistence === m ? "bg-buy text-primary-foreground border-buy ring-2 ring-buy/40" : "bg-secondary text-muted-foreground border-border"}`}
+                      >
+                        {m === "persistent" ? "Persist to max" : "Reset on step"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
           </div>
