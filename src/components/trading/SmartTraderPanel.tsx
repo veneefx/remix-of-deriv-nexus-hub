@@ -162,6 +162,7 @@ const SmartTraderPanel = ({ ws, account, selectedMarket, onMarketChange, onLogin
     </div>
   );
 
+  if (embedded) return content;
   return <><button onClick={() => setOpen(true)} className="lg:hidden fixed bottom-44 left-4 z-40 h-14 px-5 rounded-full bg-primary text-primary-foreground font-bold text-xs shadow-xl flex items-center gap-2"><Activity className="w-4 h-4" /> Trade</button><div className="hidden lg:block sticky bottom-0 z-10">{content}</div>{open && <div className="lg:hidden fixed inset-0 z-50 bg-background/70 backdrop-blur-sm" onClick={() => setOpen(false)}><div className="absolute inset-x-0 bottom-0 max-h-[88vh] overflow-y-auto rounded-t-2xl" onClick={(e) => e.stopPropagation()}>{content}<button onClick={() => setOpen(false)} className="w-full py-3 text-xs text-muted-foreground bg-card border-t border-border">Close</button></div></div>}</>;
 };
 
