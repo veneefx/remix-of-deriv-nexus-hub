@@ -30,6 +30,15 @@ export interface BrainDecision {
   confidence?: number;
 }
 
+export interface RecoveryDebugSnapshot {
+  armed: boolean;
+  mode: RecoveryMode;
+  target: BrainStrategy | null;
+  attempts: number;
+  cooldownUntilTick: number;
+  lastReason: string;
+}
+
 interface StrategyStats {
   trades: number;
   wins: number;
@@ -119,6 +128,7 @@ class DerivBrain {
   private state: BrainState = loadState();
   private inFlight = false;
   private thresholds: BrainThresholds = typeof window !== "undefined" ? loadBrainThresholds() : DEFAULT_BRAIN_THRESHOLDS;
+  private lastRecoveryReason = "";
 
   constructor() {
     if (typeof window !== "undefined") onBrainThresholdsChange((next) => { this.thresholds = next; });
@@ -510,6 +520,17 @@ class DerivBrain {
       recoveryMode: this.state.recoveryMode,
       recoveryArmed: this.state.recoveryArmed,
       recoveryAttempts: this.state.recoveryAttempts,
+    };
+  }
+
+  getRecoveryDebug(): RecoveryDebugSnapshot {
+    return {
+      armed: this.state.recoveryArmed,
+      mode: this.state.recoveryMode,
+      target: this.state.recoveryFor,
+      attempts: this.state.recoveryAttempts,
+      cooldownUntilTick: this.state.cooldownUntilTick,
+      lastReason: this.lastRecoveryReason,
     };
   }
 
