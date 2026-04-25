@@ -181,7 +181,7 @@ class DerivBrain {
 
     // ── RECOVERY MODE ─────────────────────────────────────────────
     if (this.state.recoveryArmed && this.state.recoveryFor) {
-      if (volSpike) return wait("Vol spike — holding recovery");
+      if (volSpike) return this.waitDecision("Vol spike — holding recovery", 35, { mode: this.state.recoveryMode, attempts: this.state.recoveryAttempts });
 
       // Stricter threshold after 2+ consecutive recovery losses
       const minScore = this.state.recoveryAttempts >= 2 ? this.thresholds.strictRecoveryScore : this.thresholds.recoveryScore;
@@ -326,7 +326,7 @@ class DerivBrain {
       const probOk = score >= minScore && sumLow0_4Strict >= 53 && each04Ok && digit5NotExtreme;
       if (probOk || sequenceFire) {
         const key = `RU5|low04=${bucket(sumLow0_4Strict)}|d5=${bucket(freq[5])}|seq=${sequenceFire ? "lowRun" : "prob"}`;
-        if (this.shouldSkipPattern(key)) return wait(`Pattern ${key} avoided (poor history)`);
+        if (this.shouldSkipPattern(key)) return this.waitDecision(`Pattern ${key} avoided (poor history)`, score, { pattern: key });
         this.fireRecovery("RECOVERY_UNDER_5", key);
         this.lastRecoveryReason = `${sequenceFire ? `Matched low-run ${seq.lowRun}` : `Score ${score}%`} • martingale recovery attempt ${this.state.recoveryAttempts + 1}`;
         decisionFeed.push({ engine: "Brain", action: "recovery", score, contractType: "DIGITUNDER", barrier: "5", reason: this.lastRecoveryReason, breakdown: { lowRun: seq.lowRun, flipRate: Math.round(seq.flipRate), minScore } });
@@ -334,7 +334,7 @@ class DerivBrain {
           `${sequenceFire && !probOk ? `Sequence-fire (lowRun ${seq.lowRun})` : `Confidence ${score}%`} → Executing UNDER 5`);
         return { shouldTrade: true, contractType: "DIGITUNDER", barrier: "5", strategy: "RECOVERY_UNDER_5", reason: "UNDER 5 recovery", confidence: score };
       }
-      return wait(`Recovery (UNDER 5) — score ${score}, P[<5]=${sumLow0_4Strict.toFixed(1)}%, lowRun=${seq.lowRun}`);
+      return this.waitDecision(`Recovery (UNDER 5) — score ${score}, P[<5]=${sumLow0_4Strict.toFixed(1)}%, lowRun=${seq.lowRun}`, score, { lowRun: seq.lowRun, attempts: this.state.recoveryAttempts, minScore });
     }
 
     if (this.state.recoveryFor === "OVER_2") {
@@ -351,7 +351,7 @@ class DerivBrain {
       const probOk = score >= minScore && sumHigh6_9 >= 45 && each69Ok && digit5NotExtreme;
       if (probOk || sequenceFire) {
         const key = `RO5|high69=${bucket(sumHigh6_9)}|d5=${bucket(freq[5])}|seq=${sequenceFire ? "highRun" : "prob"}`;
-        if (this.shouldSkipPattern(key)) return wait(`Pattern ${key} avoided (poor history)`);
+        if (this.shouldSkipPattern(key)) return this.waitDecision(`Pattern ${key} avoided (poor history)`, score, { pattern: key });
         this.fireRecovery("RECOVERY_OVER_5", key);
         this.lastRecoveryReason = `${sequenceFire ? `Matched high-run ${seq.highRun}` : `Score ${score}%`} • martingale recovery attempt ${this.state.recoveryAttempts + 1}`;
         decisionFeed.push({ engine: "Brain", action: "recovery", score, contractType: "DIGITOVER", barrier: "5", reason: this.lastRecoveryReason, breakdown: { highRun: seq.highRun, flipRate: Math.round(seq.flipRate), minScore } });
@@ -359,10 +359,10 @@ class DerivBrain {
           `${sequenceFire && !probOk ? `Sequence-fire (highRun ${seq.highRun})` : `Confidence ${score}%`} → Executing OVER 5`);
         return { shouldTrade: true, contractType: "DIGITOVER", barrier: "5", strategy: "RECOVERY_OVER_5", reason: "OVER 5 recovery", confidence: score };
       }
-      return wait(`Recovery (OVER 5) — score ${score}, P[>5]=${sumHigh6_9.toFixed(1)}%, highRun=${seq.highRun}`);
+      return this.waitDecision(`Recovery (OVER 5) — score ${score}, P[>5]=${sumHigh6_9.toFixed(1)}%, highRun=${seq.highRun}`, score, { highRun: seq.highRun, attempts: this.state.recoveryAttempts, minScore });
     }
 
-    return wait("Recovery armed but no target");
+    return this.waitDecision("Recovery armed but no target", 0);
   }
 
   // ── EVEN / ODD RECOVERY ─────────────────────────────────────────
@@ -395,12 +395,12 @@ class DerivBrain {
     const evenSeqFire = seq.evenRun >= 4 && seq.flipRate < 55;
     const oddSeqFire  = seq.oddRun  >= 4 && seq.flipRate < 55;
 
-    if (!stable && !evenSeqFire && !oddSeqFire) return wait(`E/O recovery — flipping (${flipRate.toFixed(0)}%) — wait`);
-    if (score < minScore && !evenSeqFire && !oddSeqFire) return wait(`E/O recovery — low score ${score}`);
+    if (!stable && !evenSeqFire && !oddSeqFire) return this.waitDecision(`E/O recovery — flipping (${flipRate.toFixed(0)}%) — wait`, score, { flipRate: Math.round(flipRate), minScore });
+    if (score < minScore && !evenSeqFire && !oddSeqFire) return this.waitDecision(`E/O recovery — low score ${score}`, score, { evenPct: evenPct.toFixed(1), oddPct: oddPct.toFixed(1), minScore });
 
     if (evenPct >= 52 || evenSeqFire) {
       const key = `REven|even=${bucket(evenPct)}|flips=${bucket(flipRate)}|seq=${evenSeqFire ? "evenRun" : "prob"}`;
-      if (this.shouldSkipPattern(key)) return wait(`Pattern ${key} avoided`);
+      if (this.shouldSkipPattern(key)) return this.waitDecision(`Pattern ${key} avoided`, score, { pattern: key });
       this.fireRecovery("RECOVERY_EVEN", key);
       this.lastRecoveryReason = `${evenSeqFire ? `Matched even-run ${seq.evenRun}` : `Even bias ${evenPct.toFixed(1)}%`} • martingale recovery attempt ${this.state.recoveryAttempts + 1}`;
       decisionFeed.push({ engine: "Brain", action: "recovery", score, contractType: "DIGITEVEN", reason: this.lastRecoveryReason, breakdown: { evenPct: evenPct.toFixed(1), flipRate: Math.round(flipRate), minScore } });
@@ -410,7 +410,7 @@ class DerivBrain {
     }
     if (oddPct >= 52 || oddSeqFire) {
       const key = `ROdd|odd=${bucket(oddPct)}|flips=${bucket(flipRate)}|seq=${oddSeqFire ? "oddRun" : "prob"}`;
-      if (this.shouldSkipPattern(key)) return wait(`Pattern ${key} avoided`);
+      if (this.shouldSkipPattern(key)) return this.waitDecision(`Pattern ${key} avoided`, score, { pattern: key });
       this.fireRecovery("RECOVERY_ODD", key);
       this.lastRecoveryReason = `${oddSeqFire ? `Matched odd-run ${seq.oddRun}` : `Odd bias ${oddPct.toFixed(1)}%`} • martingale recovery attempt ${this.state.recoveryAttempts + 1}`;
       decisionFeed.push({ engine: "Brain", action: "recovery", score, contractType: "DIGITODD", reason: this.lastRecoveryReason, breakdown: { oddPct: oddPct.toFixed(1), flipRate: Math.round(flipRate), minScore } });
@@ -419,7 +419,7 @@ class DerivBrain {
       return { shouldTrade: true, contractType: "DIGITODD", barrier: null, strategy: "RECOVERY_ODD", reason: "ODD bias", confidence: score };
     }
 
-    return wait(`E/O recovery — 50/50 zone (E ${evenPct.toFixed(0)}/O ${oddPct.toFixed(0)})`);
+    return this.waitDecision(`E/O recovery — 50/50 zone (E ${evenPct.toFixed(0)}/O ${oddPct.toFixed(0)})`, score, { evenPct: evenPct.toFixed(1), oddPct: oddPct.toFixed(1), minScore });
   }
 
   // ── READINESS SCORE (0-100) ─────────────────────────────────────
