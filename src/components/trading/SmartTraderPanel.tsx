@@ -59,7 +59,7 @@ const SmartTraderPanel = ({ ws, account, selectedMarket, onMarketChange, onLogin
         }
       }
     });
-    return () => unsub();
+    return () => { unsub(); };
   }, [ws, selectedMarket, contractType, needsPriceBarrier, manualBarrier]);
 
   const requestProposal = useCallback(() => {
