@@ -17,12 +17,13 @@ const SMART_MARKETS = [
 
 const SMART_CONTRACTS = ["DIGITUNDER", "DIGITOVER", "DIGITMATCH", "DIGITDIFF", "CALL", "PUT", "HIGHER", "LOWER", "ONETOUCH", "NOTOUCH"];
 
-const SmartTraderPanel = ({ ws, account, selectedMarket, onMarketChange, onLogin }: {
+const SmartTraderPanel = ({ ws, account, selectedMarket, onMarketChange, onLogin, embedded = false }: {
   ws: DerivWebSocket | null;
   account: DerivAccount | null;
   selectedMarket: string;
   onMarketChange: (market: string) => void;
   onLogin: () => void;
+  embedded?: boolean;
 }) => {
   const [open, setOpen] = useState(false);
   const [market, setMarket] = useState(selectedMarket || "1HZ100V");
