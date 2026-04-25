@@ -1890,6 +1890,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                 </FormField>
                 {martingale && (
                   <>
+                    <FormField label="Martingale Persistence" hint="Persist keeps max stake until win; reset-step cycles after max step.">
+                      <select value={martingalePersistence} onChange={(e) => updateMartingalePersistence(e.target.value as "persistent" | "reset-step")} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground">
+                        <option value="persistent">Persistent to max until win</option>
+                        <option value="reset-step">Reset on step cycle</option>
+                      </select>
+                    </FormField>
                     <FormField label="Martingale Multiplier" hint="Multiplier on loss.">
                       <input type="number" value={martingaleMultiplier} onChange={(e) => { setMartingaleMultiplier(e.target.value); userTouchedRisk.current = true; }} step="0.1" className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                     </FormField>
