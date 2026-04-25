@@ -3,8 +3,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipForward, RotateCcw, FlaskConical, Target,
   TrendingUp, TrendingDown, AlertTriangle, Save, FolderOpen,
-  ChevronDown, BarChart3, Zap, Shield, Activity, Check, X
+  ChevronDown, BarChart3, Zap, Shield, Activity, Check, X, Brain
 } from "lucide-react";
+import { DEFAULT_BRAIN_THRESHOLDS, loadBrainThresholds, saveBrainThresholds } from "@/services/brain-settings";
 
 const DERIV_WS_URL = "wss://ws.derivws.com/websockets/v3";
 const APP_ID = "129344";
@@ -112,6 +113,7 @@ const StrategyLab = () => {
   const [saveName, setSaveName] = useState("");
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [showLoadModal, setShowLoadModal] = useState(false);
+  const [brainThresholds, setBrainThresholds] = useState(() => loadBrainThresholds());
   const playbackRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -354,6 +356,12 @@ const StrategyLab = () => {
     setConfig(prev => ({ ...prev, conditions: { ...prev.conditions, [key]: value } }));
   };
 
+  const updateBrainThreshold = (key: keyof typeof brainThresholds, value: number) => {
+    const next = { ...brainThresholds, [key]: value };
+    setBrainThresholds(next);
+    saveBrainThresholds(next);
+  };
+
   const scoreLabel = (s: number) => s >= 80 ? "Excellent Strategy" : s >= 60 ? "Strong Strategy" : s >= 40 ? "Moderately Strong" : s >= 20 ? "Needs Improvement" : "Weak Strategy";
   const scoreColor = (s: number) => s >= 60 ? "text-buy" : s >= 40 ? "text-warning" : "text-sell";
 
@@ -426,6 +434,25 @@ const StrategyLab = () => {
           {tickData.length > 0 && (
             <p className="text-[10px] text-muted-foreground text-center">{tickData.length} ticks loaded • {LAB_MARKETS.find(m => m.symbol === config.market)?.label}</p>
           )}
+        </div>
+
+        <div className="p-4 rounded-xl bg-card border border-border space-y-3">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Brain className="w-4 h-4 text-primary" /> Brain Sequence Thresholds
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              ["runLength", "Low/High Run"], ["parityRunLength", "Even/Odd Run"], ["flipRateMax", "Max Flip %"], ["recentWindow", "Last-N"],
+              ["deepWindow", "Deep Buffer"], ["tradeScore", "Trade Score"], ["waitScore", "Wait Score"], ["recoveryScore", "Recovery Score"],
+            ] as const).map(([key, label]) => (
+              <div key={key}>
+                <label className="text-[10px] text-muted-foreground font-medium">{label}</label>
+                <input type="number" value={brainThresholds[key]} onChange={(e) => updateBrainThreshold(key, Number(e.target.value) || DEFAULT_BRAIN_THRESHOLDS[key])}
+                  className="mt-1 w-full px-3 py-2 bg-secondary border border-border rounded text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-muted-foreground">Applies immediately to Brain entries, recovery readiness, and live Decision Feed scoring.</p>
         </div>
 
         {/* Entry Conditions */}

@@ -19,6 +19,10 @@ import QuantTerminal from "@/components/trading/QuantTerminal";
 import StrategyBooklet from "@/components/trading/StrategyBooklet";
 import DigitEdgeAnalytics from "@/components/trading/DigitEdgeAnalytics";
 import AnalysisPaywall from "@/components/trading/AnalysisPaywall";
+import DecisionFeed from "@/components/trading/DecisionFeed";
+import RecoveryDebugPanel from "@/components/trading/RecoveryDebugPanel";
+import { decisionFeed } from "@/services/decision-feed";
+import type { RecoveryDebugSnapshot } from "@/services/deriv-brain";
 
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -186,6 +190,9 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [martingaleMultiplier, setMartingaleMultiplier] = useState("2.2");
   const [maxMartingaleSteps, setMaxMartingaleSteps] = useState(10);
   const [stopAfterMaxMartingale, setStopAfterMaxMartingale] = useState(true);
+  const [martingalePersistence, setMartingalePersistence] = useState<"persistent" | "reset-step">(() => (localStorage.getItem("dnx_martingale_persistence") as any) || "persistent");
+  const [currentStakeStep, setCurrentStakeStep] = useState(0);
+  const [recoveryDebug, setRecoveryDebug] = useState<RecoveryDebugSnapshot>(() => derivBrain.getRecoveryDebug());
   const [startMartingaleAfter, setStartMartingaleAfter] = useState(1);
   const [tradeDiffers, setTradeDiffers] = useState(false);
   const [smartRisker, setSmartRisker] = useState(false);
@@ -739,14 +746,16 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     if (won) {
       consecutiveLosses.current = 0;
       currentStake.current = parseFloat(stake);
+      setCurrentStakeStep(0);
     } else {
       consecutiveLosses.current++;
       if (martingale && consecutiveLosses.current >= startMartingaleAfter) {
-        // PERSISTENT MARTINGALE: keep stake at the max-step level after maxMartingaleSteps
-        // is reached — do NOT reset to base until a real win occurs.
         const lossStep = consecutiveLosses.current - startMartingaleAfter + 1;
-        const cappedStep = Math.min(lossStep, maxMartingaleSteps);
+        const cappedStep = martingalePersistence === "persistent"
+          ? Math.min(lossStep, maxMartingaleSteps)
+          : ((lossStep - 1) % Math.max(1, maxMartingaleSteps)) + 1;
         currentStake.current = parseFloat(stake) * Math.pow(parseFloat(martingaleMultiplier), cappedStep);
+        setCurrentStakeStep(cappedStep);
       }
     }
 
@@ -777,7 +786,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     // After stake changes, refresh proposal ONCE with new stake
     requestProposal();
     lastProposalReqTs.current = Date.now();
-  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, smartRisker, selectedMarket, requestProposal, strategyProfile]);
+    setRecoveryDebug(derivBrain.getRecoveryDebug());
+  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, martingalePersistence, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, smartRisker, selectedMarket, requestProposal, strategyProfile]);
 
   // ── PERSISTENT LISTENERS: registered ONCE, dispatch by contract_id ──
   useEffect(() => {
@@ -942,6 +952,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       if (strategyProfile === "brain") {
         const lastQuote = tickBufferRef.current[tickBufferRef.current.length - 1]?.quote ?? 0;
         const decision = derivBrain.decide(lastDigitsRef.current, lastQuote);
+        setRecoveryDebug(derivBrain.getRecoveryDebug());
         if (decision.shouldTrade && decision.contractType && decision.barrier) {
           // Brain trades one at a time — guard with openContracts check
           if (openContracts.current > 0) {
@@ -1011,6 +1022,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           aiLogger.log(engineName, "warn", `Skipping pattern ${patternKey} (poor history)`);
           lastEngineLogTs = now;
         }
+        decisionFeed.push({ engine: engineName, action: "block", score: 0, reason: `Skipped ${patternKey} — poor outcome memory`, breakdown: { patternKey } });
         return;
       }
 
@@ -1031,9 +1043,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         shouldTrade = confluenceCount >= required;
         if (shouldTrade) {
           analyticsReason = `sig ${(score * 100).toFixed(0)}% • dev ${maxDev.toFixed(1)}% • E/O ${(evenBias * 100).toFixed(0)}% • run L${trailLow}/H${trailHigh} E${trailEven}/O${trailOdd}`;
-          aiLogger.log(engineName, "success", `Firing ${contractType.replace("DIGIT", "")} — ${analyticsReason}`);
+          const finalScore = Math.min(100, confluenceCount * 25 + Math.round(score * 25));
+          aiLogger.log(engineName, "success", `Score: ${finalScore}% → Trade Executed • ${contractType.replace("DIGIT", "")} — ${analyticsReason}`);
+          decisionFeed.push({ engine: engineName, action: "trade", score: finalScore, contractType, barrier, reason: analyticsReason, breakdown: { Signal: `${(score * 100).toFixed(0)}%`, Frequency: `${maxDev.toFixed(1)}%`, Runs: `L${trailLow}/H${trailHigh}`, Bias: `${(evenBias * 100).toFixed(0)}%` } });
         } else if (now - lastEngineLogTs > 4000) {
           aiLogger.log(engineName, "info", `Reading edge — sig ${(score * 100).toFixed(0)}% • dev ${maxDev.toFixed(1)}% • runs L${trailLow}/H${trailHigh} E${trailEven}/O${trailOdd} • need ${required} confluence`);
+          decisionFeed.push({ engine: engineName, action: confluenceCount > 0 ? "wait" : "block", score: Math.min(100, confluenceCount * 25 + Math.round(score * 25)), reason: confluenceCount > 0 ? "WAIT — confluence not strong enough" : "Market condition: RANDOM → No Trade", breakdown: { Signal: `${(score * 100).toFixed(0)}%`, Frequency: `${maxDev.toFixed(1)}%`, Runs: `L${trailLow}/H${trailHigh}`, Required: required } });
           lastEngineLogTs = now;
         }
       }
@@ -1086,6 +1101,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   }, [softwareStatus, ws, selectedMarket, requestProposal]);
 
   const clearTransactions = () => setTransactions([]);
+
+  const updateMartingalePersistence = (mode: "persistent" | "reset-step") => {
+    setMartingalePersistence(mode);
+    localStorage.setItem("dnx_martingale_persistence", mode);
+    userTouchedRisk.current = true;
+  };
 
   const digitFrequencies = useMemo(() => DIGIT_BARRIERS.map((d) => {
     const num = parseInt(d);
@@ -1343,6 +1364,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                     />
                   </AnalysisPaywall>
                 )}
+
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  <DecisionFeed />
+                  <RecoveryDebugPanel snapshot={recoveryDebug} stakeStep={currentStakeStep} />
+                </div>
 
                 {/* Live Probability Engine (premium) */}
                 <AnalysisPaywall
@@ -1608,6 +1634,21 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   <p className="text-[8px] text-muted-foreground mt-1.5 italic">
                     {recoveryMode === "digit" ? "After loss → UNDER 5 / OVER 5 when sequence/probability aligns." : "After loss → EVEN / ODD when parity bias > 52% or run ≥ 4."}
                   </p>
+                </div>
+                <div>
+                  <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-bold mb-1">Martingale Persistence • step {currentStakeStep}</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {(["persistent", "reset-step"] as const).map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => updateMartingalePersistence(m)}
+                        className={`px-2 py-1.5 rounded-md text-[10px] font-bold border transition-all ${martingalePersistence === m ? "bg-buy text-primary-foreground border-buy ring-2 ring-buy/40" : "bg-secondary text-muted-foreground border-border"}`}
+                      >
+                        {m === "persistent" ? "Persist to max" : "Reset on step"}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

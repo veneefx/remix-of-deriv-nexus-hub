@@ -160,11 +160,12 @@ class DerivWebSocket {
     duration: number;
     durationUnit: string;
     barrier?: string;
+    basis?: "stake" | "payout";
   }) {
     this.send({
       proposal: 1,
       amount: params.amount,
-      basis: "stake",
+      basis: params.basis || "stake",
       contract_type: params.contractType,
       currency: "USD",
       symbol: params.symbol,

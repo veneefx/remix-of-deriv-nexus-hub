@@ -10,6 +10,7 @@ import { getActiveAccount, getStoredAccounts, clearAuth, setActiveAccount, parse
 import { getOAuthUrl } from "@/services/deriv-auth";
 import TradingPanel from "@/components/trading/TradingPanel";
 import TradingViewChart from "@/components/trading/TradingViewChart";
+import SmartTraderPanel from "@/components/trading/SmartTraderPanel";
 import DerivChart from "@/components/trading/DerivChart";
 import DTraderView from "@/components/trading/DTraderView";
 import DATTab from "@/components/trading/DATTab";
@@ -505,8 +506,9 @@ const TradingHub = () => {
           )}
           {activeView === "trading-view" && (
             <div className="h-full flex">
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 overflow-y-auto">
                 <TradingViewChart ws={ws} selectedMarket={selectedMarket} />
+                <SmartTraderPanel ws={ws} account={account} selectedMarket={selectedMarket} onMarketChange={setSelectedMarket} onLogin={handleLogin} />
               </div>
               <TradingSidebar
                 ws={ws}
