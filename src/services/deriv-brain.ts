@@ -500,6 +500,7 @@ class DerivBrain {
       const target =
         this.state.recoveryMode === "evenodd" ? "EVEN/ODD" :
         strat === "UNDER_8" ? "UNDER 5" : "OVER 5";
+      this.lastRecoveryReason = `Re-armed after ${strat} loss → target ${target}; waiting for confluence/readiness`;
       aiLogger.log("Brain", "info", `Recovery triggered: ${target} — running readiness check`);
     } else {
       // Recovery loss
