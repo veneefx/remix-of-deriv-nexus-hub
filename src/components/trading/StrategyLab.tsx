@@ -436,6 +436,25 @@ const StrategyLab = () => {
           )}
         </div>
 
+        <div className="p-4 rounded-xl bg-card border border-border space-y-3">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <Brain className="w-4 h-4 text-primary" /> Brain Sequence Thresholds
+          </h3>
+          <div className="grid grid-cols-2 gap-3">
+            {([
+              ["runLength", "Low/High Run"], ["parityRunLength", "Even/Odd Run"], ["flipRateMax", "Max Flip %"], ["recentWindow", "Last-N"],
+              ["deepWindow", "Deep Buffer"], ["tradeScore", "Trade Score"], ["waitScore", "Wait Score"], ["recoveryScore", "Recovery Score"],
+            ] as const).map(([key, label]) => (
+              <div key={key}>
+                <label className="text-[10px] text-muted-foreground font-medium">{label}</label>
+                <input type="number" value={brainThresholds[key]} onChange={(e) => updateBrainThreshold(key, Number(e.target.value) || DEFAULT_BRAIN_THRESHOLDS[key])}
+                  className="mt-1 w-full px-3 py-2 bg-secondary border border-border rounded text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-muted-foreground">Applies immediately to Brain entries, recovery readiness, and live Decision Feed scoring.</p>
+        </div>
+
         {/* Entry Conditions */}
         <div className="p-4 rounded-xl bg-card border border-border space-y-3">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
