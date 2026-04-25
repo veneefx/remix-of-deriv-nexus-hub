@@ -39,7 +39,7 @@ const DecisionFeed = () => {
                     <div className="mt-2 grid grid-cols-2 gap-1">
                       {Object.entries(entry.breakdown).slice(0, 8).map(([key, value]) => (
                         <span key={key} className="text-[8px] rounded bg-background/70 px-1.5 py-1 text-muted-foreground flex justify-between gap-1">
-                          <span className="truncate">{key}</span><b className="text-foreground">{value}</b>
+                          <span className="truncate">{key}</span><b className="text-foreground">{String(value)}</b>
                         </span>
                       ))}
                     </div>
