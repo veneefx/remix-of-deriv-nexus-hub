@@ -1365,6 +1365,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   </AnalysisPaywall>
                 )}
 
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  <DecisionFeed />
+                  <RecoveryDebugPanel snapshot={recoveryDebug} stakeStep={currentStakeStep} />
+                </div>
+
                 {/* Live Probability Engine (premium) */}
                 <AnalysisPaywall
                   isPremium={isPremium}
