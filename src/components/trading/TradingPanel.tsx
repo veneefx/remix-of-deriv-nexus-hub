@@ -1102,6 +1102,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
   const clearTransactions = () => setTransactions([]);
 
+  const updateMartingalePersistence = (mode: "persistent" | "reset-step") => {
+    setMartingalePersistence(mode);
+    localStorage.setItem("dnx_martingale_persistence", mode);
+    userTouchedRisk.current = true;
+  };
+
   const digitFrequencies = useMemo(() => DIGIT_BARRIERS.map((d) => {
     const num = parseInt(d);
     const count = lastDigits.filter((x) => x === num).length;
