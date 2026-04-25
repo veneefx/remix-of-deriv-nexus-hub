@@ -8,6 +8,8 @@
 // ZERO random behavior.
 
 import { aiLogger } from "./ai-logger";
+import { decisionFeed } from "./decision-feed";
+import { DEFAULT_BRAIN_THRESHOLDS, loadBrainThresholds, onBrainThresholdsChange, type BrainThresholds } from "./brain-settings";
 
 export type BrainStrategy =
   | "UNDER_8"
@@ -116,6 +118,11 @@ function persist(state: BrainState) {
 class DerivBrain {
   private state: BrainState = loadState();
   private inFlight = false;
+  private thresholds: BrainThresholds = typeof window !== "undefined" ? loadBrainThresholds() : DEFAULT_BRAIN_THRESHOLDS;
+
+  constructor() {
+    if (typeof window !== "undefined") onBrainThresholdsChange((next) => { this.thresholds = next; });
+  }
 
   /** Switch recovery strategy (Digit vs Even/Odd). */
   setRecoveryMode(mode: RecoveryMode) {
@@ -134,25 +141,25 @@ class DerivBrain {
     this.state.lastQuotes.push(quote);
     if (this.state.lastQuotes.length > 50) this.state.lastQuotes.shift();
 
-    if (digits.length < 1000) {
+    if (digits.length < this.thresholds.deepWindow) {
       const now = Date.now();
       if (now - this.state.lastWaitLogTs > 5000) {
-        aiLogger.log("Brain", "info", `Collecting ticks… ${digits.length}/1000`);
+        aiLogger.log("Brain", "info", `Collecting ticks… ${digits.length}/${this.thresholds.deepWindow}`);
         this.state.lastWaitLogTs = now;
       }
-      return wait("Building 1000-tick buffer");
+      return this.waitDecision("Building deep tick buffer", 0);
     }
 
-    if (this.inFlight) return wait("Trade in flight");
+    if (this.inFlight) return this.waitDecision("Trade in flight", 0);
 
     // Cooldown after 3 failed recovery attempts
     if (this.state.tickCount < this.state.cooldownUntilTick) {
       const remaining = this.state.cooldownUntilTick - this.state.tickCount;
-      return wait(`Recovery cooldown — ${remaining} ticks remaining`);
+      return this.waitDecision(`Recovery cooldown — ${remaining} ticks remaining`, 0);
     }
 
     const lastDigit = digits[digits.length - 1];
-    const deep = digits.slice(-1000);
+    const deep = digits.slice(-this.thresholds.deepWindow);
     const freq = computeFrequency(deep);
     const volSpike = this.detectVolSpike();
     const sumLow0_4 = freq[0] + freq[1] + freq[2] + freq[3] + freq[4];
@@ -167,7 +174,7 @@ class DerivBrain {
       if (volSpike) return wait("Vol spike — holding recovery");
 
       // Stricter threshold after 2+ consecutive recovery losses
-      const minScore = this.state.recoveryAttempts >= 2 ? 80 : 70;
+      const minScore = this.state.recoveryAttempts >= 2 ? this.thresholds.strictRecoveryScore : this.thresholds.recoveryScore;
 
       if (this.state.recoveryMode === "evenodd") {
         return this.tryEvenOddRecovery(digits, freq, minScore, seq);
@@ -176,7 +183,7 @@ class DerivBrain {
     }
 
     // ── PRIMARY STRATEGIES ────────────────────────────────────────
-    if (volSpike) return wait("Volatility spike — standing down");
+    if (volSpike) return this.waitDecision("Volatility spike — standing down", 35);
 
     const under8WinRate = this.winRate("UNDER_8");
     const over2WinRate = this.winRate("OVER_2");
@@ -185,8 +192,13 @@ class DerivBrain {
 
     // Pattern-driven entry: read last sequence, fire when pattern aligns even
     // if the user-defined entry digit hasn't appeared yet. Brain chooses for itself.
-    const lowRunDriven = seq.lowRun >= 4 || seq.below5InLast20 >= 14; // sustained low cluster
-    const highRunDriven = seq.highRun >= 4 || seq.above4InLast20 >= 14; // sustained high cluster
+    const confluence = this.computeDecisionScore(freq, seq, under8Valid.valid, over2Valid.valid);
+    const lowRunDriven = seq.lowRun >= this.thresholds.runLength || seq.below5InLast20 >= Math.ceil(this.thresholds.recentWindow * 0.7);
+    const highRunDriven = seq.highRun >= this.thresholds.runLength || seq.above4InLast20 >= Math.ceil(this.thresholds.recentWindow * 0.7);
+
+    if (confluence.total < this.thresholds.waitScore) {
+      return this.waitDecision(`Score ${confluence.total}% → BLOCK trade (low confluence)`, confluence.total, confluence.parts);
+    }
 
     if (under8Valid.valid) {
       const stat = this.state.stats.UNDER_8;
@@ -195,13 +207,13 @@ class DerivBrain {
         const entryByPattern = lowRunDriven && seq.last8and9Frac < 0.15;
         if (entryByDigit || entryByPattern) {
           const key = `U8|high89=${bucket(freq[8] + freq[9])}|low04=${bucket(sumLow0_4)}|seq=${seq.lowRun >= 4 ? "lowRun" : "freq"}`;
-          if (!this.shouldSkipPattern(key)) {
+          if (!this.shouldSkipPattern(key) && confluence.total >= this.thresholds.tradeScore) {
             this.firePrimary("UNDER_8", key);
             const trigger = entryByPattern && !entryByDigit
               ? `pattern-fire (lowRun ${seq.lowRun}, <5 in last20: ${seq.below5InLast20})`
               : `entry digit 6`;
-            aiLogger.log("Brain", "success",
-              `UNDER 8 firing — ${trigger} [8:${freq[8].toFixed(1)} 9:${freq[9].toFixed(1)}]`);
+            aiLogger.log("Brain", "success", `Score: ${confluence.total}% → Trade Executed • UNDER 8 — ${trigger}`);
+            decisionFeed.push({ engine: "Brain", action: "trade", score: confluence.total, contractType: "DIGITUNDER", barrier: "8", reason: `UNDER 8 fired: ${trigger}`, breakdown: confluence.parts });
             return { shouldTrade: true, contractType: "DIGITUNDER", barrier: "8", strategy: "UNDER_8", reason: "UNDER 8 entry" };
           }
         }
@@ -215,22 +227,23 @@ class DerivBrain {
         const entryByPattern = highRunDriven && seq.last0and1Frac < 0.15;
         if (entryByDigit || entryByPattern) {
           const key = `O2|low01=${bucket(freq[0] + freq[1])}|high59=${bucket(sumHigh5_9)}|seq=${seq.highRun >= 4 ? "highRun" : "freq"}`;
-          if (!this.shouldSkipPattern(key)) {
+          if (!this.shouldSkipPattern(key) && confluence.total >= this.thresholds.tradeScore) {
             this.firePrimary("OVER_2", key);
             const trigger = entryByPattern && !entryByDigit
               ? `pattern-fire (highRun ${seq.highRun}, >4 in last20: ${seq.above4InLast20})`
               : `entry digit 4`;
-            aiLogger.log("Brain", "success",
-              `OVER 2 firing — ${trigger} [0:${freq[0].toFixed(1)} 1:${freq[1].toFixed(1)}]`);
+            aiLogger.log("Brain", "success", `Score: ${confluence.total}% → Trade Executed • OVER 2 — ${trigger}`);
+            decisionFeed.push({ engine: "Brain", action: "trade", score: confluence.total, contractType: "DIGITOVER", barrier: "2", reason: `OVER 2 fired: ${trigger}`, breakdown: confluence.parts });
             return { shouldTrade: true, contractType: "DIGITOVER", barrier: "2", strategy: "OVER_2", reason: "OVER 2 entry" };
           }
         }
       }
     }
 
-    if (under8Valid.valid && lastDigit !== 6 && !lowRunDriven) return wait(`UNDER 8 ready — entry digit 6 or low-run (got ${lastDigit}, lowRun=${seq.lowRun})`);
-    if (over2Valid.valid && lastDigit !== 4 && !highRunDriven) return wait(`OVER 2 ready — entry digit 4 or high-run (got ${lastDigit}, highRun=${seq.highRun})`);
-    return wait(`No pattern [U8:${under8Valid.reason} | O2:${over2Valid.reason} | seq E${seq.evenRun}/O${seq.oddRun} L${seq.lowRun}/H${seq.highRun}]`);
+    if (confluence.total < this.thresholds.tradeScore) return this.waitDecision(`Score ${confluence.total}% → WAIT (needs ${this.thresholds.tradeScore}%)`, confluence.total, confluence.parts);
+    if (under8Valid.valid && lastDigit !== 6 && !lowRunDriven) return this.waitDecision(`UNDER 8 ready — entry digit 6 or low-run (got ${lastDigit}, lowRun=${seq.lowRun})`, confluence.total, confluence.parts);
+    if (over2Valid.valid && lastDigit !== 4 && !highRunDriven) return this.waitDecision(`OVER 2 ready — entry digit 4 or high-run (got ${lastDigit}, highRun=${seq.highRun})`, confluence.total, confluence.parts);
+    return this.waitDecision(`Market condition: RANDOM → No Trade [U8:${under8Valid.reason} | O2:${over2Valid.reason}]`, confluence.total, confluence.parts);
   }
 
   // ── SEQUENCE PATTERN READER ────────────────────────────────────
