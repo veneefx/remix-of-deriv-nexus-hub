@@ -1798,6 +1798,18 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           </button>
 
           {/* Last trade result */}
+          <div className="p-3 rounded-lg bg-secondary/50 border border-border space-y-1">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] text-muted-foreground font-bold">Live Proposal</span>
+              <span className="text-[10px] text-primary font-semibold truncate">{proposalStatus}</span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] text-muted-foreground font-bold">Execution</span>
+              <span className="text-[10px] text-foreground font-semibold truncate">{lastExecutionStatus}</span>
+            </div>
+          </div>
+
+          {/* Last trade result */}
           <AnimatePresence>
             {tradeResult && (
               <motion.div
