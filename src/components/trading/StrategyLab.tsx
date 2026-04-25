@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Play, Pause, SkipForward, RotateCcw, FlaskConical, Target,
   TrendingUp, TrendingDown, AlertTriangle, Save, FolderOpen,
-  ChevronDown, BarChart3, Zap, Shield, Activity, Check, X
+  ChevronDown, BarChart3, Zap, Shield, Activity, Check, X, Brain
 } from "lucide-react";
 import { DEFAULT_BRAIN_THRESHOLDS, loadBrainThresholds, saveBrainThresholds } from "@/services/brain-settings";
 
