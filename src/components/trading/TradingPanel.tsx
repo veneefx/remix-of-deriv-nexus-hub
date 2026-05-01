@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Wallet, List, Table, ChevronRight, Settings, TrendingUp, BarChart3, Shield, Zap, Activity, Flame, Target, AlertTriangle, Lock, Brain, Gauge } from "lucide-react";
+import { X, Wallet, List, Table, ChevronRight, Settings, TrendingUp, BarChart3, Shield, Zap, Activity, Flame, Target, AlertTriangle, Lock, Brain, Gauge, Radar } from "lucide-react";
 import DerivWebSocket from "@/services/deriv-websocket";
 import { DerivAccount } from "@/services/deriv-auth";
 import { VOLATILITY_MARKETS, MARKET_CATEGORIES, CONTRACT_TYPES, DIGIT_BARRIERS, getLastDigit } from "@/lib/trading-constants";
@@ -21,7 +21,6 @@ import DigitEdgeAnalytics from "@/components/trading/DigitEdgeAnalytics";
 import AnalysisPaywall from "@/components/trading/AnalysisPaywall";
 import DecisionFeed from "@/components/trading/DecisionFeed";
 import RecoveryDebugPanel from "@/components/trading/RecoveryDebugPanel";
-import SmartTraderPanel from "@/components/trading/SmartTraderPanel";
 import { decisionFeed } from "@/services/decision-feed";
 import type { RecoveryDebugSnapshot } from "@/services/deriv-brain";
 
@@ -204,6 +203,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [strategyVersion, setStrategyVersion] = useState<number | null>(null);
   const [proposalStatus, setProposalStatus] = useState("Waiting for proposal…");
   const [lastExecutionStatus, setLastExecutionStatus] = useState("Idle");
+  const [entrySignal, setEntrySignal] = useState<{ unifiedScore: number; flowScore: number; radarScore: number; dxpScore: number; reason: string }>({ unifiedScore: 0, flowScore: 0, radarScore: 0, dxpScore: 0, reason: "Collecting signal" });
 
   // Track whether the user has manually edited risk settings.
   // If true, we DO NOT overwrite them when global_strategy reloads.
@@ -536,6 +536,16 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       const sig = calculateLocalSignal(lastDigitsRef.current, newPressure, tickBufferRef.current);
       setSignalScore(sig.score);
       setSignalDetails(sig.details);
+
+      const lastQuote = tickBufferRef.current[tickBufferRef.current.length - 1]?.quote ?? quote;
+      const combinedSignal = derivBrain.getEntrySignal(lastDigitsRef.current, lastQuote);
+      setEntrySignal({
+        unifiedScore: combinedSignal.unifiedScore,
+        flowScore: combinedSignal.flowScore,
+        radarScore: combinedSignal.radarScore,
+        dxpScore: combinedSignal.dxpScore,
+        reason: `${combinedSignal.under8.valid ? "U8 ready" : combinedSignal.over2.valid ? "O2 ready" : "Mixed"} • flow ${combinedSignal.seq.lowRun}/${combinedSignal.seq.highRun} • flip ${Math.round(combinedSignal.seq.flipRate)}%`,
+      });
 
       // ELIT analysis
       if (strategyProfile === "elit") {
@@ -1015,10 +1025,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       const evenInLast20 = digits.slice(-20).filter((d) => d % 2 === 0).length;
       const evenBias = evenInLast20 / 20;
 
-      const { score, elitScore } = latestSignalRef.current;
+        const { score, elitScore } = latestSignalRef.current;
+        const combinedSignal = derivBrain.getEntrySignal(digits, tickBufferRef.current[tickBufferRef.current.length - 1]?.quote ?? 0);
       let shouldTrade = false;
       let analyticsReason = "";
-      const threshold = strategyProfile === "aggressive" ? 0.05 :
+        const threshold = strategyProfile === "aggressive" ? 0.08 :
                         strategyProfile === "conservative" ? 0.25 : 0.15;
 
       const engineName: AIEngine =
@@ -1037,7 +1048,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         return;
       }
 
-      if (strategyProfile === "elit") {
+        if (strategyProfile === "elit") {
         shouldTrade = elitScore >= 70;
         if (shouldTrade) aiLogger.log("ELIT", "success", `Confluence ${elitScore}% — firing ${elitContract.replace("DIGIT","")} • freqDev ${maxDev.toFixed(1)}% • lowRun ${trailLow} • highRun ${trailHigh}`);
       } else {
@@ -1049,17 +1060,18 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         const biasOk = evenBias <= 0.30 || evenBias >= 0.70; // >=70% one parity in last 20
         const dominanceOk = maxDev >= 5; // any digit ≥15% or ≤5%
         // Conservative needs 2 confluences, balanced 1, aggressive 1
-        const confluenceCount = [sigOk, streakOk, biasOk, dominanceOk].filter(Boolean).length;
+          const combinedOk = combinedSignal.unifiedScore >= (strategyProfile === "aggressive" ? 60 : strategyProfile === "balanced" ? 68 : 75);
+          const confluenceCount = [sigOk, streakOk, biasOk, dominanceOk, combinedOk].filter(Boolean).length;
         const required = strategyProfile === "conservative" ? 2 : 1;
         shouldTrade = confluenceCount >= required;
         if (shouldTrade) {
-          analyticsReason = `sig ${(score * 100).toFixed(0)}% • dev ${maxDev.toFixed(1)}% • E/O ${(evenBias * 100).toFixed(0)}% • run L${trailLow}/H${trailHigh} E${trailEven}/O${trailOdd}`;
-          const finalScore = Math.min(100, confluenceCount * 25 + Math.round(score * 25));
+            analyticsReason = `sig ${(score * 100).toFixed(0)}% • combo ${combinedSignal.unifiedScore}% • dev ${maxDev.toFixed(1)}% • E/O ${(evenBias * 100).toFixed(0)}% • run L${trailLow}/H${trailHigh} E${trailEven}/O${trailOdd}`;
+            const finalScore = Math.min(100, confluenceCount * 20 + Math.round(score * 20) + Math.round(combinedSignal.unifiedScore * 0.2));
           aiLogger.log(engineName, "success", `Score: ${finalScore}% → Trade Executed • ${contractType.replace("DIGIT", "")} — ${analyticsReason}`);
-          decisionFeed.push({ engine: engineName, action: "trade", score: finalScore, contractType, barrier, reason: analyticsReason, breakdown: { Signal: `${(score * 100).toFixed(0)}%`, Frequency: `${maxDev.toFixed(1)}%`, Runs: `L${trailLow}/H${trailHigh}`, Bias: `${(evenBias * 100).toFixed(0)}%` } });
+            decisionFeed.push({ engine: engineName, action: "trade", score: finalScore, contractType, barrier, reason: analyticsReason, breakdown: { Signal: `${(score * 100).toFixed(0)}%`, Combined: `${combinedSignal.unifiedScore}%`, DXP: `${combinedSignal.dxpScore}%`, Radar: `${combinedSignal.radarScore}%`, Flow: `${combinedSignal.flowScore}%` } });
         } else if (now - lastEngineLogTs > 4000) {
-          aiLogger.log(engineName, "info", `Reading edge — sig ${(score * 100).toFixed(0)}% • dev ${maxDev.toFixed(1)}% • runs L${trailLow}/H${trailHigh} E${trailEven}/O${trailOdd} • need ${required} confluence`);
-          decisionFeed.push({ engine: engineName, action: confluenceCount > 0 ? "wait" : "block", score: Math.min(100, confluenceCount * 25 + Math.round(score * 25)), reason: confluenceCount > 0 ? "WAIT — confluence not strong enough" : "Market condition: RANDOM → No Trade", breakdown: { Signal: `${(score * 100).toFixed(0)}%`, Frequency: `${maxDev.toFixed(1)}%`, Runs: `L${trailLow}/H${trailHigh}`, Required: required } });
+            aiLogger.log(engineName, "info", `Reading edge — sig ${(score * 100).toFixed(0)}% • combo ${combinedSignal.unifiedScore}% • dev ${maxDev.toFixed(1)}% • runs L${trailLow}/H${trailHigh} E${trailEven}/O${trailOdd} • need ${required} confluence`);
+            decisionFeed.push({ engine: engineName, action: confluenceCount > 0 ? "wait" : "block", score: Math.min(100, confluenceCount * 20 + Math.round(score * 20) + Math.round(combinedSignal.unifiedScore * 0.2)), reason: confluenceCount > 0 ? "WAIT — confluence not strong enough" : "Market condition: RANDOM → No Trade", breakdown: { Signal: `${(score * 100).toFixed(0)}%`, Combined: `${combinedSignal.unifiedScore}%`, Frequency: `${maxDev.toFixed(1)}%`, Required: required } });
           lastEngineLogTs = now;
         }
       }
@@ -1153,6 +1165,9 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           </span>
           <span className="text-[9px] px-2 py-0.5 rounded-full bg-buy/10 text-buy font-bold">
             Stake step {currentStakeStep} • {martingalePersistence === "persistent" ? "persist" : "reset-step"}
+          </span>
+          <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${entrySignal.unifiedScore >= 70 ? "bg-buy/10 text-buy" : entrySignal.unifiedScore >= 55 ? "bg-warning/10 text-warning" : "bg-secondary text-muted-foreground"}`}>
+            Unified: {entrySignal.unifiedScore}%
           </span>
           {/* Signal Score Badge */}
           {lastDigits.length > 30 && (
@@ -1387,14 +1402,51 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   <RecoveryDebugPanel snapshot={recoveryDebug} stakeStep={currentStakeStep} />
                 </div>
 
-                <SmartTraderPanel
-                  ws={ws}
-                  account={account}
-                  selectedMarket={selectedMarket}
-                  onMarketChange={setSelectedMarket}
-                  onLogin={() => toast({ title: "Connect account", description: "Use the Connect Account button in the header to trade." })}
-                  embedded
-                />
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  <div className="p-4 rounded-xl bg-card border border-border space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Activity className="w-4 h-4 text-primary" />
+                        <h3 className="text-sm font-semibold text-foreground">Live Trading Status</h3>
+                      </div>
+                      <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${softwareStatus === "ACTIVE" ? "bg-buy/10 text-buy" : "bg-secondary text-muted-foreground"}`}>{softwareStatus}</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        ["Account", account ? (account.is_virtual ? "VRTC" : "CR") : "—"],
+                        ["Proposal", proposalIdRef.current ? proposalIdRef.current.slice(0, 10) : "—"],
+                        ["Last Tick", currentTick !== null ? String(currentTick) : "—"],
+                        ["Recovery", recoveryDebug.coolingDown ? "Cooling" : recoveryDebug.armed ? "Armed" : "Idle"],
+                      ].map(([label, value]) => (
+                        <div key={String(label)} className="rounded-lg bg-secondary/50 border border-border p-2">
+                          <p className="text-[8px] uppercase text-muted-foreground font-bold">{label}</p>
+                          <p className="text-xs text-foreground font-semibold mt-1 truncate">{String(value)}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">{lastExecutionStatus}</p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-card border border-border space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Radar className="w-4 h-4 text-primary" />
+                      <h3 className="text-sm font-semibold text-foreground">Unified Entry Decision</h3>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {[
+                        ["Combined", `${entrySignal.unifiedScore}%`],
+                        ["Digit Flow", `${entrySignal.flowScore}%`],
+                        ["Pattern Radar", `${entrySignal.radarScore}%`],
+                        ["DXP", `${entrySignal.dxpScore}%`],
+                      ].map(([label, value]) => (
+                        <div key={String(label)} className="rounded-lg bg-secondary/50 border border-border p-2">
+                          <p className="text-[8px] uppercase text-muted-foreground font-bold">{label}</p>
+                          <p className="text-xs text-foreground font-semibold mt-1">{String(value)}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">{entrySignal.reason}</p>
+                  </div>
+                </div>
 
                 {/* Live Probability Engine (premium) */}
                 <AnalysisPaywall
