@@ -54,11 +54,12 @@ const sidebarItems = [
   { icon: Settings, label: "Settings", path: "/risk" },
 ];
 
-type ViewMode = "digit-edge" | "trading-view" | "deriv-charts" | "deriv" | "dat" | "market-scanner" | "strategy-lab" | "forex-ai" | "transactions";
+type ViewMode = "digit-edge" | "trading-view" | "smarttrader" | "deriv-charts" | "deriv" | "dat" | "market-scanner" | "strategy-lab" | "forex-ai" | "transactions";
 
 const viewLabels: Record<ViewMode, string> = {
   "digit-edge": "Digit Edge",
   "trading-view": "Trading View",
+  "smarttrader": "SmartTrader",
   "deriv-charts": "Deriv Charts",
   "deriv": "Deriv",
   "dat": "DAT",
@@ -508,7 +509,6 @@ const TradingHub = () => {
             <div className="h-full flex">
               <div className="flex-1 min-w-0 overflow-y-auto">
                 <TradingViewChart ws={ws} selectedMarket={selectedMarket} />
-                <SmartTraderPanel ws={ws} account={account} selectedMarket={selectedMarket} onMarketChange={setSelectedMarket} onLogin={handleLogin} />
               </div>
               <TradingSidebar
                 ws={ws}
@@ -517,6 +517,22 @@ const TradingHub = () => {
                 setSelectedMarket={setSelectedMarket}
                 onLogin={handleLogin}
               />
+            </div>
+          )}
+          {activeView === "smarttrader" && (
+            <div className="h-full overflow-y-auto p-4 lg:p-6">
+              <div className="max-w-7xl mx-auto space-y-4">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div>
+                    <h2 className="text-lg font-bold text-foreground">SmartTrader</h2>
+                    <p className="text-xs text-muted-foreground">Fast direct execution with live proposals on its own workspace.</p>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${wsConnected ? "bg-buy/10 text-buy" : "bg-sell/10 text-sell"}`}>
+                    {wsConnected ? "Connected" : "Reconnecting"}
+                  </span>
+                </div>
+                <SmartTraderPanel ws={ws} account={account} selectedMarket={selectedMarket} onMarketChange={setSelectedMarket} onLogin={handleLogin} embedded />
+              </div>
             </div>
           )}
           {activeView === "deriv-charts" && (

@@ -25,6 +25,23 @@ const RecoveryDebugPanel = ({ snapshot, stakeStep }: { snapshot: RecoveryDebugSn
         </div>
       ))}
     </div>
+    <div className="rounded-lg bg-secondary/50 border border-border p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[8px] uppercase text-muted-foreground font-bold">Recovery Readiness</p>
+        <span className={`text-[10px] font-bold ${snapshot.readinessScore >= 70 ? "text-buy" : snapshot.readinessScore >= 50 ? "text-warning" : "text-muted-foreground"}`}>
+          {snapshot.readinessScore}%
+        </span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+        {snapshot.readinessReasons.length > 0 ? snapshot.readinessReasons.map((reason) => (
+          <span key={reason} className="text-[9px] rounded bg-background/80 px-2 py-1 text-muted-foreground border border-border">
+            {reason}
+          </span>
+        )) : (
+          <span className="text-[9px] text-muted-foreground">Readiness reasons will appear when recovery starts evaluating.</span>
+        )}
+      </div>
+    </div>
     <p className="text-[10px] text-muted-foreground">{snapshot.lastReason || "No recovery event yet. The next base loss will show the re-arm reason and matched sequence here."}</p>
   </div>
 );
