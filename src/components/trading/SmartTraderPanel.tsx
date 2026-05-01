@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Activity, RefreshCw, Zap } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Activity, Zap } from "lucide-react";
 import DerivWebSocket from "@/services/deriv-websocket";
 import type { DerivAccount } from "@/services/deriv-auth";
 import { DIGIT_BARRIERS, getLastDigit } from "@/lib/trading-constants";
@@ -102,7 +102,7 @@ const SmartTraderPanel = ({ ws, account, selectedMarket, onMarketChange, onLogin
     aiLogger.log("System", "info", `SmartTrader market changed → ${next}; analysis reset`);
   };
 
-  const execute = () => {
+  const execute = useCallback(() => {
     if (!ws || !proposalId || executing.current || !validAmount) return;
     if (!tradeLock.tryAcquire("System")) return;
     executing.current = true;
@@ -136,7 +136,13 @@ const SmartTraderPanel = ({ ws, account, selectedMarket, onMarketChange, onLogin
       }
       unsubBuy();
     });
-  };
+  }, [ws, proposalId, validAmount, latestQuote, amount, normalizedContract, market, requestProposal]);
+
+  useEffect(() => {
+    if (!ws || !isConnected) return;
+    const refresh = setInterval(() => requestProposal(), 1200);
+    return () => clearInterval(refresh);
+  }, [ws, isConnected, requestProposal]);
 
   const content = (
     <div className="p-4 rounded-xl bg-card/95 border border-border shadow-lg space-y-4">

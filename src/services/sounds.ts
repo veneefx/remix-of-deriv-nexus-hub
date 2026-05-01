@@ -14,7 +14,7 @@ function getCtx(): AudioContext | null {
       if (!C) return null;
       ctx = new C();
     }
-    if (ctx.state === "suspended") {
+    if (ctx.state === "suspended" && navigator.userActivation?.hasBeenActive) {
       // Best-effort resume; browsers require a user gesture for first play
       ctx.resume().catch(() => {});
     }
@@ -101,7 +101,12 @@ export const sounds = {
     }
   },
   /** Prime the AudioContext on first user gesture so later plays work even if backgrounded. */
-  prime() { getCtx(); },
+  prime() {
+    const audio = getCtx();
+    if (audio && audio.state === "suspended" && navigator.userActivation?.hasBeenActive) {
+      audio.resume().catch(() => {});
+    }
+  },
 };
 
 export type { SoundKind };

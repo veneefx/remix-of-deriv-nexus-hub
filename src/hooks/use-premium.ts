@@ -70,7 +70,38 @@ export const usePremium = () => {
       checkPremiumStatus();
     });
 
-    return () => subscription?.unsubscribe();
+    const refreshInterval = setInterval(checkPremiumStatus, 5000);
+
+    const channel = supabase
+      .channel('premium-status-sync')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'profiles',
+      }, () => {
+        checkPremiumStatus();
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'user_plans',
+      }, () => {
+        checkPremiumStatus();
+      })
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'payments',
+      }, () => {
+        checkPremiumStatus();
+      })
+      .subscribe();
+
+    return () => {
+      subscription?.unsubscribe();
+      clearInterval(refreshInterval);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return { isPremium, isAdmin, loading, email };
