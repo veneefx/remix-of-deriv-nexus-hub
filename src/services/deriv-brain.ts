@@ -343,6 +343,14 @@ class DerivBrain {
       aiLogger.log("Brain", "info",
         `Recovery UNDER 5 — score ${score}/100 • P[<5]=${sumLow0_4Strict.toFixed(1)}% • lowRun=${seq.lowRun} • need ${minScore}+`);
 
+      this.lastReadinessScore = score;
+      this.lastReadinessReasons = [
+        `Score ${score}/${minScore}`,
+        `P<5 ${sumLow0_4Strict.toFixed(1)}%`,
+        `Low run ${seq.lowRun}`,
+        `Flip ${Math.round(seq.flipRate)}%`,
+      ];
+
       const probOk = score >= minScore && sumLow0_4Strict >= 53 && each04Ok && digit5NotExtreme;
       if (probOk || sequenceFire) {
         const key = `RU5|low04=${bucket(sumLow0_4Strict)}|d5=${bucket(freq[5])}|seq=${sequenceFire ? "lowRun" : "prob"}`;
@@ -367,6 +375,14 @@ class DerivBrain {
 
       aiLogger.log("Brain", "info",
         `Recovery OVER 5 — score ${score}/100 • P[>5]=${sumHigh6_9.toFixed(1)}% • highRun=${seq.highRun} • need ${minScore}+`);
+
+      this.lastReadinessScore = score;
+      this.lastReadinessReasons = [
+        `Score ${score}/${minScore}`,
+        `P>5 ${sumHigh6_9.toFixed(1)}%`,
+        `High run ${seq.highRun}`,
+        `Flip ${Math.round(seq.flipRate)}%`,
+      ];
 
       const probOk = score >= minScore && sumHigh6_9 >= 45 && each69Ok && digit5NotExtreme;
       if (probOk || sequenceFire) {
@@ -407,6 +423,14 @@ class DerivBrain {
     const stable = flipRate < 60; // <60% flip rate = stable sequence
 
     const score = this.computeReadinessScore(freq, "DIGITEVEN", 0);
+    this.lastReadinessScore = score;
+    this.lastReadinessReasons = [
+      `Score ${score}/${minScore}`,
+      `Even ${evenPct.toFixed(1)}%`,
+      `Odd ${oddPct.toFixed(1)}%`,
+      `Flip ${Math.round(flipRate)}%`,
+      `Runs E${seq.evenRun}/O${seq.oddRun}`,
+    ];
 
     aiLogger.log("Brain", "info",
       `Recovery E/O — Even ${evenPct.toFixed(1)}% • Odd ${oddPct.toFixed(1)}% • flips ${flipRate.toFixed(0)}% • score ${score}`);
@@ -560,6 +584,9 @@ class DerivBrain {
       attempts: this.state.recoveryAttempts,
       cooldownUntilTick: this.state.cooldownUntilTick,
       lastReason: this.lastRecoveryReason,
+      readinessScore: this.lastReadinessScore,
+      readinessReasons: this.lastReadinessReasons,
+      coolingDown: this.state.tickCount < this.state.cooldownUntilTick,
     };
   }
 
