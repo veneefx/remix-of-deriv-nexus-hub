@@ -1728,6 +1728,23 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                     ))}
                   </div>
                 </div>
+                <div className="rounded-lg bg-background/70 border border-border p-2.5 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-bold">Recovery Readiness</p>
+                    <span className={`text-[10px] font-bold ${recoveryDebug.readinessScore >= 70 ? "text-buy" : recoveryDebug.readinessScore >= 50 ? "text-warning" : "text-muted-foreground"}`}>
+                      {recoveryDebug.readinessScore}%
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-1">
+                    {recoveryDebug.readinessReasons.length > 0 ? recoveryDebug.readinessReasons.map((reason) => (
+                      <span key={reason} className="text-[9px] text-muted-foreground rounded bg-secondary/70 px-2 py-1 border border-border">
+                        {reason}
+                      </span>
+                    )) : (
+                      <span className="text-[9px] text-muted-foreground">Recovery has not evaluated a re-entry yet.</span>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>
