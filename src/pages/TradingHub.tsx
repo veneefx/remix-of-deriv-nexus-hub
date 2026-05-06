@@ -267,6 +267,20 @@ const TradingHub = () => {
 
   const handleLogin = () => {
     const url = getOAuthUrl(DERIV_APP_ID, `${window.location.origin}/callback`);
+    // If we're inside the Lovable preview iframe, OAuth must open at the top
+    // level so Deriv's cookies/redirect don't get blocked. Fall back to a new
+    // tab if top-level navigation is blocked by the embedder.
+    try {
+      const inIframe = window.top && window.top !== window.self;
+      if (inIframe && window.top) {
+        (window.top as Window).location.href = url;
+        return;
+      }
+    } catch {
+      // cross-origin top access blocked → open new tab
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
     window.location.href = url;
   };
 
