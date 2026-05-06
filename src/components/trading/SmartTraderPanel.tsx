@@ -227,6 +227,14 @@ const SmartTraderPanel = ({ ws, account, selectedMarket, onMarketChange, onLogin
           <span className={`px-2 py-0.5 rounded-full font-bold ${baseConfluence >= 75 ? "bg-buy/15 text-buy" : "bg-secondary text-muted-foreground"}`}>Base entry: {baseConfluence}%</span>
           <span className={`px-2 py-0.5 rounded-full font-bold ${recoveryConfluence >= 80 ? "bg-warning/15 text-warning" : "bg-secondary text-muted-foreground"}`}>Recovery: {recoveryConfluence}%</span>
         </div>
+        {signal?.seq && (
+          <ul className="mt-2 space-y-1 text-[10px] leading-snug">
+            <li className="flex items-start gap-1.5"><span className="text-primary font-bold mt-0.5">•</span><span><b className="text-foreground">Pattern Radar {signal.radarScore}%:</b> <span className="text-muted-foreground">low-run {signal.seq.lowRun} / high-run {signal.seq.highRun} {(signal.seq.lowRun >= 4 || signal.seq.highRun >= 4) ? "↑ strong streak" : "↓ no streak"}; flip-rate {Math.round(signal.seq.flipRate)}% {signal.seq.flipRate <= 60 ? "↑ stable" : "↓ chaotic"}; tail-bias {(signal.seq.last8and9Frac*100).toFixed(0)}/{(signal.seq.last0and1Frac*100).toFixed(0)}%.</span></span></li>
+            <li className="flex items-start gap-1.5"><span className="text-primary font-bold mt-0.5">•</span><span><b className="text-foreground">Digit Flow {signal.flowScore}%:</b> <span className="text-muted-foreground">last 20 → {signal.seq.below5InLast20}× &lt;5 vs {signal.seq.above4InLast20}× &gt;4 {Math.max(signal.seq.below5InLast20, signal.seq.above4InLast20) >= 14 ? "↑ directional pressure" : "↓ balanced"}.</span></span></li>
+            <li className="flex items-start gap-1.5"><span className="text-primary font-bold mt-0.5">•</span><span><b className="text-foreground">DXP / Inverted {signal.dxpScore}%:</b> <span className="text-muted-foreground">peak frequency deviation {Math.max(...(signal.freq||[10]).map((p:number)=>Math.abs(p-10))).toFixed(1)}pp from 10% baseline {signal.dxpScore >= 60 ? "↑ exploitable skew" : "↓ near uniform"}.</span></span></li>
+            <li className="flex items-start gap-1.5"><span className="text-foreground font-bold mt-0.5">▸</span><span><b className="text-foreground">Combined {signal.unifiedScore}%</b> <span className="text-muted-foreground">= 45% confluence + 20% flow + 20% radar + 15% DXP. {baseConfluence >= 75 ? "✅ Base ready" : `Needs +${75-baseConfluence}% for base`}; {recoveryConfluence >= 80 ? "✅ Recovery ready" : `+${Math.max(0,80-recoveryConfluence)}% for recovery`}.</span></span></li>
+          </ul>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
