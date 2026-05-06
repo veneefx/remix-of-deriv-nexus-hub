@@ -1049,8 +1049,22 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       }
 
         if (strategyProfile === "elit") {
-        shouldTrade = elitScore >= 70;
-        if (shouldTrade) aiLogger.log("ELIT", "success", `Confluence ${elitScore}% — firing ${elitContract.replace("DIGIT","")} • freqDev ${maxDev.toFixed(1)}% • lowRun ${trailLow} • highRun ${trailHigh}`);
+        // ELIT must still pass digit-flow + confluence checks — never fire blindly
+        const elitStreakOk = trailLow >= 3 || trailHigh >= 3 || trailEven >= 3 || trailOdd >= 3;
+        const elitBiasOk = evenBias <= 0.35 || evenBias >= 0.65;
+        const elitDominanceOk = maxDev >= 4;
+        const elitFlowOk = combinedSignal.flowScore >= 55 || combinedSignal.radarScore >= 55;
+        const elitCombinedOk = combinedSignal.unifiedScore >= 65;
+        const elitConfluences = [elitStreakOk, elitBiasOk, elitDominanceOk, elitFlowOk, elitCombinedOk].filter(Boolean).length;
+        shouldTrade = elitScore >= 70 && elitCombinedOk && elitConfluences >= 2;
+        if (shouldTrade) {
+          aiLogger.log("ELIT", "success", `Elit ${elitScore}% • combo ${combinedSignal.unifiedScore}% • flow ${combinedSignal.flowScore}% • radar ${combinedSignal.radarScore}% • runs L${trailLow}/H${trailHigh} • dev ${maxDev.toFixed(1)}%`);
+          decisionFeed.push({ engine: "ELIT", action: "trade", score: elitScore, contractType: elitContract, barrier, reason: `ELIT ${elitConfluences}/5 confluences`, breakdown: { Elit: `${elitScore}%`, Combined: `${combinedSignal.unifiedScore}%`, Flow: `${combinedSignal.flowScore}%`, Radar: `${combinedSignal.radarScore}%`, DXP: `${combinedSignal.dxpScore}%` } });
+        } else if (now - lastEngineLogTs > 4000) {
+          aiLogger.log("ELIT", "info", `Reading — elit ${elitScore}% • combo ${combinedSignal.unifiedScore}% • confluences ${elitConfluences}/5 (need elit≥70 + combo≥65 + 2 confluences)`);
+          decisionFeed.push({ engine: "ELIT", action: elitConfluences > 0 ? "wait" : "block", score: elitScore, reason: "ELIT analyzing — confluence not yet aligned", breakdown: { Elit: `${elitScore}%`, Combined: `${combinedSignal.unifiedScore}%`, Confluences: `${elitConfluences}/5` } });
+          lastEngineLogTs = now;
+        }
       } else {
         // Conservative / Balanced / Aggressive — read full DigitEdge surface
         // Require at least one of: signal-score threshold, strong sequence streak,
@@ -1062,8 +1076,9 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         // Conservative needs 2 confluences, balanced 1, aggressive 1
           const combinedOk = combinedSignal.unifiedScore >= (strategyProfile === "aggressive" ? 60 : strategyProfile === "balanced" ? 68 : 75);
           const confluenceCount = [sigOk, streakOk, biasOk, dominanceOk, combinedOk].filter(Boolean).length;
-        const required = strategyProfile === "conservative" ? 2 : 1;
-        shouldTrade = confluenceCount >= required;
+        const required = strategyProfile === "conservative" ? 3 : strategyProfile === "balanced" ? 2 : 2;
+        // Combined confluence is MANDATORY in every profile — no blind firing.
+        shouldTrade = combinedOk && confluenceCount >= required;
         if (shouldTrade) {
             analyticsReason = `sig ${(score * 100).toFixed(0)}% • combo ${combinedSignal.unifiedScore}% • dev ${maxDev.toFixed(1)}% • E/O ${(evenBias * 100).toFixed(0)}% • run L${trailLow}/H${trailHigh} E${trailEven}/O${trailOdd}`;
             const finalScore = Math.min(100, confluenceCount * 20 + Math.round(score * 20) + Math.round(combinedSignal.unifiedScore * 0.2));
