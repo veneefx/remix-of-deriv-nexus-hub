@@ -1076,8 +1076,9 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         // Conservative needs 2 confluences, balanced 1, aggressive 1
           const combinedOk = combinedSignal.unifiedScore >= (strategyProfile === "aggressive" ? 60 : strategyProfile === "balanced" ? 68 : 75);
           const confluenceCount = [sigOk, streakOk, biasOk, dominanceOk, combinedOk].filter(Boolean).length;
-        const required = strategyProfile === "conservative" ? 2 : 1;
-        shouldTrade = confluenceCount >= required;
+        const required = strategyProfile === "conservative" ? 3 : strategyProfile === "balanced" ? 2 : 2;
+        // Combined confluence is MANDATORY in every profile — no blind firing.
+        shouldTrade = combinedOk && confluenceCount >= required;
         if (shouldTrade) {
             analyticsReason = `sig ${(score * 100).toFixed(0)}% • combo ${combinedSignal.unifiedScore}% • dev ${maxDev.toFixed(1)}% • E/O ${(evenBias * 100).toFixed(0)}% • run L${trailLow}/H${trailHigh} E${trailEven}/O${trailOdd}`;
             const finalScore = Math.min(100, confluenceCount * 20 + Math.round(score * 20) + Math.round(combinedSignal.unifiedScore * 0.2));
