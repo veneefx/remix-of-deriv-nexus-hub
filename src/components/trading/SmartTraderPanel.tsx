@@ -40,11 +40,14 @@ const SmartTraderPanel = ({ ws, account, selectedMarket, onMarketChange, onLogin
   const [payout, setPayout] = useState<number | null>(null);
   const [latestQuote, setLatestQuote] = useState<number | null>(null);
   const [result, setResult] = useState<{ entry?: number; exit?: number; profit?: number; status: string } | null>(null);
-  const [speedMode, setSpeedMode] = useState(false);
+  const [speedMode, setSpeedMode] = useState<boolean>(() => {
+    try { return localStorage.getItem("dnx_smarttrader_speed") === "1"; } catch { return false; }
+  });
+  useEffect(() => { try { localStorage.setItem("dnx_smarttrader_speed", speedMode ? "1" : "0"); } catch {} }, [speedMode]);
   const [latency, setLatency] = useState<{ proposal: number | null; firstTick: number | null; buy: number | null }>({ proposal: null, firstTick: null, buy: null });
   const [lockout, setLockout] = useState(false);
   const [digits, setDigits] = useState<number[]>([]);
-  const [signal, setSignal] = useState<{ unifiedScore: number; flowScore: number; radarScore: number; dxpScore: number } | null>(null);
+  const [signal, setSignal] = useState<any>(null);
   const executing = useRef(false);
   const clickStampRef = useRef<number>(0);
   const buyStampRef = useRef<number>(0);
