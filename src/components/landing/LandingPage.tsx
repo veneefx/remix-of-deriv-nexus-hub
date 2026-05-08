@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import MarketTracker from "@/components/trading/MarketTracker";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import AdSlot from "@/components/ads/AdSlot";
 import heroMobileLocal from "@/assets/hero-mobile.png";
 
 // Reference images from the site
@@ -131,6 +132,13 @@ const LandingPage = () => {
           </div>
         </div>
       </section>
+
+      {/* AdSense — Header / above-the-fold strip */}
+      <div className="bg-[#141414] py-4">
+        <div className="max-w-[1320px] mx-auto px-6">
+          <AdSlot label="Sponsored" format="auto" responsive className="w-full" />
+        </div>
+      </div>
 
       {/* Trade On Our Platform */}
       <section className="py-32 bg-black relative">
@@ -306,7 +314,20 @@ const LandingPage = () => {
             </div>
           </div>
         </div>
+        </div>
       </section>
+
+      {/* AdSense — Mid/Sidebar strip before footer */}
+      <div className="bg-[#141414] py-6">
+        <div className="max-w-[1320px] mx-auto px-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2">
+            <AdSlot label="Sponsored" format="auto" responsive />
+          </div>
+          <div>
+            <AdSlot label="Sponsored" format="auto" responsive />
+          </div>
+        </div>
+      </div>
 
       <Footer />
     </div>
