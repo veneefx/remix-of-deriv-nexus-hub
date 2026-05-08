@@ -314,7 +314,6 @@ const LandingPage = () => {
             </div>
           </div>
         </div>
-        </div>
       </section>
 
       {/* AdSense — Mid/Sidebar strip before footer */}
