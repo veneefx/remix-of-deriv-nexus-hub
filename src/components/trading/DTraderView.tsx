@@ -8,7 +8,9 @@ import { ExternalLink, RefreshCw, AlertTriangle, Loader2 } from "lucide-react";
  * so the page looks/behaves exactly like Deriv's DTrader. Includes loading
  * state, sandbox protections, and a third-party-cookie blocked fallback.
  */
-const PRIMARY_URL = "https://dtrader-template.binary.sx/";
+// Use Deriv's official DBot directly (the user wants the exact DBot experience).
+// dtrader-template.binary.sx was returning 404 / blocked embeds.
+const PRIMARY_URL = "https://app.deriv.com/bot";
 const FALLBACK_URL = "https://app.deriv.com/dtrader";
 
 const DTraderView = () => {
@@ -59,7 +61,7 @@ const DTraderView = () => {
           <span className="w-1.5 h-1.5 rounded-full bg-buy animate-pulse" />
           <span className="text-xs font-bold text-foreground">Deriv</span>
           <span className="text-[10px] text-muted-foreground truncate">
-            DTrader · {src === PRIMARY_URL ? "template" : "live"}
+            {src === PRIMARY_URL ? "DBot" : "DTrader"}
           </span>
         </div>
         <div className="flex items-center gap-1">
@@ -68,7 +70,7 @@ const DTraderView = () => {
             className="px-2 py-1 rounded text-[10px] font-medium bg-secondary text-foreground hover:bg-muted transition-colors"
             title="Toggle DTrader source"
           >
-            {src === PRIMARY_URL ? "Use Live" : "Use Template"}
+            {src === PRIMARY_URL ? "Use DTrader" : "Use DBot"}
           </button>
           <button
             onClick={handleReload}
