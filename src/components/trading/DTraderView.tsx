@@ -61,7 +61,7 @@ const DTraderView = () => {
           <span className="w-1.5 h-1.5 rounded-full bg-buy animate-pulse" />
           <span className="text-xs font-bold text-foreground">Deriv</span>
           <span className="text-[10px] text-muted-foreground truncate">
-            DTrader · {src === PRIMARY_URL ? "template" : "live"}
+            {src === PRIMARY_URL ? "DBot" : "DTrader"}
           </span>
         </div>
         <div className="flex items-center gap-1">
