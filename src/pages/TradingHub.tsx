@@ -534,18 +534,19 @@ const TradingHub = () => {
             </div>
           )}
           {activeView === "smarttrader" && (
-            <div className="h-full overflow-y-auto p-4 lg:p-6">
-              <div className="max-w-7xl mx-auto space-y-4">
-                <div className="flex items-start justify-between gap-3 flex-wrap">
-                  <div>
-                    <h2 className="text-lg font-bold text-foreground">SmartTrader</h2>
-                    <p className="text-xs text-muted-foreground">Fast direct execution with live proposals on its own workspace.</p>
-                  </div>
-                  <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${wsConnected ? "bg-buy/10 text-buy" : "bg-sell/10 text-sell"}`}>
-                    {wsConnected ? "Connected" : "Reconnecting"}
-                  </span>
-                </div>
-                <SmartTraderPanel ws={ws} account={account} selectedMarket={selectedMarket} onMarketChange={setSelectedMarket} onLogin={handleLogin} embedded />
+            <div className="h-full flex flex-col min-h-0">
+              {/* Chart — 3/4 of available height */}
+              <div className="flex-[3] min-h-0 border-b border-border">
+                <TradingViewChart ws={ws} selectedMarket={selectedMarket} />
+              </div>
+              {/* Execution panel — 1/4 of available height, Only Ups / Only Downs */}
+              <div className="flex-[1] min-h-[180px] max-h-[40vh]">
+                <OnlyUpsDownsPanel
+                  ws={ws}
+                  account={account}
+                  selectedMarket={selectedMarket}
+                  onLogin={handleLogin}
+                />
               </div>
             </div>
           )}
