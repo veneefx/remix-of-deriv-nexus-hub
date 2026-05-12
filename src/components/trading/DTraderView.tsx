@@ -8,7 +8,9 @@ import { ExternalLink, RefreshCw, AlertTriangle, Loader2 } from "lucide-react";
  * so the page looks/behaves exactly like Deriv's DTrader. Includes loading
  * state, sandbox protections, and a third-party-cookie blocked fallback.
  */
-const PRIMARY_URL = "https://dtrader-template.binary.sx/";
+// Use Deriv's official DBot directly (the user wants the exact DBot experience).
+// dtrader-template.binary.sx was returning 404 / blocked embeds.
+const PRIMARY_URL = "https://app.deriv.com/bot";
 const FALLBACK_URL = "https://app.deriv.com/dtrader";
 
 const DTraderView = () => {
