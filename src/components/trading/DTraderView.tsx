@@ -70,7 +70,7 @@ const DTraderView = () => {
             className="px-2 py-1 rounded text-[10px] font-medium bg-secondary text-foreground hover:bg-muted transition-colors"
             title="Toggle DTrader source"
           >
-            {src === PRIMARY_URL ? "Use Live" : "Use Template"}
+            {src === PRIMARY_URL ? "Use DTrader" : "Use DBot"}
           </button>
           <button
             onClick={handleReload}
