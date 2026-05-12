@@ -11,6 +11,7 @@ import { getOAuthUrl } from "@/services/deriv-auth";
 import TradingPanel from "@/components/trading/TradingPanel";
 import TradingViewChart from "@/components/trading/TradingViewChart";
 import SmartTraderPanel from "@/components/trading/SmartTraderPanel";
+import OnlyUpsDownsPanel from "@/components/trading/OnlyUpsDownsPanel";
 import DerivChart from "@/components/trading/DerivChart";
 import DTraderView from "@/components/trading/DTraderView";
 import DATTab from "@/components/trading/DATTab";
