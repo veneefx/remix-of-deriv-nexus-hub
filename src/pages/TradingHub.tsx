@@ -3,16 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   Home, BarChart3, Users, TrendingUp, BookOpen, HelpCircle,
   Menu, X, Wallet, ChevronDown, Moon, Sun, Settings, Shield,
-  AlertTriangle, Search, Activity, User, Clock, Lock, FlaskConical
+  AlertTriangle, Search, Activity, User, Clock
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { getActiveAccount, getStoredAccounts, clearAuth, setActiveAccount, parseCallbackParams, storeAccounts, type DerivAccount } from "@/services/deriv-auth";
 import { getOAuthUrl } from "@/services/deriv-auth";
 import TradingPanel from "@/components/trading/TradingPanel";
 import TradingViewChart from "@/components/trading/TradingViewChart";
-import SmartTraderPanel from "@/components/trading/SmartTraderPanel";
 import OnlyUpsDownsPanel from "@/components/trading/OnlyUpsDownsPanel";
-import DerivChart from "@/components/trading/DerivChart";
 import DTraderView from "@/components/trading/DTraderView";
 import DATTab from "@/components/trading/DATTab";
 import MarketScannerView from "@/components/trading/MarketScannerView";
@@ -30,16 +28,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { VOLATILITY_MARKETS, MARKET_CATEGORIES, CONTRACT_TYPES } from "@/lib/trading-constants";
+import { MARKET_CATEGORIES, CONTRACT_TYPES } from "@/lib/trading-constants";
 import { motion, AnimatePresence } from "framer-motion";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { usePremium } from "@/hooks/use-premium";
 import PremiumUpgradeModal from "@/components/trading/PremiumUpgradeModal";
 import AdminDashboard from "@/components/trading/AdminDashboard";
-import PremiumGate from "@/components/trading/PremiumGate";
 import AnalysisPaywall from "@/components/trading/AnalysisPaywall";
-import { Trash2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { formatBalance, DERIV_DEPOSIT_URL } from "@/lib/format";
 import { notifications } from "@/services/notifications";
 
@@ -55,19 +51,25 @@ const sidebarItems = [
   { icon: Settings, label: "Settings", path: "/risk" },
 ];
 
-type ViewMode = "digit-edge" | "trading-view" | "smarttrader" | "deriv-charts" | "deriv" | "dat" | "market-scanner" | "strategy-lab" | "forex-ai" | "transactions";
+type ViewMode = "digit-edge" | "trading-view" | "smarttrader" | "deriv" | "dat" | "market-scanner" | "strategy-lab" | "forex-ai" | "transactions";
 
 const viewLabels: Record<ViewMode, string> = {
   "digit-edge": "Digit Edge",
   "trading-view": "Trading View",
   "smarttrader": "SmartTrader",
-  "deriv-charts": "Deriv Charts",
   "deriv": "Deriv",
   "dat": "DAT",
   "market-scanner": "Market Scanner",
   "strategy-lab": "Strategy Lab",
   "forex-ai": "Forex AI",
   "transactions": "Transactions",
+};
+
+const sanitizeViewMode = (value: string | null): ViewMode => {
+  if (!value || value === "deriv-charts") return "digit-edge";
+  return (Object.keys(viewLabels) as ViewMode[]).includes(value as ViewMode)
+    ? (value as ViewMode)
+    : "digit-edge";
 };
 
 const TradingHub = () => {
@@ -78,12 +80,10 @@ const TradingHub = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [ws, setWs] = useState<DerivWebSocket | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
-  const [activeView, setActiveView] = useState<ViewMode>(() => (localStorage.getItem("dnx_view") as ViewMode) || "digit-edge");
+  const [activeView, setActiveView] = useState<ViewMode>(() => sanitizeViewMode(localStorage.getItem("dnx_view")));
   const [selectedMarket, setSelectedMarket] = useState(() => localStorage.getItem("dnx_market") || "R_10");
   const [tokenManagerOpen, setTokenManagerOpen] = useState(false);
   const [tokenTab, setTokenTab] = useState<"demo" | "real" | "clients">("demo");
-  const [lastDigits, setLastDigits] = useState<number[]>([]);
-  const [currentTick, setCurrentTick] = useState<number | null>(null);
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("theme");
@@ -93,32 +93,17 @@ const TradingHub = () => {
     return false;
   });
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { isPremium, isAdmin } = usePremium();
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
   const [premiumFeature, setPremiumFeature] = useState("");
+  const hasDerivSession = !!account;
+  const smartTraderMarket = selectedMarket.startsWith("1HZ") ? selectedMarket : "1HZ100V";
 
   // Persist view selection
   useEffect(() => { localStorage.setItem("dnx_view", activeView); }, [activeView]);
-
-  // Check platform auth
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsAuthenticated(!!user);
-      if (!user) {
-        // Allow viewing but restrict trading
-      }
-    };
-    checkAuth();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setIsAuthenticated(!!session?.user);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
 
   // Register notification SW once (production only) so push/background works
   useEffect(() => {
@@ -171,6 +156,12 @@ const TradingHub = () => {
     });
   }, []);
 
+  useEffect(() => {
+    if (activeView === "smarttrader" && !selectedMarket.startsWith("1HZ")) {
+      setSelectedMarket("1HZ100V");
+    }
+  }, [activeView, selectedMarket]);
+
   // WebSocket connection with auto-reconnect
   useEffect(() => {
     const wsInstance = new DerivWebSocket(DERIV_APP_ID);
@@ -187,13 +178,6 @@ const TradingHub = () => {
       toast({ title: "❌ Connection Failed", description: "Could not connect to Deriv. Retrying..." });
       notifications.notify("Connection failed", "Could not reach Deriv. Retrying…", "error");
     });
-
-    // Auto-reconnect if disconnected
-    const reconnectInterval = setInterval(() => {
-      if (!wsInstance.connected) {
-        wsInstance.connect().catch(() => {});
-      }
-    }, 5000);
 
     wsInstance.on("connection", (data) => {
       const connected = data.status === "connected";
@@ -226,18 +210,7 @@ const TradingHub = () => {
       }
     });
 
-    // Track ticks for DAT tab
-    wsInstance.on("tick", (data) => {
-      if (!data.tick || typeof data.tick.quote !== "number") return;
-      const quote = data.tick.quote;
-      setCurrentTick(quote);
-      const quoteStr = Number(quote).toFixed(2);
-      const digit = parseInt(quoteStr[quoteStr.length - 1], 10);
-      setLastDigits(prev => [...prev.slice(-999), digit]);
-    });
-
     return () => {
-      clearInterval(reconnectInterval);
       wsInstance.disconnect();
     };
   }, [account]);
@@ -302,7 +275,6 @@ const TradingHub = () => {
 
   const demoAccounts = accounts.filter(a => a.is_virtual);
   const realAccounts = accounts.filter(a => !a.is_virtual);
-  const marketLabel = VOLATILITY_MARKETS.find(m => m.symbol === selectedMarket)?.label || selectedMarket;
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Africa/Nairobi" });
@@ -465,7 +437,7 @@ const TradingHub = () => {
               {wsConnected ? "●" : "○"}
             </span>
             
-            {balance !== null ? (
+            {hasDerivSession ? (
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setTokenManagerOpen(true)}
@@ -478,7 +450,7 @@ const TradingHub = () => {
                       {account?.is_virtual ? "Demo" : "Real"} · {account?.currency || "USD"}
                     </span>
                     <span className="text-xs font-bold text-foreground tabular-nums">
-                      {formatBalance(balance)}
+                      {balance !== null ? formatBalance(balance) : "Connecting…"}
                     </span>
                   </div>
                   <ChevronDown className="w-3 h-3 text-muted-foreground" />
@@ -545,24 +517,10 @@ const TradingHub = () => {
                 <OnlyUpsDownsPanel
                   ws={ws}
                   account={account}
-                  selectedMarket={selectedMarket}
+                  selectedMarket={smartTraderMarket}
                   onLogin={handleLogin}
                 />
               </div>
-            </div>
-          )}
-          {activeView === "deriv-charts" && (
-            <div className="h-full flex">
-              <div className="flex-1 min-w-0">
-                <DerivChart ws={ws} selectedMarket={selectedMarket} />
-              </div>
-              <TradingSidebar
-                ws={ws}
-                account={account}
-                selectedMarket={selectedMarket}
-                setSelectedMarket={setSelectedMarket}
-                onLogin={handleLogin}
-              />
             </div>
           )}
           {activeView === "deriv" && (

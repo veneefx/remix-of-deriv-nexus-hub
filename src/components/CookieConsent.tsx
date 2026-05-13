@@ -10,6 +10,7 @@ const CookieConsent = () => {
       const t = setTimeout(() => setVisible(true), 800);
       return () => clearTimeout(t);
     }
+    setVisible(false);
   }, []);
 
   if (!visible) return null;

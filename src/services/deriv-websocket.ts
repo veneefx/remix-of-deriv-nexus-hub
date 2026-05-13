@@ -20,20 +20,33 @@ class DerivWebSocket {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private lastPongTs = 0;
   private intentionalClose = false;
+  private connectPromise: Promise<void> | null = null;
 
   constructor(appId: string) {
     this.appId = appId;
   }
 
   connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
+    if (this.ws?.readyState === WebSocket.OPEN && this.isConnected) {
+      return Promise.resolve();
+    }
+
+    if (this.ws?.readyState === WebSocket.CONNECTING && this.connectPromise) {
+      return this.connectPromise;
+    }
+
+    this.connectPromise = new Promise((resolve, reject) => {
       try {
         this.intentionalClose = false;
+        if (this.ws && this.ws.readyState !== WebSocket.CLOSED) {
+          try { this.ws.close(); } catch {}
+        }
         this.ws = new WebSocket(`${DERIV_WS_URL}?app_id=${this.appId}`);
 
         this.ws.onopen = () => {
           this.isConnected = true;
           this.reconnectAttempts = 0;
+          this.connectPromise = null;
           this.lastPongTs = Date.now();
           // Flush pending messages safely
           this.pendingMessages.forEach((msg) => {
@@ -65,19 +78,24 @@ class DerivWebSocket {
         this.ws.onclose = () => {
           this.isConnected = false;
           this.stopHeartbeat();
+          this.connectPromise = null;
           this.emit("connection", { status: "disconnected" });
           if (!this.intentionalClose) this.tryReconnect();
         };
 
         this.ws.onerror = (err) => {
           console.error("WebSocket error:", err);
+          this.connectPromise = null;
           this.emit("error", { error: "Connection error" });
           reject(err);
         };
       } catch (err) {
+        this.connectPromise = null;
         reject(err);
       }
     });
+
+    return this.connectPromise;
   }
 
   private startHeartbeat() {
@@ -189,6 +207,7 @@ class DerivWebSocket {
     try { this.ws?.close(); } catch {}
     this.ws = null;
     this.isConnected = false;
+    this.connectPromise = null;
     this.handlers.clear();
   }
 
