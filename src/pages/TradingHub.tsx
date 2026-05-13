@@ -28,9 +28,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { VOLATILITY_MARKETS, MARKET_CATEGORIES, CONTRACT_TYPES } from "@/lib/trading-constants";
+import { MARKET_CATEGORIES, CONTRACT_TYPES } from "@/lib/trading-constants";
 import { motion, AnimatePresence } from "framer-motion";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { usePremium } from "@/hooks/use-premium";
 import PremiumUpgradeModal from "@/components/trading/PremiumUpgradeModal";
@@ -98,6 +97,12 @@ const TradingHub = () => {
 
   // Persist view selection
   useEffect(() => { localStorage.setItem("dnx_view", activeView); }, [activeView]);
+
+  useEffect(() => {
+    if (activeView === "deriv-charts") {
+      setActiveView("trading-view");
+    }
+  }, [activeView]);
 
   // Register notification SW once (production only) so push/background works
   useEffect(() => {
@@ -269,7 +274,6 @@ const TradingHub = () => {
 
   const demoAccounts = accounts.filter(a => a.is_virtual);
   const realAccounts = accounts.filter(a => !a.is_virtual);
-  const marketLabel = VOLATILITY_MARKETS.find(m => m.symbol === selectedMarket)?.label || selectedMarket;
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false, timeZone: "Africa/Nairobi" });
