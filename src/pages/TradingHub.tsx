@@ -65,6 +65,13 @@ const viewLabels: Record<ViewMode, string> = {
   "transactions": "Transactions",
 };
 
+const sanitizeViewMode = (value: string | null): ViewMode => {
+  if (!value || value === "deriv-charts") return "digit-edge";
+  return (Object.keys(viewLabels) as ViewMode[]).includes(value as ViewMode)
+    ? (value as ViewMode)
+    : "digit-edge";
+};
+
 const TradingHub = () => {
   const [account, setAccount] = useState<DerivAccount | null>(getActiveAccount());
   const [accounts, setAccounts] = useState<DerivAccount[]>(getStoredAccounts());
@@ -73,7 +80,7 @@ const TradingHub = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [ws, setWs] = useState<DerivWebSocket | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
-  const [activeView, setActiveView] = useState<ViewMode>(() => (localStorage.getItem("dnx_view") as ViewMode) || "digit-edge");
+  const [activeView, setActiveView] = useState<ViewMode>(() => sanitizeViewMode(localStorage.getItem("dnx_view")));
   const [selectedMarket, setSelectedMarket] = useState(() => localStorage.getItem("dnx_market") || "R_10");
   const [tokenManagerOpen, setTokenManagerOpen] = useState(false);
   const [tokenTab, setTokenTab] = useState<"demo" | "real" | "clients">("demo");
@@ -97,12 +104,6 @@ const TradingHub = () => {
 
   // Persist view selection
   useEffect(() => { localStorage.setItem("dnx_view", activeView); }, [activeView]);
-
-  useEffect(() => {
-    if (activeView === "deriv-charts") {
-      setActiveView("trading-view");
-    }
-  }, [activeView]);
 
   // Register notification SW once (production only) so push/background works
   useEffect(() => {
