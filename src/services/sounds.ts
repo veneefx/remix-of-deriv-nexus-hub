@@ -62,33 +62,37 @@ function sweep(fromHz: number, toHz: number, durationMs: number, startOffset = 0
 export const sounds = {
   /** Quick success ping (trade win) */
   success() {
-    tone(880, 120, 0, "triangle");
-    tone(1320, 160, 0.08, "triangle");
+    tone(587, 90, 0, "sine", 0.14);
+    tone(880, 120, 0.07, "triangle", 0.16);
+    tone(1174, 180, 0.15, "triangle", 0.14);
   },
   /** Loss tone — soft descending */
   error() {
-    sweep(420, 180, 280, 0, "sawtooth", 0.16);
+    sweep(520, 210, 240, 0, "triangle", 0.12);
+    tone(180, 120, 0.2, "sine", 0.08);
   },
   /** Warning chirp */
   warn() {
-    tone(660, 90, 0, "square", 0.14);
-    tone(660, 90, 0.18, "square", 0.14);
+    tone(740, 70, 0, "triangle", 0.1);
+    tone(554, 110, 0.12, "triangle", 0.1);
   },
   /** Info ping */
   info() {
-    tone(1040, 100, 0, "sine", 0.12);
+    tone(698, 90, 0, "sine", 0.09);
+    tone(932, 110, 0.05, "sine", 0.07);
   },
   /** Take-Profit fanfare — celebratory */
   tp() {
-    tone(660, 110, 0, "triangle", 0.2);
-    tone(880, 110, 0.1, "triangle", 0.2);
-    tone(1320, 220, 0.22, "triangle", 0.22);
-    sweep(1320, 1980, 260, 0.45, "triangle", 0.2);
+    tone(523, 110, 0, "triangle", 0.16);
+    tone(659, 110, 0.1, "triangle", 0.17);
+    tone(784, 140, 0.2, "triangle", 0.18);
+    tone(1047, 260, 0.32, "triangle", 0.18);
+    sweep(1047, 1568, 260, 0.55, "sine", 0.12);
   },
   /** Stop-Loss alert — descending double tone */
   sl() {
-    sweep(700, 240, 300, 0, "sawtooth", 0.2);
-    sweep(500, 180, 280, 0.32, "sawtooth", 0.2);
+    sweep(640, 320, 220, 0, "triangle", 0.14);
+    sweep(420, 160, 240, 0.24, "triangle", 0.14);
   },
   play(kind: SoundKind) {
     switch (kind) {
