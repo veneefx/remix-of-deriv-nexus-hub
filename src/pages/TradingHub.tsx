@@ -55,13 +55,12 @@ const sidebarItems = [
   { icon: Settings, label: "Settings", path: "/risk" },
 ];
 
-type ViewMode = "digit-edge" | "trading-view" | "smarttrader" | "deriv-charts" | "deriv" | "dat" | "market-scanner" | "strategy-lab" | "forex-ai" | "transactions";
+type ViewMode = "digit-edge" | "trading-view" | "smarttrader" | "deriv" | "dat" | "market-scanner" | "strategy-lab" | "forex-ai" | "transactions";
 
 const viewLabels: Record<ViewMode, string> = {
   "digit-edge": "Digit Edge",
   "trading-view": "Trading View",
   "smarttrader": "SmartTrader",
-  "deriv-charts": "Deriv Charts",
   "deriv": "Deriv",
   "dat": "DAT",
   "market-scanner": "Market Scanner",
@@ -100,6 +99,8 @@ const TradingHub = () => {
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
   const [premiumFeature, setPremiumFeature] = useState("");
+  const hasDerivSession = !!account;
+  const smartTraderMarket = selectedMarket.startsWith("1HZ") ? selectedMarket : "1HZ100V";
 
   // Persist view selection
   useEffect(() => { localStorage.setItem("dnx_view", activeView); }, [activeView]);
@@ -171,6 +172,12 @@ const TradingHub = () => {
     });
   }, []);
 
+  useEffect(() => {
+    if (activeView === "smarttrader" && !selectedMarket.startsWith("1HZ")) {
+      setSelectedMarket("1HZ100V");
+    }
+  }, [activeView, selectedMarket]);
+
   // WebSocket connection with auto-reconnect
   useEffect(() => {
     const wsInstance = new DerivWebSocket(DERIV_APP_ID);
@@ -187,13 +194,6 @@ const TradingHub = () => {
       toast({ title: "❌ Connection Failed", description: "Could not connect to Deriv. Retrying..." });
       notifications.notify("Connection failed", "Could not reach Deriv. Retrying…", "error");
     });
-
-    // Auto-reconnect if disconnected
-    const reconnectInterval = setInterval(() => {
-      if (!wsInstance.connected) {
-        wsInstance.connect().catch(() => {});
-      }
-    }, 5000);
 
     wsInstance.on("connection", (data) => {
       const connected = data.status === "connected";
@@ -237,7 +237,6 @@ const TradingHub = () => {
     });
 
     return () => {
-      clearInterval(reconnectInterval);
       wsInstance.disconnect();
     };
   }, [account]);
@@ -465,7 +464,7 @@ const TradingHub = () => {
               {wsConnected ? "●" : "○"}
             </span>
             
-            {balance !== null ? (
+            {hasDerivSession ? (
               <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => setTokenManagerOpen(true)}
@@ -478,7 +477,7 @@ const TradingHub = () => {
                       {account?.is_virtual ? "Demo" : "Real"} · {account?.currency || "USD"}
                     </span>
                     <span className="text-xs font-bold text-foreground tabular-nums">
-                      {formatBalance(balance)}
+                      {balance !== null ? formatBalance(balance) : "Connecting…"}
                     </span>
                   </div>
                   <ChevronDown className="w-3 h-3 text-muted-foreground" />
@@ -545,24 +544,10 @@ const TradingHub = () => {
                 <OnlyUpsDownsPanel
                   ws={ws}
                   account={account}
-                  selectedMarket={selectedMarket}
+                  selectedMarket={smartTraderMarket}
                   onLogin={handleLogin}
                 />
               </div>
-            </div>
-          )}
-          {activeView === "deriv-charts" && (
-            <div className="h-full flex">
-              <div className="flex-1 min-w-0">
-                <DerivChart ws={ws} selectedMarket={selectedMarket} />
-              </div>
-              <TradingSidebar
-                ws={ws}
-                account={account}
-                selectedMarket={selectedMarket}
-                setSelectedMarket={setSelectedMarket}
-                onLogin={handleLogin}
-              />
             </div>
           )}
           {activeView === "deriv" && (
