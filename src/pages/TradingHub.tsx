@@ -3,16 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   Home, BarChart3, Users, TrendingUp, BookOpen, HelpCircle,
   Menu, X, Wallet, ChevronDown, Moon, Sun, Settings, Shield,
-  AlertTriangle, Search, Activity, User, Clock, Lock, FlaskConical
+  AlertTriangle, Search, Activity, User, Clock
 } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { getActiveAccount, getStoredAccounts, clearAuth, setActiveAccount, parseCallbackParams, storeAccounts, type DerivAccount } from "@/services/deriv-auth";
 import { getOAuthUrl } from "@/services/deriv-auth";
 import TradingPanel from "@/components/trading/TradingPanel";
 import TradingViewChart from "@/components/trading/TradingViewChart";
-import SmartTraderPanel from "@/components/trading/SmartTraderPanel";
 import OnlyUpsDownsPanel from "@/components/trading/OnlyUpsDownsPanel";
-import DerivChart from "@/components/trading/DerivChart";
 import DTraderView from "@/components/trading/DTraderView";
 import DATTab from "@/components/trading/DATTab";
 import MarketScannerView from "@/components/trading/MarketScannerView";
@@ -37,9 +35,8 @@ import { toast } from "@/hooks/use-toast";
 import { usePremium } from "@/hooks/use-premium";
 import PremiumUpgradeModal from "@/components/trading/PremiumUpgradeModal";
 import AdminDashboard from "@/components/trading/AdminDashboard";
-import PremiumGate from "@/components/trading/PremiumGate";
 import AnalysisPaywall from "@/components/trading/AnalysisPaywall";
-import { Trash2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { formatBalance, DERIV_DEPOSIT_URL } from "@/lib/format";
 import { notifications } from "@/services/notifications";
 
@@ -81,8 +78,6 @@ const TradingHub = () => {
   const [selectedMarket, setSelectedMarket] = useState(() => localStorage.getItem("dnx_market") || "R_10");
   const [tokenManagerOpen, setTokenManagerOpen] = useState(false);
   const [tokenTab, setTokenTab] = useState<"demo" | "real" | "clients">("demo");
-  const [lastDigits, setLastDigits] = useState<number[]>([]);
-  const [currentTick, setCurrentTick] = useState<number | null>(null);
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("theme");
@@ -92,7 +87,6 @@ const TradingHub = () => {
     return false;
   });
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { isPremium, isAdmin } = usePremium();
@@ -104,22 +98,6 @@ const TradingHub = () => {
 
   // Persist view selection
   useEffect(() => { localStorage.setItem("dnx_view", activeView); }, [activeView]);
-
-  // Check platform auth
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsAuthenticated(!!user);
-      if (!user) {
-        // Allow viewing but restrict trading
-      }
-    };
-    checkAuth();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setIsAuthenticated(!!session?.user);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
 
   // Register notification SW once (production only) so push/background works
   useEffect(() => {
@@ -224,16 +202,6 @@ const TradingHub = () => {
           setAccountBalances(prev => ({ ...prev, [account.loginid]: data.balance.balance }));
         }
       }
-    });
-
-    // Track ticks for DAT tab
-    wsInstance.on("tick", (data) => {
-      if (!data.tick || typeof data.tick.quote !== "number") return;
-      const quote = data.tick.quote;
-      setCurrentTick(quote);
-      const quoteStr = Number(quote).toFixed(2);
-      const digit = parseInt(quoteStr[quoteStr.length - 1], 10);
-      setLastDigits(prev => [...prev.slice(-999), digit]);
     });
 
     return () => {
