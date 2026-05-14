@@ -5,9 +5,14 @@
 
 type SoundKind = "success" | "error" | "warn" | "info" | "tp" | "sl";
 
+const MUTE_KEY = "dnx_sound_muted";
+let muted = (() => { try { return localStorage.getItem(MUTE_KEY) === "1"; } catch { return false; } })();
+const listeners = new Set<(m: boolean) => void>();
+
 let ctx: AudioContext | null = null;
 
 function getCtx(): AudioContext | null {
+  if (muted) return null;
   try {
     if (!ctx) {
       const C = window.AudioContext || (window as any).webkitAudioContext;
@@ -15,7 +20,6 @@ function getCtx(): AudioContext | null {
       ctx = new C();
     }
     if (ctx.state === "suspended" && navigator.userActivation?.hasBeenActive) {
-      // Best-effort resume; browsers require a user gesture for first play
       ctx.resume().catch(() => {});
     }
     return ctx;
@@ -110,6 +114,17 @@ export const sounds = {
     if (audio && audio.state === "suspended" && navigator.userActivation?.hasBeenActive) {
       audio.resume().catch(() => {});
     }
+  },
+  isMuted() { return muted; },
+  setMuted(next: boolean) {
+    muted = next;
+    try { localStorage.setItem(MUTE_KEY, next ? "1" : "0"); } catch {}
+    listeners.forEach((l) => l(next));
+  },
+  toggleMute() { this.setMuted(!muted); return muted; },
+  onMuteChange(cb: (m: boolean) => void) {
+    listeners.add(cb);
+    return () => listeners.delete(cb);
   },
 };
 
