@@ -240,6 +240,12 @@ const TradingHub = () => {
   }, [ws, selectedMarket]);
 
   const handleLogin = () => {
+    // Session-aware: if we already have a stored Deriv account, never re-trigger OAuth.
+    if (account) {
+      toast({ title: "Already connected", description: `${account.loginid} is already linked.` });
+      setTokenManagerOpen(true);
+      return;
+    }
     const url = getOAuthUrl(DERIV_APP_ID, `${window.location.origin}/callback`);
     // If we're inside the Lovable preview iframe, OAuth must open at the top
     // level so Deriv's cookies/redirect don't get blocked. Fall back to a new
