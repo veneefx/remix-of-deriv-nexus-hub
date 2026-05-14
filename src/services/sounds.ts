@@ -115,6 +115,17 @@ export const sounds = {
       audio.resume().catch(() => {});
     }
   },
+  isMuted() { return muted; },
+  setMuted(next: boolean) {
+    muted = next;
+    try { localStorage.setItem(MUTE_KEY, next ? "1" : "0"); } catch {}
+    listeners.forEach((l) => l(next));
+  },
+  toggleMute() { this.setMuted(!muted); return muted; },
+  onMuteChange(cb: (m: boolean) => void) {
+    listeners.add(cb);
+    return () => listeners.delete(cb);
+  },
 };
 
 export type { SoundKind };
