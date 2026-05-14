@@ -1,19 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { TrendingUp, TrendingDown, Zap } from "lucide-react";
+import { TrendingUp, TrendingDown, Zap, Volume2, VolumeX, Sparkles } from "lucide-react";
 import DerivWebSocket from "@/services/deriv-websocket";
 import type { DerivAccount } from "@/services/deriv-auth";
 import { aiLogger } from "@/services/ai-logger";
 import { tradeLock } from "@/services/trade-lock";
 import { toast } from "@/hooks/use-toast";
+import { sounds } from "@/services/sounds";
 
 /**
- * Only Ups / Only Downs execution panel.
- *
- * Deriv contract types used:
- *   - RUNHIGH  (Only Ups)   - wins if every tick rises
- *   - RUNLOW   (Only Downs) - wins if every tick falls
- *
- * Designed mobile-first to fit under the chart in a 3/4 + 1/4 split.
+ * Only Ups / Only Downs execution panel — Deriv RUNHIGH / RUNLOW.
+ * Includes:
+ *  - REAL / DEMO badge sourced from active Deriv WebSocket account
+ *  - AI Auto mode (3 consecutive same-direction ticks → auto-arm + execute)
+ *  - Sound mute toggle, success/error sounds on resolution
  */
 const OnlyUpsDownsPanel = ({
   ws,
@@ -34,14 +33,19 @@ const OnlyUpsDownsPanel = ({
   const [status, setStatus] = useState("Awaiting input…");
   const [executing, setExecuting] = useState(false);
   const [lastResult, setLastResult] = useState<{ profit: number; status: string } | null>(null);
+  const [aiMode, setAiMode] = useState(false);
+  const [muted, setMutedState] = useState(sounds.isMuted());
   const isConnected = !!account;
 
   const contractType = direction === "UP" ? "RUNHIGH" : "RUNLOW";
   const validStake = /^(\d+(\.\d{0,2})?)?$/.test(stake) && Number(stake) > 0;
   const validTicks = ticks >= 2 && ticks <= 5;
   const cleanRef = useRef<(() => void) | null>(null);
+  const recentTicks = useRef<number[]>([]);
+  const lastAiFireTs = useRef(0);
 
-  // Request proposal whenever inputs change
+  useEffect(() => sounds.onMuteChange(setMutedState) as any, []);
+
   const requestProposal = useCallback(() => {
     if (!ws || !isConnected || !validStake || !validTicks) return;
     setProposalId(null);
@@ -77,14 +81,13 @@ const OnlyUpsDownsPanel = ({
     return () => clearTimeout(t);
   }, [requestProposal]);
 
-  // Refresh every 1.5s to keep proposal id fresh
   useEffect(() => {
     if (!ws || !isConnected) return;
     const i = setInterval(requestProposal, 1500);
     return () => clearInterval(i);
   }, [ws, isConnected, requestProposal]);
 
-  const trade = () => {
+  const trade = useCallback(() => {
     if (!ws || !proposalId || executing || !validStake) return;
     if (!tradeLock.tryAcquire("System")) return;
     setExecuting(true);
@@ -98,6 +101,7 @@ const OnlyUpsDownsPanel = ({
         setStatus(data.error.message || "Buy failed");
         setExecuting(false);
         tradeLock.release("System");
+        sounds.play("error");
         unsubBuy();
         return;
       }
@@ -110,8 +114,9 @@ const OnlyUpsDownsPanel = ({
           const profit = Number(poc.profit || 0);
           setLastResult({ profit, status: profit > 0 ? "WON" : "LOST" });
           setStatus(`Closed • ${profit >= 0 ? "+" : ""}${profit.toFixed(2)} USD`);
+          sounds.play(profit > 0 ? "success" : "error");
           toast({
-            title: profit > 0 ? "Only " + direction + "s WON" : "Only " + direction + "s LOST",
+            title: profit > 0 ? `Only ${direction}s WON` : `Only ${direction}s LOST`,
             description: `${profit >= 0 ? "+" : ""}${profit.toFixed(2)} USD`,
           });
           setExecuting(false);
@@ -123,24 +128,80 @@ const OnlyUpsDownsPanel = ({
       }
       unsubBuy();
     });
-  };
+  }, [ws, proposalId, executing, validStake, stake, contractType, selectedMarket, ticks, direction, requestProposal]);
+
+  // AI Auto mode: subscribe to ticks, fire when 3 consecutive same-direction moves detected.
+  useEffect(() => {
+    if (!ws || !aiMode) return;
+    const unsub = ws.on("tick", (data) => {
+      const t = data.tick;
+      if (!t || t.symbol !== selectedMarket) return;
+      const q = Number(t.quote);
+      const buf = recentTicks.current;
+      buf.push(q);
+      if (buf.length > 6) buf.shift();
+      if (buf.length < 4) return;
+      const last4 = buf.slice(-4);
+      const ups = last4.every((v, i) => i === 0 || v > last4[i - 1]);
+      const downs = last4.every((v, i) => i === 0 || v < last4[i - 1]);
+      const now = Date.now();
+      if (executing || now - lastAiFireTs.current < 6000) return;
+      if (ups || downs) {
+        lastAiFireTs.current = now;
+        setDirection(ups ? "UP" : "DOWN");
+        setStatus(`AI armed → ONLY ${ups ? "UPS" : "DOWNS"}`);
+        // Wait briefly for fresh proposal then auto-buy
+        setTimeout(() => trade(), 350);
+      }
+    });
+    return () => { unsub(); };
+  }, [ws, aiMode, selectedMarket, executing, trade]);
+
+  const accountBadge = !account ? null : (
+    <span
+      className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide ${
+        account.is_virtual ? "bg-warning/20 text-warning" : "bg-buy/15 text-buy"
+      }`}
+      title={account.loginid}
+    >
+      {account.is_virtual ? "Demo" : "Real"} · {account.loginid}
+    </span>
+  );
 
   return (
     <div className="h-full flex flex-col bg-card/95 border-t border-border">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-border">
-        <div className="flex items-center gap-1.5">
-          <Zap className="w-3.5 h-3.5 text-primary" />
-          <span className="text-[11px] font-bold text-foreground">Only Ups / Only Downs</span>
+      <div className="flex items-center justify-between px-3 py-1.5 border-b border-border gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <Zap className="w-3.5 h-3.5 text-primary shrink-0" />
+          <span className="text-[11px] font-bold text-foreground truncate">Only Ups / Only Downs</span>
         </div>
-        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isConnected ? "bg-buy/15 text-buy" : "bg-sell/15 text-sell"}`}>
-          {isConnected ? "LIVE" : "OFFLINE"}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {accountBadge}
+          <button
+            onClick={() => setAiMode((v) => !v)}
+            className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full inline-flex items-center gap-1 transition ${
+              aiMode ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+            }`}
+            title="AI Auto-arm: fires after 3 same-direction ticks"
+          >
+            <Sparkles className="w-3 h-3" /> AI {aiMode ? "ON" : "OFF"}
+          </button>
+          <button
+            onClick={() => sounds.toggleMute()}
+            className="p-1 rounded-full text-muted-foreground hover:text-foreground"
+            title={muted ? "Unmute alerts" : "Mute alerts"}
+          >
+            {muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
+          </button>
+          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isConnected ? "bg-buy/15 text-buy" : "bg-sell/15 text-sell"}`}>
+            {isConnected ? "LIVE" : "OFFLINE"}
+          </span>
+        </div>
       </div>
 
       {/* Body */}
       <div className="flex-1 grid grid-cols-12 gap-2 p-2 min-h-0">
-        {/* Left: stake + ticks */}
         <div className="col-span-5 flex flex-col gap-2">
           <label className="block">
             <span className="text-[9px] uppercase text-muted-foreground font-bold">Stake (USD)</span>
@@ -173,7 +234,6 @@ const OnlyUpsDownsPanel = ({
           </div>
         </div>
 
-        {/* Right: direction toggle + execute */}
         <div className="col-span-7 flex flex-col gap-2">
           <div className="grid grid-cols-2 gap-1.5">
             <button
