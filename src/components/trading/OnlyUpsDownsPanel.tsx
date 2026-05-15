@@ -17,11 +17,15 @@ import { sounds } from "@/services/sounds";
 const OnlyUpsDownsPanel = ({
   ws,
   account,
+  authorized,
+  authorizedLoginid,
   selectedMarket,
   onLogin,
 }: {
   ws: DerivWebSocket | null;
   account: DerivAccount | null;
+  authorized?: boolean;
+  authorizedLoginid?: string | null;
   selectedMarket: string;
   onLogin: () => void;
 }) => {
@@ -35,7 +39,12 @@ const OnlyUpsDownsPanel = ({
   const [lastResult, setLastResult] = useState<{ profit: number; status: string } | null>(null);
   const [aiMode, setAiMode] = useState(false);
   const [muted, setMutedState] = useState(sounds.isMuted());
-  const isConnected = !!account;
+  // Trades only allowed when WS is authorized AND we have an account.
+  // The Real/Demo badge is also derived from the authorized loginid
+  // (which comes from the live Deriv balance/authorize stream), not stale local state.
+  const isConnected = !!account && authorized !== false;
+  const liveAccount =
+    (authorizedLoginid && account?.loginid === authorizedLoginid) ? account : account;
 
   const contractType = direction === "UP" ? "RUNHIGH" : "RUNLOW";
   const validStake = /^(\d+(\.\d{0,2})?)?$/.test(stake) && Number(stake) > 0;
@@ -157,14 +166,19 @@ const OnlyUpsDownsPanel = ({
     return () => { unsub(); };
   }, [ws, aiMode, selectedMarket, executing, trade]);
 
-  const accountBadge = !account ? null : (
+  // Badge sourced from the live authorize/balance stream:
+  // prefer the loginid the WS reports as currently authorized; fall back to local account.
+  const badgeLoginid = authorizedLoginid || account?.loginid || null;
+  const badgeIsVirtual = badgeLoginid?.startsWith("VR")
+    ?? (account?.is_virtual ?? false);
+  const accountBadge = !badgeLoginid ? null : (
     <span
       className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide ${
-        account.is_virtual ? "bg-warning/20 text-warning" : "bg-buy/15 text-buy"
+        badgeIsVirtual ? "bg-warning/20 text-warning" : "bg-buy/15 text-buy"
       }`}
-      title={account.loginid}
+      title={badgeLoginid}
     >
-      {account.is_virtual ? "Demo" : "Real"} · {account.loginid}
+      {badgeIsVirtual ? "Demo" : "Real"} · {badgeLoginid}
     </span>
   );
 
@@ -194,8 +208,13 @@ const OnlyUpsDownsPanel = ({
           >
             {muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
           </button>
-          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isConnected ? "bg-buy/15 text-buy" : "bg-sell/15 text-sell"}`}>
-            {isConnected ? "LIVE" : "OFFLINE"}
+          <span
+            className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+              isConnected ? "bg-buy/15 text-buy" : account ? "bg-warning/20 text-warning" : "bg-sell/15 text-sell"
+            }`}
+            title={isConnected ? "Deriv WS authorized" : account ? "Re-authorizing Deriv session…" : "Not signed in"}
+          >
+            {isConnected ? "LIVE" : account ? "AUTH…" : "OFFLINE"}
           </span>
         </div>
       </div>
@@ -258,12 +277,19 @@ const OnlyUpsDownsPanel = ({
             </button>
           </div>
 
-          {!isConnected ? (
+          {!account ? (
             <button
               onClick={onLogin}
               className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold"
             >
               Connect to Trade
+            </button>
+          ) : !isConnected ? (
+            <button
+              disabled
+              className="flex-1 py-2 rounded-lg bg-warning/30 text-warning text-xs font-bold"
+            >
+              Authorizing Deriv…
             </button>
           ) : (
             <button
