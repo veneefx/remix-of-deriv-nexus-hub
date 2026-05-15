@@ -80,6 +80,10 @@ const TradingHub = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [ws, setWs] = useState<DerivWebSocket | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
+  const [derivAuthorized, setDerivAuthorized] = useState(false);
+  const [authorizedLoginid, setAuthorizedLoginid] = useState<string | null>(null);
+  const lastAuthorizeAt = useRef(0);
+  const fetchedBalanceLoginids = useRef<Set<string>>(new Set());
   const [activeView, setActiveView] = useState<ViewMode>(() => sanitizeViewMode(localStorage.getItem("dnx_view")));
   const [selectedMarket, setSelectedMarket] = useState(() => localStorage.getItem("dnx_market") || "R_10");
   const [tokenManagerOpen, setTokenManagerOpen] = useState(false);
