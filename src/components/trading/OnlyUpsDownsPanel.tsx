@@ -277,12 +277,19 @@ const OnlyUpsDownsPanel = ({
             </button>
           </div>
 
-          {!isConnected ? (
+          {!account ? (
             <button
               onClick={onLogin}
               className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold"
             >
               Connect to Trade
+            </button>
+          ) : !isConnected ? (
+            <button
+              disabled
+              className="flex-1 py-2 rounded-lg bg-warning/30 text-warning text-xs font-bold"
+            >
+              Authorizing Deriv…
             </button>
           ) : (
             <button
