@@ -489,9 +489,41 @@ const TradingHub = () => {
 
           {/* Right: Balance/Connect + hamburger */}
           <div className="flex items-center gap-2">
-            <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${wsConnected ? "bg-buy/20 text-buy" : "bg-sell/20 text-sell"}`}>
-              {wsConnected ? "●" : "○"}
-            </span>
+            <div
+              className={`flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                !wsConnected
+                  ? "bg-sell/20 text-sell"
+                  : derivAuthorized
+                    ? "bg-buy/20 text-buy"
+                    : account
+                      ? "bg-warning/20 text-warning"
+                      : "bg-muted text-muted-foreground"
+              }`}
+              title={
+                !wsConnected
+                  ? "Deriv socket disconnected"
+                  : derivAuthorized
+                    ? `Authorized · ${authorizedLoginid ?? account?.loginid ?? ""}`
+                    : account
+                      ? "Connected — re-authorizing your Deriv session…"
+                      : "Connected (not signed in)"
+              }
+            >
+              <span>●</span>
+              <span className="hidden sm:inline">
+                {!wsConnected
+                  ? "OFFLINE"
+                  : derivAuthorized
+                    ? `AUTH · ${(() => {
+                        const acc = accounts.find(a => a.loginid === (authorizedLoginid ?? account?.loginid));
+                        const isVirtual = acc ? acc.is_virtual : account?.is_virtual;
+                        return isVirtual ? "DEMO" : "REAL";
+                      })()}`
+                    : account
+                      ? "LINKING…"
+                      : "GUEST"}
+              </span>
+            </div>
             
             {hasDerivSession ? (
               <div className="flex items-center gap-1.5">
