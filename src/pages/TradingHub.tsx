@@ -605,6 +605,8 @@ const TradingHub = () => {
                 <OnlyUpsDownsPanel
                   ws={ws}
                   account={account}
+                  authorized={derivAuthorized}
+                  authorizedLoginid={authorizedLoginid}
                   selectedMarket={smartTraderMarket}
                   onLogin={handleLogin}
                 />
