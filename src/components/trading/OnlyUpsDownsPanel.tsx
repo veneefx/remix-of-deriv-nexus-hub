@@ -208,8 +208,13 @@ const OnlyUpsDownsPanel = ({
           >
             {muted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
           </button>
-          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isConnected ? "bg-buy/15 text-buy" : "bg-sell/15 text-sell"}`}>
-            {isConnected ? "LIVE" : "OFFLINE"}
+          <span
+            className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+              isConnected ? "bg-buy/15 text-buy" : account ? "bg-warning/20 text-warning" : "bg-sell/15 text-sell"
+            }`}
+            title={isConnected ? "Deriv WS authorized" : account ? "Re-authorizing Deriv session…" : "Not signed in"}
+          >
+            {isConnected ? "LIVE" : account ? "AUTH…" : "OFFLINE"}
           </span>
         </div>
       </div>
