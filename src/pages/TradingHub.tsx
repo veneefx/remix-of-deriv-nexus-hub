@@ -166,17 +166,26 @@ const TradingHub = () => {
     }
   }, [activeView, selectedMarket]);
 
-  // WebSocket connection with auto-reconnect
+  // WebSocket connection with auto-reconnect + auto re-authorize
   useEffect(() => {
     const wsInstance = new DerivWebSocket(DERIV_APP_ID);
     setWs(wsInstance);
+    setDerivAuthorized(false);
+    setAuthorizedLoginid(null);
+
+    const tryAuthorize = () => {
+      if (!account?.token) return;
+      const now = Date.now();
+      if (now - lastAuthorizeAt.current < 1500) return;
+      lastAuthorizeAt.current = now;
+      wsInstance.authorize(account.token);
+    };
+
     wsInstance.connect().then(() => {
       setWsConnected(true);
       toast({ title: "✅ Connected to Deriv", description: "WebSocket connected successfully" });
       wsInstance.subscribeTicks(selectedMarket);
-      if (account) {
-        wsInstance.authorize(account.token);
-      }
+      tryAuthorize();
     }).catch(() => {
       setWsConnected(false);
       toast({ title: "❌ Connection Failed", description: "Could not connect to Deriv. Retrying..." });
@@ -189,7 +198,11 @@ const TradingHub = () => {
       if (connected) {
         toast({ title: "✅ Reconnected", description: "WebSocket reconnected" });
         notifications.notify("Reconnected", "Trading connection restored.", "success");
+        // After reconnect, re-authorize so SmartTrader stays in sync
+        setTimeout(tryAuthorize, 250);
       } else {
+        setDerivAuthorized(false);
+        setAuthorizedLoginid(null);
         toast({ title: "⚠️ Disconnected", description: "Connection lost. Reconnecting..." });
         notifications.notify("Disconnected", "Trading connection lost. Reconnecting…", "warn");
       }
@@ -201,16 +214,31 @@ const TradingHub = () => {
         const loginid = data.authorize.loginid;
         setBalance(bal);
         setAccountBalances(prev => ({ ...prev, [loginid]: bal }));
+        setDerivAuthorized(true);
+        setAuthorizedLoginid(loginid);
         wsInstance.getBalance();
+      } else if (data.error) {
+        setDerivAuthorized(false);
+        setAuthorizedLoginid(null);
       }
     });
 
     wsInstance.on("balance", (data) => {
       if (data.balance) {
         setBalance(data.balance.balance);
-        if (account) {
-          setAccountBalances(prev => ({ ...prev, [account.loginid]: data.balance.balance }));
+        if (data.balance.loginid) {
+          setAccountBalances(prev => ({ ...prev, [data.balance.loginid]: data.balance.balance }));
         }
+      }
+    });
+
+    // Re-authorize on auth-related errors
+    wsInstance.on("error", (data) => {
+      const code = data?.error?.code;
+      if (code === "AuthorizationRequired" || code === "InvalidToken" || code === "InvalidAppID") {
+        setDerivAuthorized(false);
+        setAuthorizedLoginid(null);
+        setTimeout(tryAuthorize, 500);
       }
     });
 
@@ -219,21 +247,39 @@ const TradingHub = () => {
     };
   }, [account]);
 
-  // Fetch balances for non-active accounts
+  // Watchdog: if connected + have account but not authorized, retry every 5s
+  useEffect(() => {
+    if (!ws || !wsConnected || !account || derivAuthorized) return;
+    const t = setInterval(() => {
+      const now = Date.now();
+      if (now - lastAuthorizeAt.current < 4000) return;
+      lastAuthorizeAt.current = now;
+      ws.authorize(account.token);
+    }, 5000);
+    return () => clearInterval(t);
+  }, [ws, wsConnected, account, derivAuthorized]);
+
+  // Fetch balances for non-active accounts (one-shot, deduped to avoid socket storms)
   useEffect(() => {
     if (accounts.length <= 1 || !account) return;
     const otherAccounts = accounts.filter(a => a.loginid !== account.loginid);
     otherAccounts.forEach(acc => {
+      if (fetchedBalanceLoginids.current.has(acc.loginid)) return;
+      fetchedBalanceLoginids.current.add(acc.loginid);
       const tempWs = new DerivWebSocket(DERIV_APP_ID);
+      let closed = false;
+      const closeOnce = () => { if (!closed) { closed = true; try { tempWs.disconnect(); } catch {} } };
       tempWs.connect().then(() => {
         tempWs.authorize(acc.token);
         tempWs.on("authorize", (data) => {
           if (data.authorize) {
             setAccountBalances(prev => ({ ...prev, [data.authorize.loginid]: data.authorize.balance }));
           }
-          setTimeout(() => tempWs.disconnect(), 1000);
+          setTimeout(closeOnce, 800);
         });
-      }).catch(() => {});
+        // Safety: close after 10s no matter what
+        setTimeout(closeOnce, 10000);
+      }).catch(closeOnce);
     });
   }, [accounts, account]);
 
