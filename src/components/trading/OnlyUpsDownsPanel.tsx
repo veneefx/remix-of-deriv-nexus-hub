@@ -166,14 +166,19 @@ const OnlyUpsDownsPanel = ({
     return () => { unsub(); };
   }, [ws, aiMode, selectedMarket, executing, trade]);
 
-  const accountBadge = !account ? null : (
+  // Badge sourced from the live authorize/balance stream:
+  // prefer the loginid the WS reports as currently authorized; fall back to local account.
+  const badgeLoginid = authorizedLoginid || account?.loginid || null;
+  const badgeIsVirtual = badgeLoginid?.startsWith("VR")
+    ?? (account?.is_virtual ?? false);
+  const accountBadge = !badgeLoginid ? null : (
     <span
       className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide ${
-        account.is_virtual ? "bg-warning/20 text-warning" : "bg-buy/15 text-buy"
+        badgeIsVirtual ? "bg-warning/20 text-warning" : "bg-buy/15 text-buy"
       }`}
-      title={account.loginid}
+      title={badgeLoginid}
     >
-      {account.is_virtual ? "Demo" : "Real"} · {account.loginid}
+      {badgeIsVirtual ? "Demo" : "Real"} · {badgeLoginid}
     </span>
   );
 
