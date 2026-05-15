@@ -17,11 +17,15 @@ import { sounds } from "@/services/sounds";
 const OnlyUpsDownsPanel = ({
   ws,
   account,
+  authorized,
+  authorizedLoginid,
   selectedMarket,
   onLogin,
 }: {
   ws: DerivWebSocket | null;
   account: DerivAccount | null;
+  authorized?: boolean;
+  authorizedLoginid?: string | null;
   selectedMarket: string;
   onLogin: () => void;
 }) => {
@@ -35,7 +39,12 @@ const OnlyUpsDownsPanel = ({
   const [lastResult, setLastResult] = useState<{ profit: number; status: string } | null>(null);
   const [aiMode, setAiMode] = useState(false);
   const [muted, setMutedState] = useState(sounds.isMuted());
-  const isConnected = !!account;
+  // Trades only allowed when WS is authorized AND we have an account.
+  // The Real/Demo badge is also derived from the authorized loginid
+  // (which comes from the live Deriv balance/authorize stream), not stale local state.
+  const isConnected = !!account && authorized !== false;
+  const liveAccount =
+    (authorizedLoginid && account?.loginid === authorizedLoginid) ? account : account;
 
   const contractType = direction === "UP" ? "RUNHIGH" : "RUNLOW";
   const validStake = /^(\d+(\.\d{0,2})?)?$/.test(stake) && Number(stake) > 0;
