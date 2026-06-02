@@ -116,14 +116,14 @@ const LandingPage = () => {
               ))}
             </div>
 
-            {/* Hero Mobile Image */}
+            {/* Hero Trader Portrait */}
             <motion.div
               className="mb-12"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.5, duration: 0.7 }}
             >
-              <img src={heroMobileLocal} alt="DNexus Mobile Trading" className="w-full max-w-[320px] mx-auto drop-shadow-2xl" />
+              <img src={heroTrader} alt="DNexus trader with mobile trading app" className="w-full max-w-[420px] mx-auto drop-shadow-2xl" />
             </motion.div>
 
             <motion.div className="flex items-center gap-4" {...fadeUp}>
