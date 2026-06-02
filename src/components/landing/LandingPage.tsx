@@ -1,12 +1,14 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Brain, BarChart3, Users, ChevronDown, Lock, CreditCard, Star, Activity, ExternalLink, ArrowRight, Zap, Shield, Globe, Play } from "lucide-react";
+import { useState, useRef } from "react";
+import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
+import { Brain, BarChart3, Users, ChevronDown, Lock, CreditCard, Star, Activity, ExternalLink, ArrowRight, Zap, Shield, Globe, Play, Instagram } from "lucide-react";
 import { Link } from "react-router-dom";
 import MarketTracker from "@/components/trading/MarketTracker";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import AdSlot from "@/components/ads/AdSlot";
-import heroMobileLocal from "@/assets/hero-mobile.png";
+import heroTrader from "@/assets/hero-trader.png";
+import socialProof from "@/assets/social-proof.jpg";
+import phoneTrading from "@/assets/phone-trading-1.webp";
 
 // Reference images from the site
 const tradeOnImg = "https://dtnexusapp.com/_next/static/media/trade_on2.b04695d6.png";
