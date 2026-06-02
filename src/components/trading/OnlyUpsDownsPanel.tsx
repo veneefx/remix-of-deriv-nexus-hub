@@ -61,10 +61,10 @@ const OnlyUpsDownsPanel = ({
 
   const fireStraddle = useCallback(() => {
     if (!ws || !isConnected || !validStake || executing) return;
-    if (!tradeLock.tryAcquire("SmartAI")) return;
+    if (!tradeLock.tryAcquire("System")) return;
     setExecuting(true);
     setStatus(`AI firing straddle • ${ticks}t • $${stake} each side`);
-    aiLogger.log("SmartAI", "info", `Straddle ARMED ${selectedMarket} ${ticks}t @ $${stake}`);
+    aiLogger.log("System", "info", `Straddle ARMED ${selectedMarket} ${ticks}t @ $${stake}`);
     lastFireTs.current = Date.now();
     pendingStraddle.current = {};
 
@@ -102,7 +102,7 @@ const OnlyUpsDownsPanel = ({
     if (!ws) return;
     const unsub = ws.on("buy", (data) => {
       if (data.error) {
-        aiLogger.log("SmartAI", "error", `Buy rejected: ${data.error.message}`);
+        aiLogger.log("System", "error", `Buy rejected: ${data.error.message}`);
         return;
       }
       if (data.buy?.contract_id) {
@@ -133,7 +133,7 @@ const OnlyUpsDownsPanel = ({
       // When both legs done (set empty), release lock + report combined
       if (openContracts.current.size === 0) {
         setExecuting(false);
-        tradeLock.release("SmartAI");
+        tradeLock.release("System");
         setLastResult({ profit, status: profit > 0 ? "WIN" : "LOSS" });
         sounds.play(profit > 0 ? "success" : "error");
         setStatus(`Straddle closed • leg ${profit >= 0 ? "+" : ""}${profit.toFixed(2)} USD`);
