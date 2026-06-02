@@ -30,6 +30,10 @@ const fadeUp = {
 
 const LandingPage = () => {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const phoneRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress: phoneScroll } = useScroll({ target: phoneRef, offset: ["start end", "end start"] });
+  const phoneRotateY = useTransform(phoneScroll, [0, 0.5, 1], [-25, 0, 25]);
+  const phoneScale = useTransform(phoneScroll, [0, 0.5, 1], [0.85, 1.05, 0.9]);
 
   const faqs = [
     { q: "What is trading?", a: "Trading involves buying and selling financial instruments to profit from price movements. On DNexus, we specialize in synthetic indices and digit contracts — fast-paced instruments that trade 24/7 with instant results." },
