@@ -76,12 +76,31 @@ function getSupabaseClient() {
   return createClient(url, key);
 }
 
+const unauthorized = () =>
+  new Response(JSON.stringify({ error: 'Unauthorized' }), {
+    status: 401,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // ── Require a valid Supabase JWT for every action ──
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) return unauthorized();
+    const token = authHeader.replace('Bearer ', '');
+
+    const supabaseAuth = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+    );
+    const { data: claimsData, error: claimsErr } = await supabaseAuth.auth.getClaims(token);
+    if (claimsErr || !claimsData?.claims?.sub) return unauthorized();
+    const callerId = claimsData.claims.sub as string;
+
     const body = await req.json();
     const { action, params } = body;
 
@@ -159,19 +178,34 @@ serve(async (req) => {
 
     // ── LOG TRADE: persist trade result to database ──
     if (action === 'log-trade') {
-      const { userId, contractId, contractType, symbol, stake, profit, won } = params;
+      // SECURITY: never trust userId from the body; derive from verified JWT.
+      const { contractId, contractType, symbol, stake, profit, won } = params ?? {};
+      if (
+        typeof contractId !== 'string' ||
+        typeof contractType !== 'string' ||
+        typeof symbol !== 'string' ||
+        !Number.isFinite(Number(stake)) ||
+        !Number.isFinite(Number(profit)) ||
+        typeof won !== 'boolean'
+      ) {
+        return new Response(JSON.stringify({ error: 'Invalid trade payload' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       const supabase = getSupabaseClient();
 
-      // Insert trade log
+      // Insert trade log under the authenticated caller's id
       const { data: tradeLog, error: tradeError } = await supabase
         .from('trade_logs')
         .insert({
-          user_id: userId,
+          user_id: callerId,
           contract_id: contractId,
           contract_type: contractType,
           symbol,
-          stake,
-          profit,
+          stake: Number(stake),
+          profit: Number(profit),
           won,
         })
         .select('id')
@@ -185,10 +219,10 @@ serve(async (req) => {
       }
 
       // Insert commission record (3%)
-      const commissionAmount = Math.abs(profit) * 0.03;
+      const commissionAmount = Math.abs(Number(profit)) * 0.03;
       if (commissionAmount > 0 && tradeLog) {
         await supabase.from('commission_ledger').insert({
-          user_id: userId,
+          user_id: callerId,
           trade_id: tradeLog.id,
           amount: commissionAmount,
           rate: 0.03,
@@ -211,3 +245,4 @@ serve(async (req) => {
     });
   }
 });
+
