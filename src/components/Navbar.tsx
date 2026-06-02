@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Menu, X, TrendingUp, LogOut } from "lucide-react";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/dnexus-logo.png";
 import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [

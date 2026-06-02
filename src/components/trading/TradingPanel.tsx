@@ -1583,10 +1583,10 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         )}
       </div>
 
-      {/* Mobile FAB to open the trading-controls bottom sheet */}
+      {/* Mobile FAB to open the trading-controls side panel */}
       <button
         onClick={() => setMobileSheetOpen(true)}
-        className="lg:hidden fixed bottom-44 right-4 z-40 h-14 px-5 rounded-full bg-buy text-primary-foreground font-bold text-xs shadow-2xl shadow-buy/30 flex items-center gap-2 active:scale-95 transition-transform"
+        className="lg:hidden fixed bottom-44 left-4 z-40 h-14 px-5 rounded-full bg-buy text-primary-foreground font-bold text-xs shadow-2xl shadow-buy/30 flex items-center gap-2 active:scale-95 transition-transform"
         aria-label="Open trade controls"
       >
         <Activity className="w-4 h-4" /> Trade
@@ -1600,19 +1600,18 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         />
       )}
 
-      {/* Right Panel — desktop side panel + mobile bottom-sheet popup */}
+      {/* Right Panel — desktop side panel + mobile LEFT-slide popup */}
       <div
-        className={`bg-card/50 overflow-y-auto border-border ${
+        className={`bg-card/95 backdrop-blur-lg overflow-y-auto border-border ${
           mobileSheetOpen
-            ? "fixed inset-x-0 bottom-0 z-50 max-h-[85vh] rounded-t-2xl border-t shadow-2xl block animate-in slide-in-from-bottom duration-300 lg:relative lg:max-h-none lg:rounded-none lg:border-l lg:border-t-0 lg:shadow-none lg:w-[320px] lg:animate-none"
+            ? "fixed inset-y-0 left-0 z-50 w-[88%] max-w-[360px] rounded-r-2xl border-r shadow-2xl block animate-in slide-in-from-left duration-300 lg:relative lg:max-w-none lg:w-[320px] lg:rounded-none lg:border-l lg:border-r-0 lg:shadow-none lg:animate-none"
             : "hidden lg:block w-[320px] border-l"
         }`}
       >
-        {/* Mobile sheet handle + close */}
+        {/* Mobile panel header */}
         {mobileSheetOpen && (
-          <div className="lg:hidden sticky top-0 z-10 bg-card/95 backdrop-blur border-b border-border px-4 py-2 flex items-center justify-between">
-            <div className="mx-auto w-10 h-1 rounded-full bg-muted absolute left-1/2 -translate-x-1/2 top-1.5" />
-            <p className="text-xs font-bold text-foreground">Trade Controls</p>
+          <div className="lg:hidden sticky top-0 z-10 bg-card/95 backdrop-blur border-b border-border px-4 py-3 flex items-center justify-between">
+            <p className="text-xs font-bold text-foreground flex items-center gap-2"><Activity className="w-3.5 h-3.5 text-primary" /> Trade Controls</p>
             <button
               onClick={() => setMobileSheetOpen(false)}
               className="p-1.5 rounded-lg hover:bg-secondary text-muted-foreground"

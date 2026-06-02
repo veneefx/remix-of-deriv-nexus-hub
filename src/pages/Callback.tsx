@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { parseCallbackParams, storeAccounts, setActiveAccount } from "@/services/deriv-auth";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/dnexus-logo.png";
 
 const Callback = () => {
   const navigate = useNavigate();

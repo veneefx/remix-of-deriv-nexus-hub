@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/dnexus-logo.png";
 
 const Loader = ({ onComplete }: { onComplete: () => void }) => {
   const [progress, setProgress] = useState(0);
