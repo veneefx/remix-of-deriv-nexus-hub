@@ -5,7 +5,7 @@ import {
   Menu, X, Wallet, ChevronDown, Moon, Sun, Settings, Shield,
   AlertTriangle, Search, Activity, User, Clock
 } from "lucide-react";
-import logo from "@/assets/logo.png";
+import logo from "@/assets/dnexus-logo.png";
 import { getActiveAccount, getStoredAccounts, clearAuth, setActiveAccount, parseCallbackParams, storeAccounts, type DerivAccount } from "@/services/deriv-auth";
 import { getOAuthUrl } from "@/services/deriv-auth";
 import TradingPanel from "@/components/trading/TradingPanel";

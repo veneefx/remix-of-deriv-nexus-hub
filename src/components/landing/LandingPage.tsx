@@ -1,12 +1,14 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Brain, BarChart3, Users, ChevronDown, Lock, CreditCard, Star, Activity, ExternalLink, ArrowRight, Zap, Shield, Globe, Play } from "lucide-react";
+import { useState, useRef } from "react";
+import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
+import { Brain, BarChart3, Users, ChevronDown, Lock, CreditCard, Star, Activity, ExternalLink, ArrowRight, Zap, Shield, Globe, Play, Instagram } from "lucide-react";
 import { Link } from "react-router-dom";
 import MarketTracker from "@/components/trading/MarketTracker";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import AdSlot from "@/components/ads/AdSlot";
-import heroMobileLocal from "@/assets/hero-mobile.png";
+import heroTrader from "@/assets/hero-trader.png";
+import socialProof from "@/assets/social-proof.jpg";
+import phoneTrading from "@/assets/phone-trading-1.webp";
 
 // Reference images from the site
 const tradeOnImg = "https://dtnexusapp.com/_next/static/media/trade_on2.b04695d6.png";
@@ -28,6 +30,10 @@ const fadeUp = {
 
 const LandingPage = () => {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const phoneRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress: phoneScroll } = useScroll({ target: phoneRef, offset: ["start end", "end start"] });
+  const phoneRotateY = useTransform(phoneScroll, [0, 0.5, 1], [-25, 0, 25]);
+  const phoneScale = useTransform(phoneScroll, [0, 0.5, 1], [0.85, 1.05, 0.9]);
 
   const faqs = [
     { q: "What is trading?", a: "Trading involves buying and selling financial instruments to profit from price movements. On DNexus, we specialize in synthetic indices and digit contracts — fast-paced instruments that trade 24/7 with instant results." },
@@ -110,14 +116,14 @@ const LandingPage = () => {
               ))}
             </div>
 
-            {/* Hero Mobile Image */}
+            {/* Hero Trader Portrait */}
             <motion.div
               className="mb-12"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.5, duration: 0.7 }}
             >
-              <img src={heroMobileLocal} alt="DNexus Mobile Trading" className="w-full max-w-[320px] mx-auto drop-shadow-2xl" />
+              <img src={heroTrader} alt="DNexus trader with mobile trading app" className="w-full max-w-[420px] mx-auto drop-shadow-2xl" />
             </motion.div>
 
             <motion.div className="flex items-center gap-4" {...fadeUp}>
@@ -262,6 +268,53 @@ const LandingPage = () => {
           </div>
         </div>
       </section>
+
+      {/* Scroll-Rotating Phone Showcase */}
+      <section className="py-32 bg-[#141414] overflow-hidden">
+        <div className="max-w-[1320px] mx-auto px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div className="space-y-6">
+              <span className="text-[#00d4ff] font-bold uppercase tracking-[0.2em] text-sm">Built For Mobile</span>
+              <h2 className="text-4xl md:text-6xl font-bold text-white font-['Open_Sans'] leading-tight">Your trading desk fits in your pocket</h2>
+              <p className="text-lg text-[#b6b6b6] leading-relaxed">
+                Every chart, every signal, every automation surface inside DNexus is tuned for one-handed use on the device you already carry. Scroll, swipe, fire trades — no lag, no compromise.
+              </p>
+            </div>
+            <div ref={phoneRef} className="relative h-[560px] flex items-center justify-center" style={{ perspective: "1200px" }}>
+              <motion.img
+                src={phoneTrading}
+                alt="DNexus on mobile"
+                style={{ rotateY: phoneRotateY, scale: phoneScale, transformStyle: "preserve-3d" }}
+                className="w-full max-w-[320px] drop-shadow-[0_25px_60px_rgba(0,212,255,0.35)]"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Social Proof / Community */}
+      <section className="py-24 bg-black">
+        <div className="max-w-[1320px] mx-auto px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-10 items-center">
+            <motion.div className="lg:col-span-2" {...fadeUp}>
+              <img src={socialProof} alt="DNexus community 36K+ followers, 300+ posts" loading="lazy" className="w-full rounded-3xl shadow-2xl" />
+            </motion.div>
+            <motion.div className="lg:col-span-3 space-y-6" {...fadeUp}>
+              <span className="text-[#00d4ff] font-bold uppercase tracking-[0.2em] text-sm">Community</span>
+              <h2 className="text-4xl md:text-5xl font-bold text-white font-['Open_Sans']">A movement, not just a tool</h2>
+              <p className="text-lg text-[#b6b6b6] leading-relaxed">
+                36,000+ traders follow the DNexus feed for daily setups, post-mortems, and edge ideas. 300+ original posts and counting — every chart annotated, every result published, nothing hidden.
+              </p>
+              <div className="flex gap-4">
+                <a href="https://instagram.com" target="_blank" rel="noopener" className="px-6 py-3 bg-[#00d4ff] text-black font-bold rounded-xl hover:bg-white transition-all flex items-center gap-2">
+                  <Instagram className="w-5 h-5" /> Follow the feed
+                </a>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
 
       {/* Market Tracker */}
       <section className="py-32 bg-black">
