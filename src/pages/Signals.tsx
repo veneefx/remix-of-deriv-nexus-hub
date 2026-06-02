@@ -172,18 +172,8 @@ const Signals = () => {
   const [appId, setAppId] = useState<string>("129344");
   const wsRef = useRef<DerivWebSocket | null>(null);
 
-  // Fetch app ID from backend
-  useEffect(() => {
-    const fetchConfig = async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke("deriv-proxy", {
-          body: { action: "get_config" },
-        });
-        if (data?.app_id) setAppId(data.app_id);
-      } catch {}
-    };
-    fetchConfig();
-  }, []);
+  // Deriv app id is a non-secret platform constant; no backend roundtrip needed.
+
 
   // Connect to WebSocket for tick data
   useEffect(() => {
