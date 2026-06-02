@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import logo from "@/assets/dnexus-logo.png";
+import logo from "@/assets/logo.png";
 import { Mail, ArrowLeft } from "lucide-react";
 
 const ForgotPassword = () => {

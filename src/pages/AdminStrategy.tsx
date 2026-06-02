@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Shield, Save, ArrowLeft, RefreshCw } from "lucide-react";
-import logo from "@/assets/dnexus-logo.png";
+import logo from "@/assets/logo.png";
 
 const AdminStrategy = () => {
   const [loading, setLoading] = useState(true);

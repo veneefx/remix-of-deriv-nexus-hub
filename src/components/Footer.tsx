@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Mail, Phone, Instagram, Twitter } from "lucide-react";
-import logo from "@/assets/dnexus-logo.png";
+import logo from "@/assets/logo.png";
 
 const Footer = () => (
   <footer className="bg-[#141414] border-t border-gray-800">
