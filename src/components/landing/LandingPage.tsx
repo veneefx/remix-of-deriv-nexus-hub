@@ -1,23 +1,16 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
-import { Brain, BarChart3, Users, ChevronDown, Lock, CreditCard, Star, Activity, ExternalLink, ArrowRight, Zap, Shield, Globe, Play, Instagram } from "lucide-react";
+import { Brain, BarChart3, Users, ChevronDown, ArrowRight, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import MarketTracker from "@/components/trading/MarketTracker";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import AdSlot from "@/components/ads/AdSlot";
-import heroTrader from "@/assets/hero-trader.png";
-import socialProof from "@/assets/social-proof.jpg";
-import phoneTrading from "@/assets/phone-trading-1.webp";
-
-// Reference images from the site
-const tradeOnImg = "https://dtnexusapp.com/_next/static/media/trade_on2.b04695d6.png";
-const partnersImg = "https://dtnexusapp.com/_next/static/media/partners-portrait.9046d76e.png";
-const aiImg = "https://dtnexusapp.com/_next/static/media/ai-portrait.8d2ce3d6.png";
-const signalsImg = "https://dtnexusapp.com/_next/static/media/signals-portrait.1893b487.png";
-const whyTradeImg = "https://dtnexusapp.com/_next/static/media/why_trade.249cb2ad.png";
-const worldwideImg = "https://dtnexusapp.com/_next/static/media/ig-portrait.44c3f5f9.png";
-const faqImg = "https://dtnexusapp.com/_next/static/media/faq.0a41727c.png";
+import heroHandAsset from "@/assets/landing-hero-hand.png.asset.json";
+import datLeftAsset from "@/assets/landing-dat-left.png.asset.json";
+import scannerLeftAsset from "@/assets/landing-scanner-left.png.asset.json";
+import tradingViewPortraitAsset from "@/assets/landing-tradingview-portrait.png.asset.json";
+import aiCommandPortraitAsset from "@/assets/landing-ai-command-portrait.png.asset.json";
 
 const DERIV_AFFILIATE_LINK = "https://deriv.com/?t=xA1buvJrGeASmsCwn5r1F2Nd7ZgqdRLk&utm_source=affiliate_187242&utm_medium=affiliate&utm_campaign=MyAffiliates&utm_content=&referrer=";
 
@@ -27,6 +20,30 @@ const fadeUp = {
   viewport: { once: true },
   transition: { duration: 0.6 },
 };
+
+const platformShowcaseCards = [
+  {
+    title: "Dynamic Analysis Terminal",
+    image: datLeftAsset.url,
+    badge: "Live",
+    badgeClass: "bg-red-500",
+    description: "Monitor live volatility, tick speed, frequency pressure, and confluence from the same DNexus analysis surface.",
+  },
+  {
+    title: "Deep Market Scanner",
+    image: scannerLeftAsset.url,
+    badge: "Scanner",
+    badgeClass: "bg-emerald-500",
+    description: "Track multi-market confluence, digit distribution, cycle detection, and odd-even bias using your own interface screenshots.",
+  },
+  {
+    title: "TradingView + AI Command Center",
+    image: tradingViewPortraitAsset.url,
+    badge: "AI",
+    badgeClass: "bg-sky-500",
+    description: "Review full-chart setups alongside the floating AI command center and live performance log from your actual DNexus screens.",
+  },
+];
 
 const LandingPage = () => {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
