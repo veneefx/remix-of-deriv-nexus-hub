@@ -1604,7 +1604,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       <div
         className={`bg-card/95 backdrop-blur-lg overflow-y-auto border-border ${
           mobileSheetOpen
-            ? "fixed left-0 bottom-24 top-24 z-50 w-[72%] max-w-[320px] rounded-r-2xl border-r shadow-2xl block animate-in slide-in-from-left duration-300 lg:relative lg:inset-auto lg:max-w-none lg:w-[320px] lg:rounded-none lg:border-l lg:border-r-0 lg:shadow-none lg:animate-none"
+            ? "fixed inset-y-0 left-0 z-50 w-[88%] max-w-[360px] rounded-r-2xl border-r shadow-2xl block animate-in slide-in-from-left duration-300 lg:relative lg:max-w-none lg:w-[320px] lg:rounded-none lg:border-l lg:border-r-0 lg:shadow-none lg:animate-none"
             : "hidden lg:block w-[320px] border-l"
         }`}
       >

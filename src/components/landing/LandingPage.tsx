@@ -1,16 +1,23 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
-import { Brain, BarChart3, Users, ChevronDown, ArrowRight, Zap } from "lucide-react";
+import { Brain, BarChart3, Users, ChevronDown, Lock, CreditCard, Star, Activity, ExternalLink, ArrowRight, Zap, Shield, Globe, Play, Instagram } from "lucide-react";
 import { Link } from "react-router-dom";
 import MarketTracker from "@/components/trading/MarketTracker";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import AdSlot from "@/components/ads/AdSlot";
-import heroHandAsset from "@/assets/landing-hero-hand.png.asset.json";
-import datLeftAsset from "@/assets/landing-dat-left.png.asset.json";
-import scannerLeftAsset from "@/assets/landing-scanner-left.png.asset.json";
-import tradingViewPortraitAsset from "@/assets/landing-tradingview-portrait.png.asset.json";
-import aiCommandPortraitAsset from "@/assets/landing-ai-command-portrait.png.asset.json";
+import heroTrader from "@/assets/hero-trader.png";
+import socialProof from "@/assets/social-proof.jpg";
+import phoneTrading from "@/assets/phone-trading-1.webp";
+
+// Reference images from the site
+const tradeOnImg = "https://dtnexusapp.com/_next/static/media/trade_on2.b04695d6.png";
+const partnersImg = "https://dtnexusapp.com/_next/static/media/partners-portrait.9046d76e.png";
+const aiImg = "https://dtnexusapp.com/_next/static/media/ai-portrait.8d2ce3d6.png";
+const signalsImg = "https://dtnexusapp.com/_next/static/media/signals-portrait.1893b487.png";
+const whyTradeImg = "https://dtnexusapp.com/_next/static/media/why_trade.249cb2ad.png";
+const worldwideImg = "https://dtnexusapp.com/_next/static/media/ig-portrait.44c3f5f9.png";
+const faqImg = "https://dtnexusapp.com/_next/static/media/faq.0a41727c.png";
 
 const DERIV_AFFILIATE_LINK = "https://deriv.com/?t=xA1buvJrGeASmsCwn5r1F2Nd7ZgqdRLk&utm_source=affiliate_187242&utm_medium=affiliate&utm_campaign=MyAffiliates&utm_content=&referrer=";
 
@@ -20,30 +27,6 @@ const fadeUp = {
   viewport: { once: true },
   transition: { duration: 0.6 },
 };
-
-const platformShowcaseCards = [
-  {
-    title: "Dynamic Analysis Terminal",
-    image: datLeftAsset.url,
-    badge: "Live",
-    badgeClass: "bg-red-500",
-    description: "Monitor live volatility, tick speed, frequency pressure, and confluence from the same DNexus analysis surface.",
-  },
-  {
-    title: "Deep Market Scanner",
-    image: scannerLeftAsset.url,
-    badge: "Scanner",
-    badgeClass: "bg-emerald-500",
-    description: "Track multi-market confluence, digit distribution, cycle detection, and odd-even bias using your own interface screenshots.",
-  },
-  {
-    title: "TradingView + AI Command Center",
-    image: tradingViewPortraitAsset.url,
-    badge: "AI",
-    badgeClass: "bg-sky-500",
-    description: "Review full-chart setups alongside the floating AI command center and live performance log from your actual DNexus screens.",
-  },
-];
 
 const LandingPage = () => {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -133,21 +116,23 @@ const LandingPage = () => {
               ))}
             </div>
 
-            {/* Hero mockup from uploaded reference */}
+            {/* Hero Trader Portrait */}
             <motion.div
               className="mb-12"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.5, duration: 0.7 }}
             >
-              <img src={heroHandAsset.url} alt="DNexus Digit Edge screen shown inside a hand-held phone mockup" className="w-full max-w-[420px] mx-auto drop-shadow-2xl" />
+              <img src={heroTrader} alt="DNexus trader with mobile trading app" className="w-full max-w-[420px] mx-auto drop-shadow-2xl" />
             </motion.div>
 
-            <motion.div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3" {...fadeUp}>
-              <span className="h-2.5 w-2.5 rounded-full bg-[#e41f28]" />
+            <motion.div className="flex items-center gap-4" {...fadeUp}>
+              <div className="w-12 h-12 rounded-full bg-[#e41f28] flex items-center justify-center animate-pulse">
+                <Play className="w-5 h-5 text-white fill-white" />
+              </div>
               <div className="text-left">
-                <p className="text-white font-bold">Real DNexus interfaces</p>
-                <p className="text-sm text-[#b6b6b6]">Your own screenshots, preserved in the original mockup style</p>
+                <p className="text-white font-bold">Let's See how</p>
+                <p className="text-sm text-[#b6b6b6]">we did it</p>
               </div>
             </motion.div>
           </div>
@@ -166,7 +151,7 @@ const LandingPage = () => {
         <div className="max-w-[1320px] mx-auto px-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
             <motion.div {...fadeUp}>
-              <img src={datLeftAsset.url} alt="DNexus Dynamic Analysis Terminal inside an angled phone mockup" className="w-full max-w-[520px] mx-auto drop-shadow-2xl" />
+              <img src={tradeOnImg} alt="Platform" className="w-full rounded-3xl shadow-2xl" />
             </motion.div>
             <motion.div {...fadeUp} className="space-y-8">
               <div>
@@ -224,19 +209,23 @@ const LandingPage = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {platformShowcaseCards.map((p, i) => (
+            {[
+              { title: "Partners Program", img: partnersImg, badge: "Popular", color: "bg-blue-500" },
+              { title: "AI Trading Assistant", img: aiImg, badge: "New", color: "bg-green-500" },
+              { title: "Premium Signals", img: signalsImg, badge: "Premium", color: "bg-purple-500" }
+            ].map((p, i) => (
               <motion.div key={i} className="bg-white rounded-[32px] overflow-hidden flex flex-col" {...fadeUp}>
                 <div className="p-8 pb-0">
                   <div className="flex justify-between items-start mb-4">
                     <h3 className="text-2xl font-bold font-['Open_Sans']">{p.title}</h3>
-                    <span className={`${p.badgeClass} text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase`}>{p.badge}</span>
+                    <span className={`${p.color} text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase`}>{p.badge}</span>
                   </div>
-                  <p className="text-sm text-black/60 mb-8 leading-relaxed">{p.description}</p>
+                  <p className="text-sm text-black/60 mb-8 leading-relaxed">Join our affiliate network and earn competitive commissions while helping traders succeed.</p>
                 </div>
                 <div className="mt-auto px-8 pb-8">
                    <Link to="/trading" className="w-full py-4 bg-black text-white font-bold rounded-2xl flex items-center justify-center gap-2 hover:bg-black/80 transition-all">Access Platform</Link>
                 </div>
-                <img src={p.image} alt={p.title} className="w-full h-auto object-cover" />
+                <img src={p.img} alt={p.title} className="w-full h-auto object-cover" />
               </motion.div>
             ))}
           </div>
@@ -258,7 +247,7 @@ const LandingPage = () => {
                 </p>
                 <Link to="/trading" className="inline-flex px-8 py-4 bg-[#e41f28] text-white font-bold rounded-xl hover:bg-[#ff3333] transition-all">Learn More</Link>
               </div>
-               <img src={scannerLeftAsset.url} alt="DNexus Deep Market Scanner inside an angled phone mockup" className="w-full max-w-[520px] mx-auto drop-shadow-2xl" />
+              <img src={whyTradeImg} alt="Why Trade" className="w-full rounded-3xl" />
             </div>
           </div>
         </div>
@@ -268,7 +257,7 @@ const LandingPage = () => {
       <section className="py-32 bg-[#e41f28] text-white">
         <div className="max-w-[1320px] mx-auto px-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
-            <img src={aiCommandPortraitAsset.url} alt="DNexus trading chart with AI Command Center overlay on mobile" className="w-full max-w-[520px] mx-auto drop-shadow-2xl" />
+            <img src={worldwideImg} alt="Reimagined" className="w-full rounded-3xl shadow-2xl" />
             <div className="space-y-8">
               <h2 className="text-4xl md:text-6xl font-bold font-['Open_Sans']">Trading Reimagined</h2>
               <p className="text-xl leading-relaxed opacity-90">
@@ -293,8 +282,8 @@ const LandingPage = () => {
             </div>
             <div ref={phoneRef} className="relative h-[560px] flex items-center justify-center" style={{ perspective: "1200px" }}>
               <motion.img
-                src={heroHandAsset.url}
-                alt="DNexus mobile trading interface in a realistic hand-held mockup"
+                src={phoneTrading}
+                alt="DNexus on mobile"
                 style={{ rotateY: phoneRotateY, scale: phoneScale, transformStyle: "preserve-3d" }}
                 className="w-full max-w-[320px] drop-shadow-[0_25px_60px_rgba(0,212,255,0.35)]"
               />
@@ -308,23 +297,18 @@ const LandingPage = () => {
         <div className="max-w-[1320px] mx-auto px-6">
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-10 items-center">
             <motion.div className="lg:col-span-2" {...fadeUp}>
-              <img src={tradingViewPortraitAsset.url} alt="DNexus branded mobile trading chart screenshot for the community showcase" loading="lazy" className="w-full max-w-[420px] mx-auto drop-shadow-2xl" />
+              <img src={socialProof} alt="DNexus community 36K+ followers, 300+ posts" loading="lazy" className="w-full rounded-3xl shadow-2xl" />
             </motion.div>
             <motion.div className="lg:col-span-3 space-y-6" {...fadeUp}>
               <span className="text-[#00d4ff] font-bold uppercase tracking-[0.2em] text-sm">Community</span>
-              <h2 className="text-4xl md:text-5xl font-bold text-white font-['Open_Sans']">Built around the DNexus experience</h2>
+              <h2 className="text-4xl md:text-5xl font-bold text-white font-['Open_Sans']">A movement, not just a tool</h2>
               <p className="text-lg text-[#b6b6b6] leading-relaxed">
-                The landing page now showcases your real product views instead of generic placeholders — from charting and scanner states to the AI command center users actually recognize inside DNexus.
+                36,000+ traders follow the DNexus feed for daily setups, post-mortems, and edge ideas. 300+ original posts and counting — every chart annotated, every result published, nothing hidden.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
-                  <p className="text-[#00d4ff] font-bold uppercase tracking-[0.2em] text-xs mb-2">Authentic visuals</p>
-                  <p>Your uploaded screens are now the primary story across the landing experience.</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
-                  <p className="text-[#00d4ff] font-bold uppercase tracking-[0.2em] text-xs mb-2">Brand match</p>
-                  <p>The mockups keep the premium feel, but the content shown is now unmistakably DNexus.</p>
-                </div>
+              <div className="flex gap-4">
+                <a href="https://instagram.com" target="_blank" rel="noopener" className="px-6 py-3 bg-[#00d4ff] text-black font-bold rounded-xl hover:bg-white transition-all flex items-center gap-2">
+                  <Instagram className="w-5 h-5" /> Follow the feed
+                </a>
               </div>
             </motion.div>
           </div>
@@ -379,7 +363,7 @@ const LandingPage = () => {
               </div>
             </div>
             <div className="flex items-center justify-center">
-              <img src={heroHandAsset.url} alt="DNexus mobile interface mockup beside the frequently asked questions" className="w-full max-w-[420px] drop-shadow-2xl" />
+              <img src={faqImg} alt="FAQ" className="w-full max-w-[500px]" />
             </div>
           </div>
         </div>

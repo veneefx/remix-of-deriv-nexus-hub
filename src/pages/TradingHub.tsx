@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import logo from "@/assets/dnexus-logo.png";
 import { getActiveAccount, getStoredAccounts, clearAuth, setActiveAccount, parseCallbackParams, storeAccounts, type DerivAccount } from "@/services/deriv-auth";
-import { createOAuthUrl, getOAuthUrl } from "@/services/deriv-auth";
+import { getOAuthUrl } from "@/services/deriv-auth";
 import TradingPanel from "@/components/trading/TradingPanel";
 import TradingViewChart from "@/components/trading/TradingViewChart";
 import OnlyUpsDownsPanel from "@/components/trading/OnlyUpsDownsPanel";
@@ -289,20 +289,14 @@ const TradingHub = () => {
     ws.subscribeTicks(selectedMarket);
   }, [ws, selectedMarket]);
 
-  const handleLogin = async () => {
+  const handleLogin = () => {
     // Session-aware: if we already have a stored Deriv account, never re-trigger OAuth.
     if (account) {
       toast({ title: "Already connected", description: `${account.loginid} is already linked.` });
       setTokenManagerOpen(true);
       return;
     }
-    const redirectUri = `${window.location.origin}/callback`;
-    let url = getOAuthUrl(DERIV_APP_ID, redirectUri);
-    try {
-      url = await createOAuthUrl(DERIV_APP_ID, redirectUri);
-    } catch {
-      // Fall back to the legacy flow if PKCE URL generation fails.
-    }
+    const url = getOAuthUrl(DERIV_APP_ID, `${window.location.origin}/callback`);
     // If we're inside the Lovable preview iframe, OAuth must open at the top
     // level so Deriv's cookies/redirect don't get blocked. Fall back to a new
     // tab if top-level navigation is blocked by the embedder.
