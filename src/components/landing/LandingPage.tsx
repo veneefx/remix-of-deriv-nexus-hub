@@ -308,18 +308,23 @@ const LandingPage = () => {
         <div className="max-w-[1320px] mx-auto px-6">
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-10 items-center">
             <motion.div className="lg:col-span-2" {...fadeUp}>
-              <img src={socialProof} alt="DNexus community 36K+ followers, 300+ posts" loading="lazy" className="w-full rounded-3xl shadow-2xl" />
+              <img src={tradingViewPortraitAsset.url} alt="DNexus branded mobile trading chart screenshot for the community showcase" loading="lazy" className="w-full max-w-[420px] mx-auto drop-shadow-2xl" />
             </motion.div>
             <motion.div className="lg:col-span-3 space-y-6" {...fadeUp}>
               <span className="text-[#00d4ff] font-bold uppercase tracking-[0.2em] text-sm">Community</span>
-              <h2 className="text-4xl md:text-5xl font-bold text-white font-['Open_Sans']">A movement, not just a tool</h2>
+              <h2 className="text-4xl md:text-5xl font-bold text-white font-['Open_Sans']">Built around the DNexus experience</h2>
               <p className="text-lg text-[#b6b6b6] leading-relaxed">
-                36,000+ traders follow the DNexus feed for daily setups, post-mortems, and edge ideas. 300+ original posts and counting — every chart annotated, every result published, nothing hidden.
+                The landing page now showcases your real product views instead of generic placeholders — from charting and scanner states to the AI command center users actually recognize inside DNexus.
               </p>
-              <div className="flex gap-4">
-                <a href="https://instagram.com" target="_blank" rel="noopener" className="px-6 py-3 bg-[#00d4ff] text-black font-bold rounded-xl hover:bg-white transition-all flex items-center gap-2">
-                  <Instagram className="w-5 h-5" /> Follow the feed
-                </a>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
+                  <p className="text-[#00d4ff] font-bold uppercase tracking-[0.2em] text-xs mb-2">Authentic visuals</p>
+                  <p>Your uploaded screens are now the primary story across the landing experience.</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
+                  <p className="text-[#00d4ff] font-bold uppercase tracking-[0.2em] text-xs mb-2">Brand match</p>
+                  <p>The mockups keep the premium feel, but the content shown is now unmistakably DNexus.</p>
+                </div>
               </div>
             </motion.div>
           </div>
@@ -374,7 +379,7 @@ const LandingPage = () => {
               </div>
             </div>
             <div className="flex items-center justify-center">
-              <img src={faqImg} alt="FAQ" className="w-full max-w-[500px]" />
+              <img src={heroHandAsset.url} alt="DNexus mobile interface mockup beside the frequently asked questions" className="w-full max-w-[420px] drop-shadow-2xl" />
             </div>
           </div>
         </div>
