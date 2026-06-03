@@ -133,23 +133,21 @@ const LandingPage = () => {
               ))}
             </div>
 
-            {/* Hero Trader Portrait */}
+            {/* Hero mockup from uploaded reference */}
             <motion.div
               className="mb-12"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.5, duration: 0.7 }}
             >
-              <img src={heroTrader} alt="DNexus trader with mobile trading app" className="w-full max-w-[420px] mx-auto drop-shadow-2xl" />
+              <img src={heroHandAsset.url} alt="DNexus Digit Edge screen shown inside a hand-held phone mockup" className="w-full max-w-[420px] mx-auto drop-shadow-2xl" />
             </motion.div>
 
-            <motion.div className="flex items-center gap-4" {...fadeUp}>
-              <div className="w-12 h-12 rounded-full bg-[#e41f28] flex items-center justify-center animate-pulse">
-                <Play className="w-5 h-5 text-white fill-white" />
-              </div>
+            <motion.div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3" {...fadeUp}>
+              <span className="h-2.5 w-2.5 rounded-full bg-[#e41f28]" />
               <div className="text-left">
-                <p className="text-white font-bold">Let's See how</p>
-                <p className="text-sm text-[#b6b6b6]">we did it</p>
+                <p className="text-white font-bold">Real DNexus interfaces</p>
+                <p className="text-sm text-[#b6b6b6]">Your own screenshots, preserved in the original mockup style</p>
               </div>
             </motion.div>
           </div>
@@ -168,7 +166,7 @@ const LandingPage = () => {
         <div className="max-w-[1320px] mx-auto px-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
             <motion.div {...fadeUp}>
-              <img src={tradeOnImg} alt="Platform" className="w-full rounded-3xl shadow-2xl" />
+              <img src={datLeftAsset.url} alt="DNexus Dynamic Analysis Terminal inside an angled phone mockup" className="w-full max-w-[520px] mx-auto drop-shadow-2xl" />
             </motion.div>
             <motion.div {...fadeUp} className="space-y-8">
               <div>
@@ -226,23 +224,19 @@ const LandingPage = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { title: "Partners Program", img: partnersImg, badge: "Popular", color: "bg-blue-500" },
-              { title: "AI Trading Assistant", img: aiImg, badge: "New", color: "bg-green-500" },
-              { title: "Premium Signals", img: signalsImg, badge: "Premium", color: "bg-purple-500" }
-            ].map((p, i) => (
+            {platformShowcaseCards.map((p, i) => (
               <motion.div key={i} className="bg-white rounded-[32px] overflow-hidden flex flex-col" {...fadeUp}>
                 <div className="p-8 pb-0">
                   <div className="flex justify-between items-start mb-4">
                     <h3 className="text-2xl font-bold font-['Open_Sans']">{p.title}</h3>
-                    <span className={`${p.color} text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase`}>{p.badge}</span>
+                    <span className={`${p.badgeClass} text-white text-[10px] font-bold px-3 py-1 rounded-full uppercase`}>{p.badge}</span>
                   </div>
-                  <p className="text-sm text-black/60 mb-8 leading-relaxed">Join our affiliate network and earn competitive commissions while helping traders succeed.</p>
+                  <p className="text-sm text-black/60 mb-8 leading-relaxed">{p.description}</p>
                 </div>
                 <div className="mt-auto px-8 pb-8">
                    <Link to="/trading" className="w-full py-4 bg-black text-white font-bold rounded-2xl flex items-center justify-center gap-2 hover:bg-black/80 transition-all">Access Platform</Link>
                 </div>
-                <img src={p.img} alt={p.title} className="w-full h-auto object-cover" />
+                <img src={p.image} alt={p.title} className="w-full h-auto object-cover" />
               </motion.div>
             ))}
           </div>
@@ -264,7 +258,7 @@ const LandingPage = () => {
                 </p>
                 <Link to="/trading" className="inline-flex px-8 py-4 bg-[#e41f28] text-white font-bold rounded-xl hover:bg-[#ff3333] transition-all">Learn More</Link>
               </div>
-              <img src={whyTradeImg} alt="Why Trade" className="w-full rounded-3xl" />
+               <img src={scannerLeftAsset.url} alt="DNexus Deep Market Scanner inside an angled phone mockup" className="w-full max-w-[520px] mx-auto drop-shadow-2xl" />
             </div>
           </div>
         </div>
@@ -274,7 +268,7 @@ const LandingPage = () => {
       <section className="py-32 bg-[#e41f28] text-white">
         <div className="max-w-[1320px] mx-auto px-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
-            <img src={worldwideImg} alt="Reimagined" className="w-full rounded-3xl shadow-2xl" />
+            <img src={aiCommandPortraitAsset.url} alt="DNexus trading chart with AI Command Center overlay on mobile" className="w-full max-w-[520px] mx-auto drop-shadow-2xl" />
             <div className="space-y-8">
               <h2 className="text-4xl md:text-6xl font-bold font-['Open_Sans']">Trading Reimagined</h2>
               <p className="text-xl leading-relaxed opacity-90">
@@ -299,8 +293,8 @@ const LandingPage = () => {
             </div>
             <div ref={phoneRef} className="relative h-[560px] flex items-center justify-center" style={{ perspective: "1200px" }}>
               <motion.img
-                src={phoneTrading}
-                alt="DNexus on mobile"
+                src={heroHandAsset.url}
+                alt="DNexus mobile trading interface in a realistic hand-held mockup"
                 style={{ rotateY: phoneRotateY, scale: phoneScale, transformStyle: "preserve-3d" }}
                 className="w-full max-w-[320px] drop-shadow-[0_25px_60px_rgba(0,212,255,0.35)]"
               />
