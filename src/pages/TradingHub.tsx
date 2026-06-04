@@ -36,6 +36,7 @@ import { usePremium } from "@/hooks/use-premium";
 import PremiumUpgradeModal from "@/components/trading/PremiumUpgradeModal";
 import AdminDashboard from "@/components/trading/AdminDashboard";
 import AnalysisPaywall from "@/components/trading/AnalysisPaywall";
+import { supabase } from "@/integrations/supabase/client";
 import { Plus } from "lucide-react";
 import { formatBalance, DERIV_DEPOSIT_URL } from "@/lib/format";
 import { notifications } from "@/services/notifications";
