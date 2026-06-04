@@ -5,9 +5,10 @@ import { Link } from "react-router-dom";
 import MarketTracker from "@/components/trading/MarketTracker";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import AdSlot from "@/components/ads/AdSlot";
-import heroHandAsset from "@/assets/landing-hero-hand.png.asset.json";
 import datLeftAsset from "@/assets/landing-dat-left.png.asset.json";
+import heroPersonAsset from "@/assets/landing-hero-person.webp.asset.json";
+import mobileLightAsset from "@/assets/landing-mobile-light.webp.asset.json";
+import mobileDarkAsset from "@/assets/landing-mobile-dark.webp.asset.json";
 import scannerLeftAsset from "@/assets/landing-scanner-left.png.asset.json";
 import tradingViewPortraitAsset from "@/assets/landing-tradingview-portrait.png.asset.json";
 import aiCommandPortraitAsset from "@/assets/landing-ai-command-portrait.png.asset.json";
@@ -49,8 +50,8 @@ const LandingPage = () => {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const phoneRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress: phoneScroll } = useScroll({ target: phoneRef, offset: ["start end", "end start"] });
-  const phoneRotateY = useTransform(phoneScroll, [0, 0.5, 1], [-25, 0, 25]);
-  const phoneScale = useTransform(phoneScroll, [0, 0.5, 1], [0.85, 1.05, 0.9]);
+  const phoneRotateY = useTransform(phoneScroll, [0, 0.5, 1], [-18, 0, 18]);
+  const phoneScale = useTransform(phoneScroll, [0, 0.5, 1], [0.92, 1.02, 0.95]);
 
   const faqs = [
     { q: "What is trading?", a: "Trading involves buying and selling financial instruments to profit from price movements. On DNexus, we specialize in synthetic indices and digit contracts — fast-paced instruments that trade 24/7 with instant results." },
@@ -133,33 +134,33 @@ const LandingPage = () => {
               ))}
             </div>
 
-            {/* Hero mockup from uploaded reference */}
+            {/* Hero visuals */}
             <motion.div
               className="mb-12"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.5, duration: 0.7 }}
             >
-              <img src={heroHandAsset.url} alt="DNexus Digit Edge screen shown inside a hand-held phone mockup" className="w-full max-w-[420px] mx-auto drop-shadow-2xl" />
+              <div className="relative mx-auto flex w-full max-w-[980px] flex-col items-center gap-8 lg:flex-row lg:items-end lg:justify-center">
+                <div className="relative w-full max-w-[320px] rounded-[2.2rem] border border-white/10 bg-white/5 p-3 shadow-2xl shadow-primary/20">
+                  <img src={mobileDarkAsset.url} alt="DNexus dark trading interface on mobile" className="w-full rounded-[1.8rem]" loading="eager" />
+                </div>
+                <img src={heroPersonAsset.url} alt="DNexus hero trader using a phone" className="w-full max-w-[280px] object-contain drop-shadow-[0_30px_60px_rgba(0,0,0,0.35)] lg:-mb-6" loading="eager" />
+                <div className="relative w-full max-w-[320px] rounded-[2.2rem] border border-white/10 bg-white/5 p-3 shadow-2xl shadow-sky/20">
+                  <img src={mobileLightAsset.url} alt="DNexus light trading interface on mobile" className="w-full rounded-[1.8rem]" loading="eager" />
+                </div>
+              </div>
             </motion.div>
 
             <motion.div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3" {...fadeUp}>
               <span className="h-2.5 w-2.5 rounded-full bg-[#e41f28]" />
               <div className="text-left">
                 <p className="text-white font-bold">Real DNexus interfaces</p>
-                <p className="text-sm text-[#b6b6b6]">Your own screenshots, preserved in the original mockup style</p>
               </div>
             </motion.div>
           </div>
         </div>
       </section>
-
-      {/* AdSense — Header / above-the-fold strip */}
-      <div className="bg-[#141414] py-4">
-        <div className="max-w-[1320px] mx-auto px-6">
-          <AdSlot label="Sponsored" format="auto" responsive className="w-full" />
-        </div>
-      </div>
 
       {/* Trade On Our Platform */}
       <section className="py-32 bg-black relative">
@@ -292,12 +293,13 @@ const LandingPage = () => {
               </p>
             </div>
             <div ref={phoneRef} className="relative h-[560px] flex items-center justify-center" style={{ perspective: "1200px" }}>
-              <motion.img
-                src={heroHandAsset.url}
-                alt="DNexus mobile trading interface in a realistic hand-held mockup"
+              <motion.div
                 style={{ rotateY: phoneRotateY, scale: phoneScale, transformStyle: "preserve-3d" }}
-                className="w-full max-w-[320px] drop-shadow-[0_25px_60px_rgba(0,212,255,0.35)]"
-              />
+                className="relative flex items-center justify-center gap-4"
+              >
+                <img src={mobileDarkAsset.url} alt="DNexus mobile dark trading screen" className="w-full max-w-[220px] rounded-[2rem] border border-white/10 bg-white/5 p-2 drop-shadow-[0_25px_60px_rgba(0,212,255,0.28)]" loading="lazy" />
+                <img src={mobileLightAsset.url} alt="DNexus mobile light trading screen" className="absolute -right-4 top-10 w-full max-w-[190px] rounded-[2rem] border border-white/10 bg-white/5 p-2 drop-shadow-[0_25px_60px_rgba(228,31,40,0.18)]" loading="lazy" />
+              </motion.div>
             </div>
           </div>
         </div>
@@ -314,16 +316,16 @@ const LandingPage = () => {
               <span className="text-[#00d4ff] font-bold uppercase tracking-[0.2em] text-sm">Community</span>
               <h2 className="text-4xl md:text-5xl font-bold text-white font-['Open_Sans']">Built around the DNexus experience</h2>
               <p className="text-lg text-[#b6b6b6] leading-relaxed">
-                The landing page now showcases your real product views instead of generic placeholders — from charting and scanner states to the AI command center users actually recognize inside DNexus.
+                Every section now leans on real DNexus product views, so visitors see the same trading environment they will actually use inside the hub.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
                   <p className="text-[#00d4ff] font-bold uppercase tracking-[0.2em] text-xs mb-2">Authentic visuals</p>
-                  <p>Your uploaded screens are now the primary story across the landing experience.</p>
+                  <p>Real DNexus screenshots now lead the product story across the landing page.</p>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
                   <p className="text-[#00d4ff] font-bold uppercase tracking-[0.2em] text-xs mb-2">Brand match</p>
-                  <p>The mockups keep the premium feel, but the content shown is now unmistakably DNexus.</p>
+                  <p>The visuals keep the premium look while staying close to the real DNexus interface style.</p>
                 </div>
               </div>
             </motion.div>
@@ -379,23 +381,11 @@ const LandingPage = () => {
               </div>
             </div>
             <div className="flex items-center justify-center">
-              <img src={heroHandAsset.url} alt="DNexus mobile interface mockup beside the frequently asked questions" className="w-full max-w-[420px] drop-shadow-2xl" />
+              <img src={heroPersonAsset.url} alt="DNexus trader checking the platform on mobile" className="w-full max-w-[420px] object-contain drop-shadow-2xl" loading="lazy" />
             </div>
           </div>
         </div>
       </section>
-
-      {/* AdSense — Mid/Sidebar strip before footer */}
-      <div className="bg-[#141414] py-6">
-        <div className="max-w-[1320px] mx-auto px-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2">
-            <AdSlot label="Sponsored" format="auto" responsive />
-          </div>
-          <div>
-            <AdSlot label="Sponsored" format="auto" responsive />
-          </div>
-        </div>
-      </div>
 
       <Footer />
     </div>

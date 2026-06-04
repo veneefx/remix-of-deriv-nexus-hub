@@ -19,7 +19,6 @@ import ResetPassword from "./pages/ResetPassword";
 import AdminStrategy from "./pages/AdminStrategy";
 import NotFound from "./pages/NotFound";
 import CookieConsent from "./components/CookieConsent";
-import AdDiagnostics from "./components/ads/AdDiagnostics";
 
 const queryClient = new QueryClient();
 
@@ -29,7 +28,6 @@ const App = () => (
       <Toaster />
       <Sonner />
       <CookieConsent />
-      <AdDiagnostics />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
