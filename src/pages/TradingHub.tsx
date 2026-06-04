@@ -149,6 +149,65 @@ const TradingHub = () => {
     }
   }, []);
 
+  useEffect(() => {
+    const finishOAuthOnTrading = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+      const returnedState = params.get("state");
+      const error = params.get("error");
+      const errorDescription = params.get("error_description");
+
+      if (error) {
+        toast({ title: "Deriv connection failed", description: errorDescription || error, variant: "destructive" });
+        clearStoredPkceSession();
+        window.history.replaceState({}, document.title, "/trading");
+        return;
+      }
+
+      if (!code) return;
+
+      const pkce = getStoredPkceSession();
+      if (!pkce || !returnedState || pkce.state !== returnedState) {
+        toast({ title: "Deriv connection failed", description: "Secure login session expired. Please try again.", variant: "destructive" });
+        clearStoredPkceSession();
+        window.history.replaceState({}, document.title, "/trading");
+        return;
+      }
+
+      const { data, error: invokeError } = await supabase.functions.invoke("deriv-proxy", {
+        body: {
+          action: "exchange_oauth_code",
+          params: {
+            code,
+            codeVerifier: pkce.codeVerifier,
+            redirectUri: pkce.redirectUri,
+            state: pkce.state,
+          },
+        },
+      });
+
+      clearStoredPkceSession();
+
+      if (invokeError || !data?.accounts?.length) {
+        toast({ title: "Deriv connection failed", description: data?.error || invokeError?.message || "Could not complete login.", variant: "destructive" });
+        window.history.replaceState({}, document.title, "/trading");
+        return;
+      }
+
+      const nextAccounts = data.accounts as DerivAccount[];
+      const realAccount = nextAccounts.find((a) => !a.is_virtual) || nextAccounts[0];
+      storeAccounts(nextAccounts);
+      setAccounts(nextAccounts);
+      setActiveAccount(realAccount);
+      setAccount(realAccount);
+      setConnectModalOpen(false);
+      window.history.replaceState({}, document.title, "/trading");
+      toast({ title: "Deriv connected", description: `${realAccount.loginid} is ready.` });
+    };
+
+    void finishOAuthOnTrading();
+  }, []);
+
   const toggleTheme = useCallback(() => {
     setDarkMode(prev => {
       const next = !prev;
