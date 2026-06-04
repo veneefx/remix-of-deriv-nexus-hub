@@ -19,15 +19,15 @@ const CookieConsent = () => {
   const decline = () => { setConsent("denied"); setVisible(false); };
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[120] p-3 sm:p-4 pointer-events-none">
-      <div className="pointer-events-auto max-w-3xl mx-auto bg-card/95 backdrop-blur border border-border shadow-xl rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row gap-3 sm:items-center">
+    <div className="fixed inset-x-0 bottom-20 sm:bottom-4 z-[90] p-3 sm:p-4 pointer-events-none">
+      <div className="pointer-events-auto max-w-3xl mx-auto bg-card/95 backdrop-blur border border-border shadow-xl rounded-2xl p-4 sm:p-5 flex flex-col gap-3 sm:flex-row sm:items-center">
         <Cookie className="w-6 h-6 text-primary shrink-0" />
         <div className="flex-1 text-sm text-foreground">
           We use cookies for essential functionality and, with your consent, for personalized
-          ads (Google AdSense) and analytics. You can change your choice anytime.{" "}
+          ads and analytics. You can change your choice anytime.{" "}
           <a href="/privacy" className="underline">Privacy Policy</a>
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex flex-wrap gap-2 shrink-0">
           <button
             onClick={decline}
             className="px-3 py-2 text-sm rounded-md border border-border hover:bg-muted"

@@ -11,6 +11,15 @@ export interface DerivAccount {
   is_virtual: boolean;
 }
 
+export interface StoredDerivSession {
+  mode: "oauth" | "token";
+  token: string;
+  loginid: string;
+  currency: string;
+  is_virtual: boolean;
+  added_at: string;
+}
+
 interface DerivPkceSession {
   codeVerifier: string;
   state: string;
@@ -114,4 +123,62 @@ export const setActiveAccount = (account: DerivAccount) => {
 export const clearAuth = () => {
   localStorage.removeItem("deriv_accounts");
   localStorage.removeItem("deriv_active_account");
+};
+
+export const normalizeDerivToken = (value: string) => value.trim();
+
+export const validateDerivToken = (value: string) => /^\S{16,256}$/.test(normalizeDerivToken(value));
+
+export const loginWithDerivToken = async (token: string): Promise<DerivAccount> => {
+  const cleanToken = normalizeDerivToken(token);
+  if (!validateDerivToken(cleanToken)) {
+    throw new Error("Enter a valid Deriv API token.");
+  }
+
+  const ws = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=129344");
+
+  return await new Promise<DerivAccount>((resolve, reject) => {
+    const timeout = window.setTimeout(() => {
+      try { ws.close(); } catch {}
+      reject(new Error("Token validation timed out. Please try again."));
+    }, 12000);
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ authorize: cleanToken }));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.error) {
+          window.clearTimeout(timeout);
+          try { ws.close(); } catch {}
+          reject(new Error(data.error.message || "Token validation failed."));
+          return;
+        }
+
+        if (data.authorize) {
+          const account: DerivAccount = {
+            token: cleanToken,
+            loginid: data.authorize.loginid || "",
+            currency: data.authorize.currency || "USD",
+            is_virtual: String(data.authorize.loginid || "").startsWith("VRTC"),
+          };
+          window.clearTimeout(timeout);
+          try { ws.close(); } catch {}
+          resolve(account);
+        }
+      } catch {
+        window.clearTimeout(timeout);
+        try { ws.close(); } catch {}
+        reject(new Error("Could not validate token."));
+      }
+    };
+
+    ws.onerror = () => {
+      window.clearTimeout(timeout);
+      try { ws.close(); } catch {}
+      reject(new Error("Could not reach Deriv to validate this token."));
+    };
+  });
 };

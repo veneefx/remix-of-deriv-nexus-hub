@@ -3,11 +3,12 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   Home, BarChart3, Users, TrendingUp, BookOpen, HelpCircle,
   Menu, X, Wallet, ChevronDown, Moon, Sun, Settings, Shield,
-  AlertTriangle, Search, Activity, User, Clock
+  AlertTriangle, Search, Activity, User, Clock, KeyRound, Link2,
+  CreditCard, Crown, Bell, LogOut
 } from "lucide-react";
 import logo from "@/assets/dnexus-logo.png";
 import { getActiveAccount, getStoredAccounts, clearAuth, setActiveAccount, parseCallbackParams, storeAccounts, type DerivAccount } from "@/services/deriv-auth";
-import { createOAuthUrl, getOAuthUrl } from "@/services/deriv-auth";
+import { clearStoredPkceSession, createOAuthUrl, getOAuthUrl, getStoredPkceSession, loginWithDerivToken, normalizeDerivToken, validateDerivToken } from "@/services/deriv-auth";
 import TradingPanel from "@/components/trading/TradingPanel";
 import TradingViewChart from "@/components/trading/TradingViewChart";
 import OnlyUpsDownsPanel from "@/components/trading/OnlyUpsDownsPanel";
@@ -35,6 +36,7 @@ import { usePremium } from "@/hooks/use-premium";
 import PremiumUpgradeModal from "@/components/trading/PremiumUpgradeModal";
 import AdminDashboard from "@/components/trading/AdminDashboard";
 import AnalysisPaywall from "@/components/trading/AnalysisPaywall";
+import { supabase } from "@/integrations/supabase/client";
 import { Plus } from "lucide-react";
 import { formatBalance, DERIV_DEPOSIT_URL } from "@/lib/format";
 import { notifications } from "@/services/notifications";
@@ -88,13 +90,16 @@ const TradingHub = () => {
   const [selectedMarket, setSelectedMarket] = useState(() => localStorage.getItem("dnx_market") || "R_10");
   const [tokenManagerOpen, setTokenManagerOpen] = useState(false);
   const [tokenTab, setTokenTab] = useState<"demo" | "real" | "clients">("demo");
+  const [connectModalOpen, setConnectModalOpen] = useState(false);
+  const [manualToken, setManualToken] = useState("");
+  const [manualTokenSubmitting, setManualTokenSubmitting] = useState(false);
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("theme");
       if (saved) return saved === "dark";
-      return false; // Default to light
+      return true; // Default to dark for trading hub
     }
-    return false;
+    return true;
   });
   const [currentTime, setCurrentTime] = useState(new Date());
   const navigate = useNavigate();
@@ -143,6 +148,65 @@ const TradingHub = () => {
         window.history.replaceState({}, document.title, "/trading");
       }
     }
+  }, []);
+
+  useEffect(() => {
+    const finishOAuthOnTrading = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+      const returnedState = params.get("state");
+      const error = params.get("error");
+      const errorDescription = params.get("error_description");
+
+      if (error) {
+        toast({ title: "Deriv connection failed", description: errorDescription || error, variant: "destructive" });
+        clearStoredPkceSession();
+        window.history.replaceState({}, document.title, "/trading");
+        return;
+      }
+
+      if (!code) return;
+
+      const pkce = getStoredPkceSession();
+      if (!pkce || !returnedState || pkce.state !== returnedState) {
+        toast({ title: "Deriv connection failed", description: "Secure login session expired. Please try again.", variant: "destructive" });
+        clearStoredPkceSession();
+        window.history.replaceState({}, document.title, "/trading");
+        return;
+      }
+
+      const { data, error: invokeError } = await supabase.functions.invoke("deriv-proxy", {
+        body: {
+          action: "exchange_oauth_code",
+          params: {
+            code,
+            codeVerifier: pkce.codeVerifier,
+            redirectUri: pkce.redirectUri,
+            state: pkce.state,
+          },
+        },
+      });
+
+      clearStoredPkceSession();
+
+      if (invokeError || !data?.accounts?.length) {
+        toast({ title: "Deriv connection failed", description: data?.error || invokeError?.message || "Could not complete login.", variant: "destructive" });
+        window.history.replaceState({}, document.title, "/trading");
+        return;
+      }
+
+      const nextAccounts = data.accounts as DerivAccount[];
+      const realAccount = nextAccounts.find((a) => !a.is_virtual) || nextAccounts[0];
+      storeAccounts(nextAccounts);
+      setAccounts(nextAccounts);
+      setActiveAccount(realAccount);
+      setAccount(realAccount);
+      setConnectModalOpen(false);
+      window.history.replaceState({}, document.title, "/trading");
+      toast({ title: "Deriv connected", description: `${realAccount.loginid} is ready.` });
+    };
+
+    void finishOAuthOnTrading();
   }, []);
 
   const toggleTheme = useCallback(() => {
@@ -296,6 +360,10 @@ const TradingHub = () => {
       setTokenManagerOpen(true);
       return;
     }
+    setConnectModalOpen(true);
+  };
+
+  const handleAccountConnect = async () => {
     const redirectUri = `${window.location.origin}/callback`;
     let url = getOAuthUrl(DERIV_APP_ID, redirectUri);
     try {
@@ -318,6 +386,31 @@ const TradingHub = () => {
       return;
     }
     window.location.href = url;
+  };
+
+  const handleTokenConnect = async () => {
+    const cleanToken = normalizeDerivToken(manualToken);
+    if (!validateDerivToken(cleanToken)) {
+      toast({ title: "Invalid token", description: "Paste a valid Deriv API token to continue.", variant: "destructive" });
+      return;
+    }
+
+    setManualTokenSubmitting(true);
+    try {
+      const tokenAccount = await loginWithDerivToken(cleanToken);
+      const nextAccounts = [tokenAccount, ...accounts.filter((item) => item.loginid !== tokenAccount.loginid)];
+      storeAccounts(nextAccounts);
+      setActiveAccount(tokenAccount);
+      setAccounts(nextAccounts);
+      setAccount(tokenAccount);
+      setConnectModalOpen(false);
+      setManualToken("");
+      toast({ title: "Deriv connected", description: `${tokenAccount.loginid} is ready.` });
+    } catch (error) {
+      toast({ title: "Token login failed", description: error instanceof Error ? error.message : "Could not validate token.", variant: "destructive" });
+    } finally {
+      setManualTokenSubmitting(false);
+    }
   };
 
   const handleLogout = () => {
@@ -704,16 +797,102 @@ const TradingHub = () => {
         onClose={() => setShowAdminDashboard(false)} 
       />
 
+      {connectModalOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-background/70 backdrop-blur-sm p-4" onClick={() => setConnectModalOpen(false)}>
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+              <div>
+                <h2 className="text-base font-bold text-foreground">Connect Deriv</h2>
+                <p className="text-xs text-muted-foreground">Choose account login or paste a token.</p>
+              </div>
+              <button onClick={() => setConnectModalOpen(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <button onClick={handleAccountConnect} className="w-full rounded-xl border border-border bg-secondary/50 p-4 text-left hover:bg-secondary transition-colors">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><Link2 className="w-5 h-5" /></div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Login with account</p>
+                    <p className="text-xs text-muted-foreground mt-1">Use the normal Deriv login flow and return here automatically.</p>
+                  </div>
+                </div>
+              </button>
+
+              <div className="rounded-xl border border-border bg-secondary/30 p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-buy/10 text-buy"><KeyRound className="w-5 h-5" /></div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Login with token</p>
+                    <p className="text-xs text-muted-foreground mt-1">Paste your API token, validate it, and your balance will appear in the header.</p>
+                  </div>
+                </div>
+                <textarea
+                  value={manualToken}
+                  onChange={(e) => setManualToken(e.target.value)}
+                  rows={4}
+                  placeholder="Paste your Deriv API token"
+                  className="w-full rounded-xl border border-border bg-background px-3 py-3 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <button
+                  onClick={handleTokenConnect}
+                  disabled={manualTokenSubmitting || !manualToken.trim()}
+                  className="w-full rounded-xl bg-buy px-4 py-3 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+                >
+                  {manualTokenSubmitting ? "Validating token..." : "Validate & Connect"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Token Manager Modal */}
       {tokenManagerOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/60 backdrop-blur-sm" onClick={() => setTokenManagerOpen(false)}>
-          <div className="bg-card border border-border rounded-2xl shadow-2xl w-[560px] max-w-[95vw] max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className={`fixed inset-0 ${isMobile ? "z-[111] items-end p-0 sm:p-4" : "z-[100] items-center justify-center"} flex bg-background/60 backdrop-blur-sm`} onClick={() => setTokenManagerOpen(false)}>
+          <div className={`bg-card border border-border shadow-2xl overflow-hidden ${isMobile ? "w-full max-h-[88vh] rounded-t-3xl sm:rounded-3xl" : "rounded-2xl w-[560px] max-w-[95vw] max-h-[85vh]"}`} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <h2 className="text-base font-bold text-foreground">Token Manager</h2>
+              <div>
+                <h2 className="text-base font-bold text-foreground">{isMobile ? "Profile Dashboard" : "Token Manager"}</h2>
+                {isMobile && <p className="text-xs text-muted-foreground">Accounts, balances, access, and client tools.</p>}
+              </div>
               <button onClick={() => setTokenManagerOpen(false)} className="text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {isMobile && (
+              <div className="grid grid-cols-2 gap-3 p-4 border-b border-border bg-secondary/20">
+                <div className="rounded-2xl border border-border bg-card p-4">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Connected account</p>
+                  <p className="mt-2 text-sm font-semibold text-foreground truncate">{account?.loginid || "Not connected"}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{account ? `${account.is_virtual ? "Demo" : "Real"} • ${account.currency}` : "Use token or account login"}</p>
+                </div>
+                <div className="rounded-2xl border border-border bg-card p-4">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Available balance</p>
+                  <p className="mt-2 text-lg font-bold text-foreground">{balance !== null ? formatBalance(balance) : "—"}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Live after authorization</p>
+                </div>
+                <button onClick={() => { setTokenManagerOpen(false); setConnectModalOpen(true); }} className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-4 text-left hover:bg-secondary/60 transition-colors">
+                  <Link2 className="w-5 h-5 text-primary" />
+                  <div><p className="text-sm font-semibold text-foreground">Connect</p><p className="text-[11px] text-muted-foreground">Account or token</p></div>
+                </button>
+                <button onClick={() => setShowAdminDashboard(true)} disabled={!isAdmin} className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-4 text-left hover:bg-secondary/60 transition-colors disabled:opacity-50">
+                  <CreditCard className="w-5 h-5 text-primary" />
+                  <div><p className="text-sm font-semibold text-foreground">Payments</p><p className="text-[11px] text-muted-foreground">Approvals and admin</p></div>
+                </button>
+                <div className="rounded-2xl border border-border bg-card p-4">
+                  <div className="flex items-center gap-2"><Crown className="w-4 h-4 text-primary" /><p className="text-sm font-semibold text-foreground">Access</p></div>
+                  <p className="mt-2 text-xs text-muted-foreground">{isAdmin ? "Admin active" : isPremium ? "Premium active" : "Free plan"}</p>
+                </div>
+                <div className="rounded-2xl border border-border bg-card p-4">
+                  <div className="flex items-center gap-2"><Bell className="w-4 h-4 text-primary" /><p className="text-sm font-semibold text-foreground">Status</p></div>
+                  <p className="mt-2 text-xs text-muted-foreground">{wsConnected ? (derivAuthorized ? "Connected and authorized" : "Connected, waiting authorization") : "Offline"}</p>
+                </div>
+              </div>
+            )}
 
             <div className="flex border-b border-border">
               {(["demo", "real", "clients"] as const).map(tab => (
@@ -727,7 +906,7 @@ const TradingHub = () => {
               ))}
             </div>
 
-            <div className="p-6 space-y-3 min-h-[120px] max-h-[50vh] overflow-y-auto">
+            <div className={`p-6 space-y-3 min-h-[120px] overflow-y-auto ${isMobile ? "max-h-[42vh]" : "max-h-[50vh]"}`}>
               {tokenTab === "clients" ? (
                 <ClientTokenManager />
               ) : (
@@ -787,6 +966,11 @@ const TradingHub = () => {
               {account && tokenTab !== "clients" && (
                 <button onClick={() => { handleLogout(); setTokenManagerOpen(false); }} className="px-4 py-2 text-xs font-semibold bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition-colors">
                   Disconnect
+                </button>
+              )}
+              {isMobile && (
+                <button onClick={toggleTheme} className="px-4 py-2 text-xs font-semibold bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors inline-flex items-center gap-2">
+                  {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />} Theme
                 </button>
               )}
               <button onClick={() => setTokenManagerOpen(false)} className="px-4 py-2 text-xs font-semibold bg-secondary text-foreground rounded-lg hover:bg-muted transition-colors">
