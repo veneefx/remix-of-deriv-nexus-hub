@@ -127,7 +127,7 @@ export const clearAuth = () => {
 
 export const normalizeDerivToken = (value: string) => value.trim();
 
-export const validateDerivToken = (value: string) => /^[A-Za-z0-9_-]{16,256}$/.test(normalizeDerivToken(value));
+export const validateDerivToken = (value: string) => /^\S{16,256}$/.test(normalizeDerivToken(value));
 
 export const loginWithDerivToken = async (token: string): Promise<DerivAccount> => {
   const cleanToken = normalizeDerivToken(token);
