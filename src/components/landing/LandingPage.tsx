@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { motion, AnimatePresence, useScroll, useTransform } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Brain, BarChart3, Users, ChevronDown, ArrowRight, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
 import MarketTracker from "@/components/trading/MarketTracker";
@@ -7,11 +7,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import datLeftAsset from "@/assets/landing-dat-left.png.asset.json";
 import heroPersonAsset from "@/assets/landing-hero-person.webp.asset.json";
-import mobileLightAsset from "@/assets/landing-mobile-light.webp.asset.json";
-import mobileDarkAsset from "@/assets/landing-mobile-dark.webp.asset.json";
 import scannerLeftAsset from "@/assets/landing-scanner-left.png.asset.json";
-import tradingViewPortraitAsset from "@/assets/landing-tradingview-portrait.png.asset.json";
-import aiCommandPortraitAsset from "@/assets/landing-ai-command-portrait.png.asset.json";
 
 const DERIV_AFFILIATE_LINK = "https://deriv.com/?t=xA1buvJrGeASmsCwn5r1F2Nd7ZgqdRLk&utm_source=affiliate_187242&utm_medium=affiliate&utm_campaign=MyAffiliates&utm_content=&referrer=";
 
@@ -38,20 +34,16 @@ const platformShowcaseCards = [
     description: "Track multi-market confluence, digit distribution, cycle detection, and odd-even bias using your own interface screenshots.",
   },
   {
-    title: "TradingView + AI Command Center",
-    image: tradingViewPortraitAsset.url,
-    badge: "AI",
+    title: "DNexus Trading Experience",
+    image: heroPersonAsset.url,
+    badge: "Focus",
     badgeClass: "bg-sky-500",
-    description: "Review full-chart setups alongside the floating AI command center and live performance log from your actual DNexus screens.",
+    description: "Keep the homepage clean while dedicated showcase pages carry the broader DNexus visual story and mobile presentation.",
   },
 ];
 
 const LandingPage = () => {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const phoneRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress: phoneScroll } = useScroll({ target: phoneRef, offset: ["start end", "end start"] });
-  const phoneRotateY = useTransform(phoneScroll, [0, 0.5, 1], [-18, 0, 18]);
-  const phoneScale = useTransform(phoneScroll, [0, 0.5, 1], [0.92, 1.02, 0.95]);
 
   const faqs = [
     { q: "What is trading?", a: "Trading involves buying and selling financial instruments to profit from price movements. On DNexus, we specialize in synthetic indices and digit contracts — fast-paced instruments that trade 24/7 with instant results." },
@@ -134,29 +126,22 @@ const LandingPage = () => {
               ))}
             </div>
 
-            {/* Hero visuals */}
             <motion.div
               className="mb-12"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.5, duration: 0.7 }}
             >
-              <div className="relative mx-auto flex w-full max-w-[980px] flex-col items-center gap-8 lg:flex-row lg:items-end lg:justify-center">
-                <div className="relative w-full max-w-[320px] rounded-[2.2rem] border border-white/10 bg-white/5 p-3 shadow-2xl shadow-primary/20">
-                  <img src={mobileDarkAsset.url} alt="DNexus dark trading interface on mobile" className="w-full rounded-[1.8rem]" loading="eager" />
-                </div>
-                <img src={heroPersonAsset.url} alt="DNexus hero trader using a phone" className="w-full max-w-[280px] object-contain drop-shadow-[0_30px_60px_rgba(0,0,0,0.35)] lg:-mb-6" loading="eager" />
-                <div className="relative w-full max-w-[320px] rounded-[2.2rem] border border-white/10 bg-white/5 p-3 shadow-2xl shadow-sky/20">
-                  <img src={mobileLightAsset.url} alt="DNexus light trading interface on mobile" className="w-full rounded-[1.8rem]" loading="eager" />
-                </div>
-              </div>
+              <img src={heroPersonAsset.url} alt="DNexus trader using the platform on mobile" className="mx-auto w-full max-w-[420px] object-contain drop-shadow-[0_30px_60px_rgba(0,0,0,0.35)]" loading="eager" />
             </motion.div>
 
-            <motion.div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-5 py-3" {...fadeUp}>
-              <span className="h-2.5 w-2.5 rounded-full bg-[#e41f28]" />
-              <div className="text-left">
-                <p className="text-white font-bold">Real DNexus interfaces</p>
-              </div>
+            <motion.div className="flex flex-wrap items-center justify-center gap-4" {...fadeUp}>
+              <Link to="/platform-showcase" className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-white/10">
+                View Platform Showcase
+              </Link>
+              <Link to="/mobile-experience" className="rounded-xl border border-white/10 bg-white/5 px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-white/10">
+                Explore Mobile Experience
+              </Link>
             </motion.div>
           </div>
         </div>
@@ -265,70 +250,29 @@ const LandingPage = () => {
         </div>
       </section>
 
-      {/* Trading Reimagined */}
-      <section className="py-32 bg-[#e41f28] text-white">
+      <section className="py-24 bg-[#e41f28] text-white">
         <div className="max-w-[1320px] mx-auto px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
-            <img src={aiCommandPortraitAsset.url} alt="DNexus trading chart with AI Command Center overlay on mobile" className="w-full max-w-[520px] mx-auto drop-shadow-2xl" />
-            <div className="space-y-8">
-              <h2 className="text-4xl md:text-6xl font-bold font-['Open_Sans']">Trading Reimagined</h2>
-              <p className="text-xl leading-relaxed opacity-90">
-                DNexus leverages AI and machine learning to deliver expert signals and quantitative analysis that professionals trust. Our comprehensive free learning materials help you master the markets while our automation tools execute with precision.
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <div className="rounded-[32px] border border-white/15 bg-black/15 p-8">
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/80">Extra visuals</p>
+              <h2 className="mt-4 text-3xl font-bold md:text-5xl">Platform Showcase</h2>
+              <p className="mt-4 text-base leading-relaxed text-white/80">
+                All the broader DNexus product mockups now live in a dedicated page, so the landing page keeps a cleaner first impression.
               </p>
-              <Link to="/trading" className="inline-flex px-8 py-4 bg-white text-[#e41f28] font-bold rounded-xl hover:bg-gray-100 transition-all">Learn More</Link>
+              <Link to="/platform-showcase" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-[#e41f28] transition-all hover:bg-white/90">
+                Open showcase <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Scroll-Rotating Phone Showcase */}
-      <section className="py-32 bg-[#141414] overflow-hidden">
-        <div className="max-w-[1320px] mx-auto px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <div className="space-y-6">
-              <span className="text-[#00d4ff] font-bold uppercase tracking-[0.2em] text-sm">Built For Mobile</span>
-              <h2 className="text-4xl md:text-6xl font-bold text-white font-['Open_Sans'] leading-tight">Your trading desk fits in your pocket</h2>
-              <p className="text-lg text-[#b6b6b6] leading-relaxed">
-                Every chart, every signal, every automation surface inside DNexus is tuned for one-handed use on the device you already carry. Scroll, swipe, fire trades — no lag, no compromise.
+            <div className="rounded-[32px] border border-white/15 bg-black/15 p-8">
+              <p className="text-xs font-bold uppercase tracking-[0.22em] text-white/80">Mobile views</p>
+              <h2 className="mt-4 text-3xl font-bold md:text-5xl">Mobile Experience</h2>
+              <p className="mt-4 text-base leading-relaxed text-white/80">
+                The dark and light mobile layouts now have their own destination page instead of stacking beside the main hero image.
               </p>
+              <Link to="/mobile-experience" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 text-sm font-semibold text-[#e41f28] transition-all hover:bg-white/90">
+                View mobile page <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
-            <div ref={phoneRef} className="relative h-[560px] flex items-center justify-center" style={{ perspective: "1200px" }}>
-              <motion.div
-                style={{ rotateY: phoneRotateY, scale: phoneScale, transformStyle: "preserve-3d" }}
-                className="relative flex items-center justify-center gap-4"
-              >
-                <img src={mobileDarkAsset.url} alt="DNexus mobile dark trading screen" className="w-full max-w-[220px] rounded-[2rem] border border-white/10 bg-white/5 p-2 drop-shadow-[0_25px_60px_rgba(0,212,255,0.28)]" loading="lazy" />
-                <img src={mobileLightAsset.url} alt="DNexus mobile light trading screen" className="absolute -right-4 top-10 w-full max-w-[190px] rounded-[2rem] border border-white/10 bg-white/5 p-2 drop-shadow-[0_25px_60px_rgba(228,31,40,0.18)]" loading="lazy" />
-              </motion.div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Social Proof / Community */}
-      <section className="py-24 bg-black">
-        <div className="max-w-[1320px] mx-auto px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-10 items-center">
-            <motion.div className="lg:col-span-2" {...fadeUp}>
-              <img src={tradingViewPortraitAsset.url} alt="DNexus branded mobile trading chart screenshot for the community showcase" loading="lazy" className="w-full max-w-[420px] mx-auto drop-shadow-2xl" />
-            </motion.div>
-            <motion.div className="lg:col-span-3 space-y-6" {...fadeUp}>
-              <span className="text-[#00d4ff] font-bold uppercase tracking-[0.2em] text-sm">Community</span>
-              <h2 className="text-4xl md:text-5xl font-bold text-white font-['Open_Sans']">Built around the DNexus experience</h2>
-              <p className="text-lg text-[#b6b6b6] leading-relaxed">
-                Every section now leans on real DNexus product views, so visitors see the same trading environment they will actually use inside the hub.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
-                  <p className="text-[#00d4ff] font-bold uppercase tracking-[0.2em] text-xs mb-2">Authentic visuals</p>
-                  <p>Real DNexus screenshots now lead the product story across the landing page.</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white">
-                  <p className="text-[#00d4ff] font-bold uppercase tracking-[0.2em] text-xs mb-2">Brand match</p>
-                  <p>The visuals keep the premium look while staying close to the real DNexus interface style.</p>
-                </div>
-              </div>
-            </motion.div>
           </div>
         </div>
       </section>
