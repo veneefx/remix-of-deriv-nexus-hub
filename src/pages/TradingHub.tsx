@@ -17,6 +17,8 @@ import DATTab from "@/components/trading/DATTab";
 import MarketScannerView from "@/components/trading/MarketScannerView";
 import StrategyLab from "@/components/trading/StrategyLab";
 import ForexAITab from "@/components/trading/ForexAITab";
+import PortfolioHub from "@/components/trading/PortfolioHub";
+import SentinelHub from "@/components/trading/SentinelHub";
 import ClientTokenManager from "@/components/trading/ClientTokenManager";
 import TradingHubLoader from "@/components/trading/TradingHubLoader";
 import FloatingAILogPanel from "@/components/trading/FloatingAILogPanel";
@@ -53,7 +55,7 @@ const sidebarItems = [
   { icon: Settings, label: "Settings", path: "/risk" },
 ];
 
-type ViewMode = "digit-edge" | "trading-view" | "smarttrader" | "deriv" | "dat" | "market-scanner" | "strategy-lab" | "forex-ai" | "transactions";
+type ViewMode = "digit-edge" | "trading-view" | "smarttrader" | "deriv" | "dat" | "market-scanner" | "strategy-lab" | "forex-ai" | "portfolio-hub" | "sentinel-hub" | "transactions";
 
 const viewLabels: Record<ViewMode, string> = {
   "digit-edge": "Digit Edge",
@@ -64,6 +66,8 @@ const viewLabels: Record<ViewMode, string> = {
   "market-scanner": "Market Scanner",
   "strategy-lab": "Strategy Lab",
   "forex-ai": "Forex AI",
+  "portfolio-hub": "Portfolio Hub",
+  "sentinel-hub": "Sentinel Hub",
   "transactions": "Transactions",
 };
 
@@ -735,6 +739,25 @@ const TradingHub = () => {
               <ForexAITab />
             </AnalysisPaywall>
           )}
+          {activeView === "portfolio-hub" && (
+            <AnalysisPaywall isPremium={isPremium} isAdmin={isAdmin} featureName="Portfolio Hub" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
+              <PortfolioHub
+                balance={balance}
+                accountLoginId={account?.loginid}
+                accountType={account?.is_virtual ? "Demo" : "Real"}
+                connected={wsConnected}
+              />
+            </AnalysisPaywall>
+          )}
+          {activeView === "sentinel-hub" && (
+            <AnalysisPaywall isPremium={isPremium} isAdmin={isAdmin} featureName="Sentinel Hub" onUpgrade={(f) => { setPremiumFeature(f); setShowPremiumModal(true); }}>
+              <SentinelHub
+                selectedMarket={selectedMarket}
+                connected={wsConnected}
+                authorized={derivAuthorized}
+              />
+            </AnalysisPaywall>
+          )}
           {activeView === "transactions" && (
             <div className="p-4 lg:p-6 overflow-y-auto h-full">
               <div className="p-6 rounded-xl bg-card border border-border text-center">
@@ -769,7 +792,7 @@ const TradingHub = () => {
                 { icon: Home, label: "Home", action: () => navigate("/") },
                 { icon: Search, label: "Explore", action: () => setActiveView("trading-view") },
                 { icon: Activity, label: "Trade", action: () => setActiveView("digit-edge"), active: activeView === "digit-edge" },
-                { icon: BarChart3, label: "Analyze", action: () => setActiveView("dat"), active: activeView === "dat" },
+                { icon: BarChart3, label: "Analyze", action: () => setActiveView("portfolio-hub"), active: activeView === "portfolio-hub" },
                 { icon: User, label: "Profile", action: () => setTokenManagerOpen(true) },
               ].map((item) => (
                 <button

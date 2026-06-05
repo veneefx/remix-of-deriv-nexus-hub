@@ -11,6 +11,8 @@ const navItems = [
     label: "Platforms",
     children: [
       { label: "Trading Hub", path: "/trading" },
+      { label: "Platform Showcase", path: "/platform-showcase" },
+      { label: "Mobile Experience", path: "/mobile-experience" },
       { label: "AI Signals", path: "/signals" },
       { label: "Partners Program", path: "/partners" },
     ],

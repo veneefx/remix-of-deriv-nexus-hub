@@ -13,6 +13,8 @@ import Help from "./pages/Help";
 import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import Risk from "./pages/Risk";
+import PlatformShowcase from "./pages/PlatformShowcase";
+import MobileExperience from "./pages/MobileExperience";
 import Auth from "./pages/Auth";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
@@ -36,6 +38,8 @@ const App = () => (
           <Route path="/signals" element={<Signals />} />
           <Route path="/education" element={<Education />} />
           <Route path="/partners" element={<Partners />} />
+          <Route path="/platform-showcase" element={<PlatformShowcase />} />
+          <Route path="/mobile-experience" element={<MobileExperience />} />
           <Route path="/help" element={<Help />} />
           <Route path="/terms" element={<Terms />} />
           <Route path="/privacy" element={<Privacy />} />

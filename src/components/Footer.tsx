@@ -29,10 +29,10 @@ const Footer = () => (
         <div>
           <h4 className="font-semibold text-white mb-4 text-sm uppercase tracking-wider">Platforms</h4>
           <ul className="space-y-3 text-sm text-gray-400">
-            <li><a href="#" className="hover:text-white transition-colors">Trading Hub</a></li>
-            <li><a href="#" className="hover:text-white transition-colors">AI Trading Assistant</a></li>
-            <li><a href="#" className="hover:text-white transition-colors">Premium Signals</a></li>
-            <li><a href="#" className="hover:text-white transition-colors">Partners Program</a></li>
+            <li><Link to="/trading" className="hover:text-white transition-colors">Trading Hub</Link></li>
+            <li><Link to="/platform-showcase" className="hover:text-white transition-colors">Platform Showcase</Link></li>
+            <li><Link to="/mobile-experience" className="hover:text-white transition-colors">Mobile Experience</Link></li>
+            <li><Link to="/signals" className="hover:text-white transition-colors">Premium Signals</Link></li>
           </ul>
         </div>
 
@@ -42,8 +42,8 @@ const Footer = () => (
           <ul className="space-y-3 text-sm text-gray-400">
             <li><Link to="/" className="hover:text-white transition-colors">Home</Link></li>
             <li><Link to="/education" className="hover:text-white transition-colors">Education</Link></li>
-            <li><a href="#" className="hover:text-white transition-colors">Market Tracker</a></li>
-            <li><a href="#" className="hover:text-white transition-colors">Charts</a></li>
+            <li><Link to="/signals" className="hover:text-white transition-colors">Market Tracker</Link></li>
+            <li><Link to="/partners" className="hover:text-white transition-colors">Partners Program</Link></li>
           </ul>
         </div>
 
