@@ -995,10 +995,16 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   };
 
   const confirmStart = () => {
+    const startingStake = parseFloat(stake) || 0;
+    if (enforceStakeSafety(startingStake, "Starting stake")) {
+      setShowConfirmModal(false);
+      return;
+    }
     setShowConfirmModal(false);
     setSoftwareStatus("ACTIVE");
     botRunning.current = true;
     consecutiveLosses.current = 0;
+    consecutiveExecutionErrors.current = 0;
     currentStake.current = parseFloat(stake);
     partialProfitTaken.current = 0;
     openContracts.current = 0;
@@ -1012,6 +1018,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const stopBot = () => {
     setSoftwareStatus("INACTIVE");
     botRunning.current = false;
+    consecutiveExecutionErrors.current = 0;
+    tradeLock.release();
     toast({ title: "⏹ Bot Stopped", description: `P/L: $${session.totalProfit.toFixed(2)}` });
   };
 
