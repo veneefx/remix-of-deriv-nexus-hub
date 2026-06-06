@@ -114,6 +114,7 @@ const TradingHub = () => {
   const { isPremium, isAdmin } = usePremium();
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
+  const [adminDashboardTab, setAdminDashboardTab] = useState<"users" | "payments" | "trades" | "verifications" | "learning">("users");
   const [premiumFeature, setPremiumFeature] = useState("");
   const hasDerivSession = !!account;
   const smartTraderMarket = selectedMarket.startsWith("1HZ") ? selectedMarket : "1HZ100V";
