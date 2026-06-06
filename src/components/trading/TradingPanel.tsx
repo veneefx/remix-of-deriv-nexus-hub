@@ -63,6 +63,12 @@ interface StrategyProfile {
   minimum_tick_history: number;
 }
 
+interface SafetyConfig {
+  maxStake: string;
+  autoStopOnError: boolean;
+  consecutiveErrorLimit: number;
+}
+
 interface DigitPressure {
   [digit: number]: number;
 }
@@ -252,6 +258,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [showSessionModal, setShowSessionModal] = useState(false);
   const [showTpModal, setShowTpModal] = useState(false);
   const [tpAmount, setTpAmount] = useState(0);
+  const [safetyConfig, setSafetyConfig] = useState<SafetyConfig>({
+    maxStake: "25",
+    autoStopOnError: true,
+    consecutiveErrorLimit: 3,
+  });
 
   const [activeTab, setActiveTab] = useState<"trading" | "analysis">("trading");
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
@@ -271,6 +282,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const tickIndexRef = useRef(0);
   // Pending trades map: contractId -> { stake, resolved }
   const pendingTrades = useRef<Map<string, { stake: number; resolved: boolean }>>(new Map());
+  const consecutiveExecutionErrors = useRef(0);
   // Trade queue for continuous mode
   const tradeQueueRef = useRef<number>(0);
   const MAX_TRADES_PER_SEC = executionSpeed === "Turbo" ? 5 : executionSpeed === "Fast" ? 2 : 1;
