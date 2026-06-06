@@ -38,6 +38,7 @@ const OnlyUpsDownsPanel = ({
   onLogin: () => void;
 }) => {
   const [stake, setStake] = useState("1.00");
+  const [baseStake, setBaseStake] = useState("1.00");
   const [ticks, setTicks] = useState<2 | 3 | 5>(3);
   const [aiOn, setAiOn] = useState(false);
   const [muted, setMutedState] = useState(sounds.isMuted());
@@ -45,7 +46,13 @@ const OnlyUpsDownsPanel = ({
   const [executing, setExecuting] = useState(false);
   const [lastResult, setLastResult] = useState<{ profit: number; status: string } | null>(null);
   const [stats, setStats] = useState({ fired: 0, wins: 0, losses: 0, net: 0 });
-  const [gauge, setGauge] = useState({ vol: 0, balance: 0, confluence: 0 });
+  const [gauge, setGauge] = useState({ vol: 0, balance: 0, range: 0, rhythm: 0, confluence: 0 });
+  const [takeProfit, setTakeProfit] = useState("25");
+  const [stopLoss, setStopLoss] = useState("12");
+  const [martingaleOn, setMartingaleOn] = useState(true);
+  const [martingaleMultiplier, setMartingaleMultiplier] = useState("2.0");
+  const [maxSteps, setMaxSteps] = useState(3);
+  const [currentStep, setCurrentStep] = useState(0);
 
   const isConnected = !!account && authorized !== false;
 
@@ -56,6 +63,7 @@ const OnlyUpsDownsPanel = ({
   const lastFireTs = useRef(0);
   const openContracts = useRef<Set<string>>(new Set());
   const pendingStraddle = useRef<{ up?: string; down?: string }>({});
+  const activePair = useRef<{ totalProfit: number; resolved: number; stake: number }>({ totalProfit: 0, resolved: 0, stake: 1 });
 
   useEffect(() => sounds.onMuteChange(setMutedState) as any, []);
 
