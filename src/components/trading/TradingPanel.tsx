@@ -698,6 +698,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     setSoftwareStatus("INACTIVE");
     botRunning.current = false;
     setLastExecutionStatus(description);
+    tradeLock.release();
     toast({ title, description, variant: title.includes("Error") ? "destructive" : undefined });
     notifications.notify(title, description, title.includes("Error") ? "error" : "warn");
   }, []);
