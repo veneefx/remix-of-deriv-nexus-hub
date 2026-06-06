@@ -140,6 +140,8 @@ const OnlyUpsDownsPanel = ({
       if (!openContracts.current.has(id)) return;
       openContracts.current.delete(id);
       const profit = Number(poc.profit || 0);
+      activePair.current.totalProfit += profit;
+      activePair.current.resolved += 1;
       setStats((s) => ({
         fired: s.fired + 1,
         wins: s.wins + (profit > 0 ? 1 : 0),
@@ -148,15 +150,33 @@ const OnlyUpsDownsPanel = ({
       }));
       // When both legs done (set empty), release lock + report combined
       if (openContracts.current.size === 0) {
+        const pairProfit = Number(activePair.current.totalProfit.toFixed(2));
         setExecuting(false);
         tradeLock.release("System");
-        setLastResult({ profit, status: profit > 0 ? "WIN" : "LOSS" });
-        sounds.play(profit > 0 ? "success" : "error");
-        setStatus(`Straddle closed • leg ${profit >= 0 ? "+" : ""}${profit.toFixed(2)} USD`);
+        setLastResult({ profit: pairProfit, status: pairProfit > 0 ? "WIN" : "LOSS" });
+        sounds.play(pairProfit > 0 ? "success" : "error");
+        if (pairProfit > 0) {
+          setCurrentStep(0);
+          setStake(baseStake);
+        } else if (martingaleOn) {
+          const nextStep = Math.min(currentStep + 1, maxSteps);
+          setCurrentStep(nextStep);
+          const nextStake = (parseFloat(baseStake) || 1) * Math.pow(parseFloat(martingaleMultiplier) || 2, nextStep);
+          setStake(nextStake.toFixed(2));
+        }
+        if (stats.net + pairProfit >= (parseFloat(takeProfit) || 0)) {
+          setAiOn(false);
+          setStatus(`Take profit hit • +${(stats.net + pairProfit).toFixed(2)} USD`);
+        } else if (stats.net + pairProfit <= -(parseFloat(stopLoss) || 0)) {
+          setAiOn(false);
+          setStatus(`Stop loss hit • ${(stats.net + pairProfit).toFixed(2)} USD`);
+        } else {
+          setStatus(`Straddle closed • total ${pairProfit >= 0 ? "+" : ""}${pairProfit.toFixed(2)} USD • step ${currentStep}`);
+        }
       }
     });
     return () => { unsub(); };
-  }, [ws]);
+  }, [ws, baseStake, martingaleMultiplier, martingaleOn, currentStep, maxSteps, stats.net, takeProfit, stopLoss]);
 
   // ── AI evaluation loop on every tick ──
   useEffect(() => {
