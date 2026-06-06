@@ -279,7 +279,7 @@ const OnlyUpsDownsPanel = ({
             <span className="text-[9px] uppercase text-muted-foreground font-bold">Stake (USD per leg)</span>
             <input
               value={stake}
-              onChange={(e) => setStake(e.target.value)}
+              onChange={(e) => { setStake(e.target.value); setBaseStake(e.target.value); setCurrentStep(0); }}
               inputMode="decimal"
               disabled={aiOn}
               className="mt-0.5 w-full px-2 py-1.5 rounded bg-secondary border border-border text-xs text-foreground disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-primary"
@@ -304,6 +304,35 @@ const OnlyUpsDownsPanel = ({
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <span className="text-[9px] uppercase text-muted-foreground font-bold">Take Profit</span>
+            <input value={takeProfit} onChange={(e) => setTakeProfit(e.target.value)} inputMode="decimal" disabled={aiOn} className="mt-0.5 w-full px-2 py-1.5 rounded bg-secondary border border-border text-xs text-foreground disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-primary" />
+          </label>
+          <label className="block">
+            <span className="text-[9px] uppercase text-muted-foreground font-bold">Stop Loss</span>
+            <input value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} inputMode="decimal" disabled={aiOn} className="mt-0.5 w-full px-2 py-1.5 rounded bg-secondary border border-border text-xs text-foreground disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-primary" />
+          </label>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          <label className="block">
+            <span className="text-[9px] uppercase text-muted-foreground font-bold">Martingale</span>
+            <select value={martingaleOn ? "on" : "off"} onChange={(e) => setMartingaleOn(e.target.value === "on")} disabled={aiOn} className="mt-0.5 w-full px-2 py-1.5 rounded bg-secondary border border-border text-xs text-foreground disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-primary">
+              <option value="on">On</option>
+              <option value="off">Off</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-[9px] uppercase text-muted-foreground font-bold">Multiplier</span>
+            <input value={martingaleMultiplier} onChange={(e) => setMartingaleMultiplier(e.target.value)} inputMode="decimal" disabled={aiOn || !martingaleOn} className="mt-0.5 w-full px-2 py-1.5 rounded bg-secondary border border-border text-xs text-foreground disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-primary" />
+          </label>
+          <label className="block">
+            <span className="text-[9px] uppercase text-muted-foreground font-bold">Max Steps</span>
+            <input type="number" value={maxSteps} onChange={(e) => setMaxSteps(Math.max(1, parseInt(e.target.value) || 1))} disabled={aiOn || !martingaleOn} className="mt-0.5 w-full px-2 py-1.5 rounded bg-secondary border border-border text-xs text-foreground disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-primary" />
+          </label>
+        </div>
+
         {/* AI Gauges */}
         <div className="rounded-lg bg-secondary/40 border border-border p-2 space-y-1.5">
           <div className="flex items-center justify-between text-[9px] font-bold uppercase text-muted-foreground">
@@ -319,6 +348,20 @@ const OnlyUpsDownsPanel = ({
           </div>
           <div className="h-1 rounded-full bg-background overflow-hidden">
             <div className="h-full bg-warning transition-all" style={{ width: `${gauge.balance * 100}%` }} />
+          </div>
+          <div className="flex items-center justify-between text-[9px] font-bold uppercase text-muted-foreground">
+            <span className="flex items-center gap-1"><Shield className="w-3 h-3" /> Range</span>
+            <span className={gauge.range >= 0.35 ? "text-buy" : "text-muted-foreground"}>{(gauge.range * 100).toFixed(0)}%</span>
+          </div>
+          <div className="h-1 rounded-full bg-background overflow-hidden">
+            <div className="h-full bg-primary transition-all" style={{ width: `${gauge.range * 100}%` }} />
+          </div>
+          <div className="flex items-center justify-between text-[9px] font-bold uppercase text-muted-foreground">
+            <span className="flex items-center gap-1"><Activity className="w-3 h-3" /> Rhythm</span>
+            <span className={gauge.rhythm >= 0.45 ? "text-buy" : "text-muted-foreground"}>{(gauge.rhythm * 100).toFixed(0)}%</span>
+          </div>
+          <div className="h-1 rounded-full bg-background overflow-hidden">
+            <div className="h-full bg-buy transition-all" style={{ width: `${gauge.rhythm * 100}%` }} />
           </div>
           <div className="flex items-center justify-between text-[9px] font-bold uppercase text-muted-foreground">
             <span className="flex items-center gap-1"><Zap className="w-3 h-3" /> Confluence</span>
@@ -338,6 +381,12 @@ const OnlyUpsDownsPanel = ({
             <div className="text-[8px] uppercase text-muted-foreground">Net</div>
             <div className={`text-[11px] font-bold ${stats.net >= 0 ? "text-buy" : "text-sell"}`}>{stats.net >= 0 ? "+" : ""}{stats.net.toFixed(2)}</div>
           </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-1 text-center">
+          <div className="rounded bg-secondary/40 py-1"><div className="text-[8px] uppercase text-muted-foreground">Step</div><div className="text-[11px] font-bold">{currentStep}</div></div>
+          <div className="rounded bg-secondary/40 py-1"><div className="text-[8px] uppercase text-muted-foreground">Base</div><div className="text-[11px] font-bold">{Number(baseStake || 0).toFixed(2)}</div></div>
+          <div className="rounded bg-secondary/40 py-1"><div className="text-[8px] uppercase text-muted-foreground">Live Stake</div><div className="text-[11px] font-bold">{Number(stake || 0).toFixed(2)}</div></div>
         </div>
 
         {/* Status */}
