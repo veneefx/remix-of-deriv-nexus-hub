@@ -38,6 +38,7 @@ const OnlyUpsDownsPanel = ({
   onLogin: () => void;
 }) => {
   const [stake, setStake] = useState("1.00");
+  const [baseStake, setBaseStake] = useState("1.00");
   const [ticks, setTicks] = useState<2 | 3 | 5>(3);
   const [aiOn, setAiOn] = useState(false);
   const [muted, setMutedState] = useState(sounds.isMuted());
@@ -45,7 +46,13 @@ const OnlyUpsDownsPanel = ({
   const [executing, setExecuting] = useState(false);
   const [lastResult, setLastResult] = useState<{ profit: number; status: string } | null>(null);
   const [stats, setStats] = useState({ fired: 0, wins: 0, losses: 0, net: 0 });
-  const [gauge, setGauge] = useState({ vol: 0, balance: 0, confluence: 0 });
+  const [gauge, setGauge] = useState({ vol: 0, balance: 0, range: 0, rhythm: 0, confluence: 0 });
+  const [takeProfit, setTakeProfit] = useState("25");
+  const [stopLoss, setStopLoss] = useState("12");
+  const [martingaleOn, setMartingaleOn] = useState(true);
+  const [martingaleMultiplier, setMartingaleMultiplier] = useState("2.0");
+  const [maxSteps, setMaxSteps] = useState(3);
+  const [currentStep, setCurrentStep] = useState(0);
 
   const isConnected = !!account && authorized !== false;
 
@@ -56,17 +63,26 @@ const OnlyUpsDownsPanel = ({
   const lastFireTs = useRef(0);
   const openContracts = useRef<Set<string>>(new Set());
   const pendingStraddle = useRef<{ up?: string; down?: string }>({});
+  const activePair = useRef<{ totalProfit: number; resolved: number; stake: number }>({ totalProfit: 0, resolved: 0, stake: 1 });
 
   useEffect(() => sounds.onMuteChange(setMutedState) as any, []);
 
   const fireStraddle = useCallback(() => {
     if (!ws || !isConnected || !validStake || executing) return;
     if (!tradeLock.tryAcquire("System")) return;
+    const stakeValue = Number(stake);
+    const projectedNet = stats.net - stakeValue * 2;
+    if (projectedNet <= -(parseFloat(stopLoss) || 0)) {
+      setStatus("Risk stop — projected loss exceeds stop loss");
+      tradeLock.release("System");
+      return;
+    }
     setExecuting(true);
     setStatus(`AI firing straddle • ${ticks}t • $${stake} each side`);
     aiLogger.log("System", "info", `Straddle ARMED ${selectedMarket} ${ticks}t @ $${stake}`);
     lastFireTs.current = Date.now();
     pendingStraddle.current = {};
+    activePair.current = { totalProfit: 0, resolved: 0, stake: stakeValue };
 
     // Request both proposals simultaneously
     ws.getProposal({
@@ -77,7 +93,7 @@ const OnlyUpsDownsPanel = ({
       amount: Number(stake), basis: "stake", contractType: "RUNLOW",
       symbol: selectedMarket, duration: ticks, durationUnit: "t",
     });
-  }, [ws, isConnected, validStake, executing, stake, ticks, selectedMarket]);
+  }, [ws, isConnected, validStake, executing, stake, ticks, selectedMarket, stats.net, stopLoss]);
 
   // Proposal → buy both legs as soon as they arrive
   useEffect(() => {
@@ -124,6 +140,8 @@ const OnlyUpsDownsPanel = ({
       if (!openContracts.current.has(id)) return;
       openContracts.current.delete(id);
       const profit = Number(poc.profit || 0);
+      activePair.current.totalProfit += profit;
+      activePair.current.resolved += 1;
       setStats((s) => ({
         fired: s.fired + 1,
         wins: s.wins + (profit > 0 ? 1 : 0),
@@ -132,15 +150,34 @@ const OnlyUpsDownsPanel = ({
       }));
       // When both legs done (set empty), release lock + report combined
       if (openContracts.current.size === 0) {
+        const pairProfit = Number(activePair.current.totalProfit.toFixed(2));
         setExecuting(false);
         tradeLock.release("System");
-        setLastResult({ profit, status: profit > 0 ? "WIN" : "LOSS" });
-        sounds.play(profit > 0 ? "success" : "error");
-        setStatus(`Straddle closed • leg ${profit >= 0 ? "+" : ""}${profit.toFixed(2)} USD`);
+        setLastResult({ profit: pairProfit, status: pairProfit > 0 ? "WIN" : "LOSS" });
+        sounds.play(pairProfit > 0 ? "success" : "error");
+        if (pairProfit > 0) {
+          setCurrentStep(0);
+          setStake(baseStake);
+        } else if (martingaleOn) {
+          const nextStep = Math.min(currentStep + 1, maxSteps);
+          setCurrentStep(nextStep);
+          const nextStake = (parseFloat(baseStake) || 1) * Math.pow(parseFloat(martingaleMultiplier) || 2, nextStep);
+          setStake(nextStake.toFixed(2));
+        }
+        const sessionNet = stats.net + pairProfit;
+        if (sessionNet >= (parseFloat(takeProfit) || 0)) {
+          setAiOn(false);
+          setStatus(`Take profit hit • +${sessionNet.toFixed(2)} USD`);
+        } else if (sessionNet <= -(parseFloat(stopLoss) || 0)) {
+          setAiOn(false);
+          setStatus(`Stop loss hit • ${sessionNet.toFixed(2)} USD`);
+        } else {
+          setStatus(`Straddle closed • total ${pairProfit >= 0 ? "+" : ""}${pairProfit.toFixed(2)} USD • session ${sessionNet >= 0 ? "+" : ""}${sessionNet.toFixed(2)} • step ${pairProfit > 0 ? 0 : Math.min(currentStep + 1, maxSteps)}`);
+        }
       }
     });
     return () => { unsub(); };
-  }, [ws]);
+  }, [ws, baseStake, martingaleMultiplier, martingaleOn, currentStep, maxSteps, stats.net, takeProfit, stopLoss]);
 
   // ── AI evaluation loop on every tick ──
   useEffect(() => {
@@ -174,20 +211,28 @@ const OnlyUpsDownsPanel = ({
       const skew = Math.abs(evens - odds) / digitBuf.current.length;
       const balScore = Math.max(0, 1 - skew / 0.3);
 
-      // 3. Confluence
-      const confluence = volScore * 0.55 + balScore * 0.45;
+      const range = Math.max(...tickBuf.current) - Math.min(...tickBuf.current);
+      const rangeScore = Math.min(range / Math.max(q * 0.0008, 0.35), 1);
+      let alternations = 0;
+      for (let i = 1; i < digitBuf.current.length; i++) {
+        if ((digitBuf.current[i] % 2) !== (digitBuf.current[i - 1] % 2)) alternations += 1;
+      }
+      const rhythmScore = Math.min(alternations / Math.max(digitBuf.current.length - 1, 1), 1);
 
-      setGauge({ vol: volScore, balance: balScore, confluence });
+      // 3. Confluence
+      const confluence = volScore * 0.35 + balScore * 0.2 + rangeScore * 0.2 + rhythmScore * 0.25;
+
+      setGauge({ vol: volScore, balance: balScore, range: rangeScore, rhythm: rhythmScore, confluence });
 
       if (!aiOn || executing) return;
       const cooldown = ticks * 1500 + 2500;
       if (Date.now() - lastFireTs.current < cooldown) return;
 
-      if (volScore >= 0.45 && balScore >= 0.55 && confluence >= 0.55) {
+      if (volScore >= 0.35 && balScore >= 0.45 && rangeScore >= 0.35 && rhythmScore >= 0.45 && confluence >= 0.58) {
         toast({ title: "SmartAI armed", description: `Straddle ${ticks}t — confluence ${(confluence * 100).toFixed(0)}%` });
         fireStraddle();
       } else {
-        setStatus(`Scanning… vol ${(volScore * 100).toFixed(0)}% · bal ${(balScore * 100).toFixed(0)}% · cf ${(confluence * 100).toFixed(0)}%`);
+        setStatus(`Scanning… vol ${(volScore * 100).toFixed(0)}% · bal ${(balScore * 100).toFixed(0)}% · range ${(rangeScore * 100).toFixed(0)}% · rhythm ${(rhythmScore * 100).toFixed(0)}% · cf ${(confluence * 100).toFixed(0)}%`);
       }
     });
     return () => { unsub(); };
@@ -235,7 +280,7 @@ const OnlyUpsDownsPanel = ({
             <span className="text-[9px] uppercase text-muted-foreground font-bold">Stake (USD per leg)</span>
             <input
               value={stake}
-              onChange={(e) => setStake(e.target.value)}
+              onChange={(e) => { setStake(e.target.value); setBaseStake(e.target.value); setCurrentStep(0); }}
               inputMode="decimal"
               disabled={aiOn}
               className="mt-0.5 w-full px-2 py-1.5 rounded bg-secondary border border-border text-xs text-foreground disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-primary"
@@ -260,6 +305,35 @@ const OnlyUpsDownsPanel = ({
           </div>
         </div>
 
+        <div className="grid grid-cols-2 gap-2">
+          <label className="block">
+            <span className="text-[9px] uppercase text-muted-foreground font-bold">Take Profit</span>
+            <input value={takeProfit} onChange={(e) => setTakeProfit(e.target.value)} inputMode="decimal" disabled={aiOn} className="mt-0.5 w-full px-2 py-1.5 rounded bg-secondary border border-border text-xs text-foreground disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-primary" />
+          </label>
+          <label className="block">
+            <span className="text-[9px] uppercase text-muted-foreground font-bold">Stop Loss</span>
+            <input value={stopLoss} onChange={(e) => setStopLoss(e.target.value)} inputMode="decimal" disabled={aiOn} className="mt-0.5 w-full px-2 py-1.5 rounded bg-secondary border border-border text-xs text-foreground disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-primary" />
+          </label>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          <label className="block">
+            <span className="text-[9px] uppercase text-muted-foreground font-bold">Martingale</span>
+            <select value={martingaleOn ? "on" : "off"} onChange={(e) => setMartingaleOn(e.target.value === "on")} disabled={aiOn} className="mt-0.5 w-full px-2 py-1.5 rounded bg-secondary border border-border text-xs text-foreground disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-primary">
+              <option value="on">On</option>
+              <option value="off">Off</option>
+            </select>
+          </label>
+          <label className="block">
+            <span className="text-[9px] uppercase text-muted-foreground font-bold">Multiplier</span>
+            <input value={martingaleMultiplier} onChange={(e) => setMartingaleMultiplier(e.target.value)} inputMode="decimal" disabled={aiOn || !martingaleOn} className="mt-0.5 w-full px-2 py-1.5 rounded bg-secondary border border-border text-xs text-foreground disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-primary" />
+          </label>
+          <label className="block">
+            <span className="text-[9px] uppercase text-muted-foreground font-bold">Max Steps</span>
+            <input type="number" value={maxSteps} onChange={(e) => setMaxSteps(Math.max(1, parseInt(e.target.value) || 1))} disabled={aiOn || !martingaleOn} className="mt-0.5 w-full px-2 py-1.5 rounded bg-secondary border border-border text-xs text-foreground disabled:opacity-60 focus:outline-none focus:ring-1 focus:ring-primary" />
+          </label>
+        </div>
+
         {/* AI Gauges */}
         <div className="rounded-lg bg-secondary/40 border border-border p-2 space-y-1.5">
           <div className="flex items-center justify-between text-[9px] font-bold uppercase text-muted-foreground">
@@ -275,6 +349,20 @@ const OnlyUpsDownsPanel = ({
           </div>
           <div className="h-1 rounded-full bg-background overflow-hidden">
             <div className="h-full bg-warning transition-all" style={{ width: `${gauge.balance * 100}%` }} />
+          </div>
+          <div className="flex items-center justify-between text-[9px] font-bold uppercase text-muted-foreground">
+            <span className="flex items-center gap-1"><Shield className="w-3 h-3" /> Range</span>
+            <span className={gauge.range >= 0.35 ? "text-buy" : "text-muted-foreground"}>{(gauge.range * 100).toFixed(0)}%</span>
+          </div>
+          <div className="h-1 rounded-full bg-background overflow-hidden">
+            <div className="h-full bg-primary transition-all" style={{ width: `${gauge.range * 100}%` }} />
+          </div>
+          <div className="flex items-center justify-between text-[9px] font-bold uppercase text-muted-foreground">
+            <span className="flex items-center gap-1"><Activity className="w-3 h-3" /> Rhythm</span>
+            <span className={gauge.rhythm >= 0.45 ? "text-buy" : "text-muted-foreground"}>{(gauge.rhythm * 100).toFixed(0)}%</span>
+          </div>
+          <div className="h-1 rounded-full bg-background overflow-hidden">
+            <div className="h-full bg-buy transition-all" style={{ width: `${gauge.rhythm * 100}%` }} />
           </div>
           <div className="flex items-center justify-between text-[9px] font-bold uppercase text-muted-foreground">
             <span className="flex items-center gap-1"><Zap className="w-3 h-3" /> Confluence</span>
@@ -294,6 +382,12 @@ const OnlyUpsDownsPanel = ({
             <div className="text-[8px] uppercase text-muted-foreground">Net</div>
             <div className={`text-[11px] font-bold ${stats.net >= 0 ? "text-buy" : "text-sell"}`}>{stats.net >= 0 ? "+" : ""}{stats.net.toFixed(2)}</div>
           </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-1 text-center">
+          <div className="rounded bg-secondary/40 py-1"><div className="text-[8px] uppercase text-muted-foreground">Step</div><div className="text-[11px] font-bold">{currentStep}</div></div>
+          <div className="rounded bg-secondary/40 py-1"><div className="text-[8px] uppercase text-muted-foreground">Base</div><div className="text-[11px] font-bold">{Number(baseStake || 0).toFixed(2)}</div></div>
+          <div className="rounded bg-secondary/40 py-1"><div className="text-[8px] uppercase text-muted-foreground">Live Stake</div><div className="text-[11px] font-bold">{Number(stake || 0).toFixed(2)}</div></div>
         </div>
 
         {/* Status */}
