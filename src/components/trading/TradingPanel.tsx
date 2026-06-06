@@ -408,10 +408,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           const extra = (data.extra as Record<string, unknown> | null) || {};
           if (extra.maxStake != null) setSafetyConfig((prev) => ({ ...prev, maxStake: String(extra.maxStake) }));
           if (typeof extra.autoStopOnError === "boolean") {
-            setSafetyConfig((prev) => ({ ...prev, autoStopOnError: extra.autoStopOnError }));
+            const autoStopOnError = extra.autoStopOnError;
+            setSafetyConfig((prev) => ({ ...prev, autoStopOnError }));
           }
           if (typeof extra.consecutiveErrorLimit === "number") {
-            setSafetyConfig((prev) => ({ ...prev, consecutiveErrorLimit: Math.max(1, Number(extra.consecutiveErrorLimit) || prev.consecutiveErrorLimit) }));
+            const consecutiveErrorLimit = Number(extra.consecutiveErrorLimit);
+            setSafetyConfig((prev) => ({ ...prev, consecutiveErrorLimit: Math.max(1, consecutiveErrorLimit || prev.consecutiveErrorLimit) }));
           }
           userTouchedRisk.current = true;
           aiLogger.log("System", "info", "User settings loaded from cloud");
