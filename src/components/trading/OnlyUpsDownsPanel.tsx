@@ -164,14 +164,15 @@ const OnlyUpsDownsPanel = ({
           const nextStake = (parseFloat(baseStake) || 1) * Math.pow(parseFloat(martingaleMultiplier) || 2, nextStep);
           setStake(nextStake.toFixed(2));
         }
+        const sessionNet = stats.net + pairProfit;
         if (stats.net + pairProfit >= (parseFloat(takeProfit) || 0)) {
           setAiOn(false);
-          setStatus(`Take profit hit • +${(stats.net + pairProfit).toFixed(2)} USD`);
+          setStatus(`Take profit hit • +${sessionNet.toFixed(2)} USD`);
         } else if (stats.net + pairProfit <= -(parseFloat(stopLoss) || 0)) {
           setAiOn(false);
-          setStatus(`Stop loss hit • ${(stats.net + pairProfit).toFixed(2)} USD`);
+          setStatus(`Stop loss hit • ${sessionNet.toFixed(2)} USD`);
         } else {
-          setStatus(`Straddle closed • total ${pairProfit >= 0 ? "+" : ""}${pairProfit.toFixed(2)} USD • step ${currentStep}`);
+          setStatus(`Straddle closed • total ${pairProfit >= 0 ? "+" : ""}${pairProfit.toFixed(2)} USD • session ${sessionNet >= 0 ? "+" : ""}${sessionNet.toFixed(2)} • step ${pairProfit > 0 ? 0 : Math.min(currentStep + 1, maxSteps)}`);
         }
       }
     });
