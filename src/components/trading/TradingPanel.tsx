@@ -937,13 +937,13 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       return false;
     }
 
-    // ── GLOBAL THROTTLE: only one trade in flight regardless of tick speed ──
     const engineName: AIEngine =
       strategyProfile === "brain" ? "Brain" :
       strategyProfile === "elit" ? "ELIT" :
       strategyProfile === "aggressive" ? "Aggressive" :
       strategyProfile === "conservative" ? "Conservative" : "Balanced";
-    if (!tradeLock.tryAcquire(engineName)) {
+    const shouldUseSingleFlight = executionSpeed !== "Turbo" || strategyProfile === "brain";
+    if (shouldUseSingleFlight && !tradeLock.tryAcquire(engineName)) {
       if (strategyProfile === "brain") derivBrain.cancelInFlight();
       setLastExecutionStatus("Trade lock active • waiting for result");
       return false;
@@ -951,6 +951,11 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
     const currentProposalId = proposalIdRef.current;
     const tradeStake = currentStake.current;
+    if (enforceStakeSafety(tradeStake, "Trade stake")) {
+      if (shouldUseSingleFlight) tradeLock.release(engineName);
+      if (strategyProfile === "brain") derivBrain.cancelInFlight();
+      return false;
+    }
 
     proposalReady.current = false;
     proposalIdRef.current = null;
@@ -965,7 +970,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     requestProposal();
     lastProposalReqTs.current = now;
     return true;
-  }, [ws, isLoggedIn, requestProposal, strategyProfile]);
+  }, [ws, isLoggedIn, requestProposal, strategyProfile, executionSpeed, enforceStakeSafety]);
 
   const executeTrade = useCallback(() => {
     executeTradeContinuous();
