@@ -822,6 +822,7 @@ const TradingHub = () => {
       />
       <AdminDashboard 
         isOpen={showAdminDashboard} 
+        initialTab={adminDashboardTab}
         onClose={() => setShowAdminDashboard(false)} 
       />
 
