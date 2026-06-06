@@ -70,11 +70,19 @@ const OnlyUpsDownsPanel = ({
   const fireStraddle = useCallback(() => {
     if (!ws || !isConnected || !validStake || executing) return;
     if (!tradeLock.tryAcquire("System")) return;
+    const stakeValue = Number(stake);
+    const projectedNet = stats.net - stakeValue * 2;
+    if (projectedNet <= -(parseFloat(stopLoss) || 0)) {
+      setStatus("Risk stop — projected loss exceeds stop loss");
+      tradeLock.release("System");
+      return;
+    }
     setExecuting(true);
     setStatus(`AI firing straddle • ${ticks}t • $${stake} each side`);
     aiLogger.log("System", "info", `Straddle ARMED ${selectedMarket} ${ticks}t @ $${stake}`);
     lastFireTs.current = Date.now();
     pendingStraddle.current = {};
+    activePair.current = { totalProfit: 0, resolved: 0, stake: stakeValue };
 
     // Request both proposals simultaneously
     ws.getProposal({
@@ -85,7 +93,7 @@ const OnlyUpsDownsPanel = ({
       amount: Number(stake), basis: "stake", contractType: "RUNLOW",
       symbol: selectedMarket, duration: ticks, durationUnit: "t",
     });
-  }, [ws, isConnected, validStake, executing, stake, ticks, selectedMarket]);
+  }, [ws, isConnected, validStake, executing, stake, ticks, selectedMarket, stats.net, stopLoss]);
 
   // Proposal → buy both legs as soon as they arrive
   useEffect(() => {
