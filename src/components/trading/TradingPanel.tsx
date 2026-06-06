@@ -692,6 +692,24 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const marketLabel = VOLATILITY_MARKETS.find((m) => m.symbol === selectedMarket)?.label || selectedMarket;
   const needsBarrier = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
   const winRate = session.totalTrades > 0 ? ((session.wins / session.totalTrades) * 100).toFixed(1) : "0.0";
+  const maxStakeLimit = Math.max(parseFloat(stake), parseFloat(safetyConfig.maxStake) || parseFloat(stake) || 0);
+
+  const stopBotWithReason = useCallback((title: string, description: string) => {
+    setSoftwareStatus("INACTIVE");
+    botRunning.current = false;
+    setLastExecutionStatus(description);
+    toast({ title, description, variant: title.includes("Error") ? "destructive" : undefined });
+    notifications.notify(title, description, title.includes("Error") ? "error" : "warn");
+  }, []);
+
+  const enforceStakeSafety = useCallback((nextStake: number, context: string) => {
+    if (!Number.isFinite(nextStake)) return false;
+    if (nextStake <= maxStakeLimit) return false;
+    const message = `${context} reached $${nextStake.toFixed(2)}, above max stake $${maxStakeLimit.toFixed(2)}.`;
+    stopBotWithReason("⛔ Max Stake Hit", message);
+    aiLogger.log("System", "warn", `Risk stop — ${message}`);
+    return true;
+  }, [maxStakeLimit, stopBotWithReason]);
 
   const handleTradeResult = useCallback((profit: number, won: boolean, contractId: string, tradeStake: number, entryDigit?: number, exitDigit?: number) => {
     pendingTrades.current.delete(contractId);
