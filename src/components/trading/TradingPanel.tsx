@@ -2053,6 +2053,9 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                 <FormField label="Stop Loss" hint="Maximum loss limit.">
                   <input type="number" value={stopLoss} onChange={(e) => { setStopLoss(e.target.value); userTouchedRisk.current = true; }} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                 </FormField>
+                <FormField label="Max Stake" hint="Hard ceiling for any live or martingale stake.">
+                  <input type="number" value={safetyConfig.maxStake} onChange={(e) => { setSafetyConfig((prev) => ({ ...prev, maxStake: e.target.value })); userTouchedRisk.current = true; }} min="0.35" step="0.01" className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
+                </FormField>
                 <FormField label="Trading Method" hint="Stakelist or martingale.">
                   <select value={martingale ? "Martingale" : "Flat"} onChange={(e) => setMartingale(e.target.value === "Martingale")} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground">
                     <option>Flat</option><option>Martingale</option>
@@ -2082,6 +2085,14 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                     <select value={smartRisker ? "Yes" : "No"} onChange={(e) => setSmartRisker(e.target.value === "Yes")} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground">
                       <option>No</option><option>Yes</option>
                     </select>
+                  </FormField>
+                  <FormField label="Auto-stop on Error" hint="Stop the bot when repeated execution errors occur.">
+                    <select value={safetyConfig.autoStopOnError ? "Yes" : "No"} onChange={(e) => { setSafetyConfig((prev) => ({ ...prev, autoStopOnError: e.target.value === "Yes" })); userTouchedRisk.current = true; }} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground">
+                      <option>Yes</option><option>No</option>
+                    </select>
+                  </FormField>
+                  <FormField label="Error Limit" hint="How many consecutive execution errors trigger auto-stop.">
+                    <input type="number" value={safetyConfig.consecutiveErrorLimit} onChange={(e) => { setSafetyConfig((prev) => ({ ...prev, consecutiveErrorLimit: Math.max(1, parseInt(e.target.value) || 1) })); userTouchedRisk.current = true; }} min="1" step="1" className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                   </FormField>
                 </div>
                 <div className="border-t border-border pt-4">
