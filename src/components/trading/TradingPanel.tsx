@@ -2161,6 +2161,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   <tbody className="divide-y divide-border">
                     {[
                       ["Starting Stake:", `${parseFloat(stake).toFixed(2)}`],
+                      ["Max Stake:", `${maxStakeLimit.toFixed(2)}`],
                       ["Strategy:", strategyProfile === "elit" ? "⚡ ELIT" : strategyProfile],
                       ["Martingale:", martingaleMultiplier],
                       ["Take Profit:", takeProfit],
@@ -2168,6 +2169,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                       ["Market:", marketLabel],
                       ["Speed:", executionSpeed === "Turbo" ? "Turbo (5/sec)" : executionSpeed === "Fast" ? "Fast (1/sec)" : "Normal (4s)"],
                       ["Smart Risker:", smartRisker ? "On" : "Off"],
+                      ["Auto-stop on Error:", safetyConfig.autoStopOnError ? `${safetyConfig.consecutiveErrorLimit} errors` : "Off"],
                     ].map(([k, v]) => (
                       <tr key={k}>
                         <td className="py-2 text-muted-foreground font-medium">{k}</td>
