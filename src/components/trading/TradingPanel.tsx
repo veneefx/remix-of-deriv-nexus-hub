@@ -1023,6 +1023,21 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     toast({ title: "⏹ Bot Stopped", description: `P/L: $${session.totalProfit.toFixed(2)}` });
   };
 
+  useEffect(() => {
+    if (!ws) return;
+    const unsub = ws.on("error", (data) => {
+      const message = typeof data?.error === "string"
+        ? data.error
+        : data?.error?.message || "Trading connection error";
+      setLastExecutionStatus(`WS error: ${message}`);
+      consecutiveExecutionErrors.current += 1;
+      if (safetyConfig.autoStopOnError && consecutiveExecutionErrors.current >= safetyConfig.consecutiveErrorLimit && botRunning.current) {
+        stopBotWithReason("⛔ Auto-stop on Error", `Stopped after ${consecutiveExecutionErrors.current} consecutive WebSocket errors.`);
+      }
+    });
+    return () => { unsub(); };
+  }, [ws, safetyConfig, stopBotWithReason]);
+
   // ── DECOUPLED DECISION LOOP — runs on interval, reads signal from refs ──
   useEffect(() => {
     if (softwareStatus !== "ACTIVE" || !botRunning.current || mode !== "Automated") return;
