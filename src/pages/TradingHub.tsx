@@ -908,7 +908,7 @@ const TradingHub = () => {
                   <Link2 className="w-5 h-5 text-primary" />
                   <div><p className="text-sm font-semibold text-foreground">Connect</p><p className="text-[11px] text-muted-foreground">Account or token</p></div>
                 </button>
-                <button onClick={() => setShowAdminDashboard(true)} disabled={!isAdmin} className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-4 text-left hover:bg-secondary/60 transition-colors disabled:opacity-50">
+                <button onClick={() => { setAdminDashboardTab("payments"); setShowAdminDashboard(true); }} disabled={!isAdmin} className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-4 text-left hover:bg-secondary/60 transition-colors disabled:opacity-50">
                   <CreditCard className="w-5 h-5 text-primary" />
                   <div><p className="text-sm font-semibold text-foreground">Payments</p><p className="text-[11px] text-muted-foreground">Approvals and admin</p></div>
                 </button>
