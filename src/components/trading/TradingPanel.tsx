@@ -1505,6 +1505,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                         ["Proposal", proposalIdRef.current ? proposalIdRef.current.slice(0, 10) : "—"],
                         ["Last Tick", currentTick !== null ? String(currentTick) : "—"],
                         ["Recovery", recoveryDebug.coolingDown ? "Cooling" : recoveryDebug.armed ? "Armed" : "Idle"],
+                        ["Max Stake", `$${maxStakeLimit.toFixed(2)}`],
+                        ["Errors", `${consecutiveExecutionErrors.current}/${safetyConfig.consecutiveErrorLimit}`],
                       ].map(([label, value]) => (
                         <div key={String(label)} className="rounded-lg bg-secondary/50 border border-border p-2">
                           <p className="text-[8px] uppercase text-muted-foreground font-bold">{label}</p>
