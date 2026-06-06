@@ -845,20 +845,20 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     if (totalP >= tp) {
       setTpAmount(totalP);
       setShowTpModal(true);
-      stopBot();
+      setSoftwareStatus("INACTIVE");
+      botRunning.current = false;
       toast({ title: "🎉 Take Profit Hit!", description: `Profit: $${totalP.toFixed(2)}` });
       notifications.notify("🎉 Take Profit Hit", `Session profit: $${totalP.toFixed(2)}`, "tp");
     } else if (totalP <= -sl) {
-      stopBot();
+      stopBotWithReason("⛔ Stop Loss Hit", `Loss limit reached: $${Math.abs(totalP).toFixed(2)}`);
       toast({ title: "⛔ Stop Loss Hit", description: `Loss limit reached: $${Math.abs(totalP).toFixed(2)}` });
-      notifications.notify("⛔ Stop Loss Hit", `Loss limit reached: $${Math.abs(totalP).toFixed(2)}`, "sl");
     }
 
     // After stake changes, refresh proposal ONCE with new stake
     requestProposal();
     lastProposalReqTs.current = Date.now();
     setRecoveryDebug(derivBrain.getRecoveryDebug());
-  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, martingalePersistence, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, smartRisker, selectedMarket, requestProposal, strategyProfile, enforceStakeSafety, stopBot]);
+  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, martingalePersistence, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, smartRisker, selectedMarket, requestProposal, strategyProfile, enforceStakeSafety, stopBotWithReason]);
 
   // ── PERSISTENT LISTENERS: registered ONCE, dispatch by contract_id ──
   useEffect(() => {
