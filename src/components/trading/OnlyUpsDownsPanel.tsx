@@ -182,20 +182,28 @@ const OnlyUpsDownsPanel = ({
       const skew = Math.abs(evens - odds) / digitBuf.current.length;
       const balScore = Math.max(0, 1 - skew / 0.3);
 
-      // 3. Confluence
-      const confluence = volScore * 0.55 + balScore * 0.45;
+      const range = Math.max(...tickBuf.current) - Math.min(...tickBuf.current);
+      const rangeScore = Math.min(range / Math.max(q * 0.0008, 0.35), 1);
+      let alternations = 0;
+      for (let i = 1; i < digitBuf.current.length; i++) {
+        if ((digitBuf.current[i] % 2) !== (digitBuf.current[i - 1] % 2)) alternations += 1;
+      }
+      const rhythmScore = Math.min(alternations / Math.max(digitBuf.current.length - 1, 1), 1);
 
-      setGauge({ vol: volScore, balance: balScore, confluence });
+      // 3. Confluence
+      const confluence = volScore * 0.35 + balScore * 0.2 + rangeScore * 0.2 + rhythmScore * 0.25;
+
+      setGauge({ vol: volScore, balance: balScore, range: rangeScore, rhythm: rhythmScore, confluence });
 
       if (!aiOn || executing) return;
       const cooldown = ticks * 1500 + 2500;
       if (Date.now() - lastFireTs.current < cooldown) return;
 
-      if (volScore >= 0.45 && balScore >= 0.55 && confluence >= 0.55) {
+      if (volScore >= 0.35 && balScore >= 0.45 && rangeScore >= 0.35 && rhythmScore >= 0.45 && confluence >= 0.58) {
         toast({ title: "SmartAI armed", description: `Straddle ${ticks}t — confluence ${(confluence * 100).toFixed(0)}%` });
         fireStraddle();
       } else {
-        setStatus(`Scanning… vol ${(volScore * 100).toFixed(0)}% · bal ${(balScore * 100).toFixed(0)}% · cf ${(confluence * 100).toFixed(0)}%`);
+        setStatus(`Scanning… vol ${(volScore * 100).toFixed(0)}% · bal ${(balScore * 100).toFixed(0)}% · range ${(rangeScore * 100).toFixed(0)}% · rhythm ${(rhythmScore * 100).toFixed(0)}% · cf ${(confluence * 100).toFixed(0)}%`);
       }
     });
     return () => { unsub(); };
