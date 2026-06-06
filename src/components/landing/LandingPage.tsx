@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Brain, BarChart3, Users, ChevronDown, ArrowRight, Zap } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -44,6 +44,14 @@ const platformShowcaseCards = [
 
 const LandingPage = () => {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [heroReady, setHeroReady] = useState(false);
+
+  useEffect(() => {
+    const heroImage = new Image();
+    heroImage.src = heroPersonAsset.url;
+    heroImage.onload = () => setHeroReady(true);
+    heroImage.onerror = () => setHeroReady(false);
+  }, []);
 
   const faqs = [
     { q: "What is trading?", a: "Trading involves buying and selling financial instruments to profit from price movements. On DNexus, we specialize in synthetic indices and digit contracts — fast-paced instruments that trade 24/7 with instant results." },
@@ -127,12 +135,16 @@ const LandingPage = () => {
             </div>
 
             <motion.div
-              className="mb-12"
+              className="mb-12 min-h-[460px] flex items-center justify-center"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.5, duration: 0.7 }}
             >
-              <img src={heroPersonAsset.url} alt="DNexus trader using the platform on mobile" className="mx-auto w-full max-w-[420px] object-contain drop-shadow-[0_30px_60px_rgba(0,0,0,0.35)]" loading="eager" />
+              {heroReady ? (
+                <img src={heroPersonAsset.url} alt="DNexus trader using the platform on mobile" className="mx-auto w-full max-w-[420px] object-contain drop-shadow-[0_30px_60px_rgba(0,0,0,0.35)]" loading="eager" />
+              ) : (
+                <div className="w-full max-w-[420px] aspect-[4/5] rounded-[32px] border border-white/10 bg-white/5 animate-pulse" />
+              )}
             </motion.div>
 
             <motion.div className="flex flex-wrap items-center justify-center gap-4" {...fadeUp}>
