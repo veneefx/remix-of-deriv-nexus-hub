@@ -165,10 +165,10 @@ const OnlyUpsDownsPanel = ({
           setStake(nextStake.toFixed(2));
         }
         const sessionNet = stats.net + pairProfit;
-        if (stats.net + pairProfit >= (parseFloat(takeProfit) || 0)) {
+        if (sessionNet >= (parseFloat(takeProfit) || 0)) {
           setAiOn(false);
           setStatus(`Take profit hit • +${sessionNet.toFixed(2)} USD`);
-        } else if (stats.net + pairProfit <= -(parseFloat(stopLoss) || 0)) {
+        } else if (sessionNet <= -(parseFloat(stopLoss) || 0)) {
           setAiOn(false);
           setStatus(`Stop loss hit • ${sessionNet.toFixed(2)} USD`);
         } else {
