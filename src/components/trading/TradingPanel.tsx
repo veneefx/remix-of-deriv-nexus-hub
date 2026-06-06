@@ -812,6 +812,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
     if (won) {
       consecutiveLosses.current = 0;
+      consecutiveExecutionErrors.current = 0;
       currentStake.current = parseFloat(stake);
       setCurrentStakeStep(0);
     } else {
@@ -823,6 +824,9 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           : ((lossStep - 1) % Math.max(1, maxMartingaleSteps)) + 1;
         currentStake.current = parseFloat(stake) * Math.pow(parseFloat(martingaleMultiplier), cappedStep);
         setCurrentStakeStep(cappedStep);
+        if (enforceStakeSafety(currentStake.current, "Martingale escalation")) {
+          return;
+        }
       }
     }
 
@@ -854,7 +858,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     requestProposal();
     lastProposalReqTs.current = Date.now();
     setRecoveryDebug(derivBrain.getRecoveryDebug());
-  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, martingalePersistence, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, smartRisker, selectedMarket, requestProposal, strategyProfile]);
+  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, martingalePersistence, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, smartRisker, selectedMarket, requestProposal, strategyProfile, enforceStakeSafety]);
 
   // ── PERSISTENT LISTENERS: registered ONCE, dispatch by contract_id ──
   useEffect(() => {
