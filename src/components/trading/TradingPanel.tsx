@@ -869,14 +869,19 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         openContracts.current = Math.max(0, openContracts.current - 1);
         console.warn("[TradeEngine] Buy error:", data.error.message);
         setLastExecutionStatus(`Buy error: ${data.error.message}`);
+        consecutiveExecutionErrors.current += 1;
         if (strategyProfile === "brain") derivBrain.cancelInFlight();
         tradeLock.release();
         aiLogger.log("System", "error", `Buy error: ${data.error.message}`);
         notifications.notify("Trade error", data.error.message, "error");
+        if (safetyConfig.autoStopOnError && consecutiveExecutionErrors.current >= safetyConfig.consecutiveErrorLimit) {
+          stopBotWithReason("⛔ Auto-stop on Error", `Stopped after ${consecutiveExecutionErrors.current} consecutive execution errors.`);
+        }
         requestProposal();
         return;
       }
       if (data.buy?.contract_id) {
+        consecutiveExecutionErrors.current = 0;
         const contractId = String(data.buy.contract_id);
         const latest = pendingTrades.current.get("_latest_stake");
         const tradeStake = latest ? latest.stake : currentStake.current;
@@ -911,7 +916,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     });
 
     return () => { unsubBuy(); unsubPoc(); };
-  }, [ws, handleTradeResult, requestProposal, strategyProfile, contractType, selectedMarket, duration, durationUnit, barrier]);
+  }, [ws, handleTradeResult, requestProposal, strategyProfile, contractType, selectedMarket, duration, durationUnit, barrier, safetyConfig, stopBotWithReason]);
 
   // ── TRADE EXECUTION: consumes proposal, fires buy, requests new proposal ──
   const executeTradeContinuous = useCallback((entryDigit?: number) => {
