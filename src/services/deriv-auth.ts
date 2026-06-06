@@ -20,6 +20,18 @@ export interface StoredDerivSession {
   added_at: string;
 }
 
+export interface TokenValidationDebug {
+  validatorPath: "direct-websocket";
+  request: {
+    url: string;
+    payload: { authorize: string };
+  };
+  response?: unknown;
+  error?: string;
+  connectionState: "idle" | "opening" | "open" | "message" | "error" | "closed" | "timeout";
+  timestamp: string;
+}
+
 interface DerivPkceSession {
   codeVerifier: string;
   state: string;
@@ -132,30 +144,53 @@ export const validateDerivToken = (value: string) => {
   return normalized.length > 0 && !/\s/.test(normalized);
 };
 
-export const loginWithDerivToken = async (token: string): Promise<DerivAccount> => {
+export const loginWithDerivToken = async (
+  token: string,
+  onDebug?: (debug: TokenValidationDebug) => void,
+): Promise<DerivAccount> => {
   const cleanToken = normalizeDerivToken(token);
   if (!validateDerivToken(cleanToken)) {
     throw new Error("Enter a valid Deriv API token.");
   }
 
-  const ws = new WebSocket("wss://ws.derivws.com/websockets/v3?app_id=129344");
+  const wsUrl = "wss://ws.derivws.com/websockets/v3?app_id=129344";
+  const requestPayload = { authorize: cleanToken };
+  const emitDebug = (partial: Partial<TokenValidationDebug>) => {
+    onDebug?.({
+      validatorPath: "direct-websocket",
+      request: {
+        url: wsUrl,
+        payload: requestPayload,
+      },
+      connectionState: "idle",
+      timestamp: new Date().toISOString(),
+      ...partial,
+    });
+  };
+
+  emitDebug({ connectionState: "opening" });
+  const ws = new WebSocket(wsUrl);
 
   return await new Promise<DerivAccount>((resolve, reject) => {
     const timeout = window.setTimeout(() => {
+      emitDebug({ connectionState: "timeout", error: "Token validation timed out. Please try again." });
       try { ws.close(); } catch {}
       reject(new Error("Token validation timed out. Please try again."));
     }, 12000);
 
     ws.onopen = () => {
-      ws.send(JSON.stringify({ authorize: cleanToken }));
+      emitDebug({ connectionState: "open" });
+      ws.send(JSON.stringify(requestPayload));
     };
 
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        emitDebug({ connectionState: "message", response: data });
         if (data.error) {
           window.clearTimeout(timeout);
           try { ws.close(); } catch {}
+          emitDebug({ connectionState: "error", response: data, error: data.error.message || "Token validation failed." });
           reject(new Error(data.error.message || "Token validation failed."));
           return;
         }
@@ -169,11 +204,13 @@ export const loginWithDerivToken = async (token: string): Promise<DerivAccount> 
           };
           window.clearTimeout(timeout);
           try { ws.close(); } catch {}
+          emitDebug({ connectionState: "closed", response: data });
           resolve(account);
         }
       } catch {
         window.clearTimeout(timeout);
         try { ws.close(); } catch {}
+        emitDebug({ connectionState: "error", error: "Could not validate token." });
         reject(new Error("Could not validate token."));
       }
     };
@@ -181,7 +218,12 @@ export const loginWithDerivToken = async (token: string): Promise<DerivAccount> 
     ws.onerror = () => {
       window.clearTimeout(timeout);
       try { ws.close(); } catch {}
+      emitDebug({ connectionState: "error", error: "Could not reach Deriv to validate this token." });
       reject(new Error("Could not reach Deriv to validate this token."));
+    };
+
+    ws.onclose = () => {
+      emitDebug({ connectionState: "closed" });
     };
   });
 };
