@@ -858,7 +858,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     requestProposal();
     lastProposalReqTs.current = Date.now();
     setRecoveryDebug(derivBrain.getRecoveryDebug());
-  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, martingalePersistence, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, smartRisker, selectedMarket, requestProposal, strategyProfile, enforceStakeSafety]);
+  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, martingalePersistence, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, smartRisker, selectedMarket, requestProposal, strategyProfile, enforceStakeSafety, stopBot]);
 
   // ── PERSISTENT LISTENERS: registered ONCE, dispatch by contract_id ──
   useEffect(() => {
