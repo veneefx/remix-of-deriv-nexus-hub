@@ -384,6 +384,9 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           if (c.startMartingaleAfter) setStartMartingaleAfter(c.startMartingaleAfter);
           if (c.selectedStrategy) setStrategyProfile(c.selectedStrategy);
           if (c.executionSpeed) setExecutionSpeed(c.executionSpeed);
+          if (c.maxStake) setSafetyConfig((prev) => ({ ...prev, maxStake: String(c.maxStake) }));
+          if (typeof c.autoStopOnError === "boolean") setSafetyConfig((prev) => ({ ...prev, autoStopOnError: c.autoStopOnError }));
+          if (c.consecutiveErrorLimit) setSafetyConfig((prev) => ({ ...prev, consecutiveErrorLimit: Number(c.consecutiveErrorLimit) || prev.consecutiveErrorLimit }));
           userTouchedRisk.current = true;
         }
         // Then sync from DB (authoritative)
@@ -402,6 +405,10 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           if (data.start_martingale_after != null) setStartMartingaleAfter(data.start_martingale_after);
           if (data.selected_strategy) setStrategyProfile(data.selected_strategy as any);
           if (data.execution_speed) setExecutionSpeed(data.execution_speed as any);
+          const extra = (data.extra as Record<string, unknown> | null) || {};
+          if (extra.maxStake != null) setSafetyConfig((prev) => ({ ...prev, maxStake: String(extra.maxStake) }));
+          if (typeof extra.autoStopOnError === "boolean") setSafetyConfig((prev) => ({ ...prev, autoStopOnError: extra.autoStopOnError }));
+          if (typeof extra.consecutiveErrorLimit === "number") setSafetyConfig((prev) => ({ ...prev, consecutiveErrorLimit: Math.max(1, extra.consecutiveErrorLimit) }));
           userTouchedRisk.current = true;
           aiLogger.log("System", "info", "User settings loaded from cloud");
         }
@@ -432,12 +439,20 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           selected_strategy: strategyProfile,
           execution_speed: executionSpeed,
           selected_market: selectedMarket,
+          extra: {
+            maxStake: parseFloat(safetyConfig.maxStake) || null,
+            autoStopOnError: safetyConfig.autoStopOnError,
+            consecutiveErrorLimit: safetyConfig.consecutiveErrorLimit,
+          },
         };
         // Cache to localStorage immediately
         localStorage.setItem(`dnx_user_settings_${user.id}`, JSON.stringify({
           takeProfit, stopLoss, baseStake: stake, martingaleEnabled: martingale,
           martingaleMultiplier, maxMartingaleSteps, startMartingaleAfter,
           selectedStrategy: strategyProfile, executionSpeed,
+          maxStake: safetyConfig.maxStake,
+          autoStopOnError: safetyConfig.autoStopOnError,
+          consecutiveErrorLimit: safetyConfig.consecutiveErrorLimit,
         }));
         // Upsert to DB
         await supabase.from("user_trading_settings").upsert({
@@ -449,7 +464,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       }
     }, 1500);
     return () => { if (settingsSaveTimer.current) clearTimeout(settingsSaveTimer.current); };
-  }, [takeProfit, stopLoss, stake, martingale, martingaleMultiplier, maxMartingaleSteps, startMartingaleAfter, strategyProfile, executionSpeed, selectedMarket]);
+  }, [takeProfit, stopLoss, stake, martingale, martingaleMultiplier, maxMartingaleSteps, startMartingaleAfter, strategyProfile, executionSpeed, selectedMarket, safetyConfig]);
 
   // Local signal scoring (runs client-side for speed, mirrors backend logic)
   const calculateLocalSignal = useCallback((digits: number[], pressure: DigitPressure, buffer: { quote: number }[]) => {
