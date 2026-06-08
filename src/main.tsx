@@ -5,8 +5,8 @@ import { hydrateTokenVault } from "./lib/token-vault";
 
 // Lock to portrait where supported so phone tilts don't rotate the UI.
 try {
-  // @ts-expect-error — not all browsers expose this typing
-  if (screen.orientation?.lock) screen.orientation.lock("portrait").catch(() => {});
+  const orientation = (screen as Screen & { orientation?: { lock?: (o: string) => Promise<void> } }).orientation;
+  if (orientation?.lock) orientation.lock("portrait").catch(() => {});
 } catch {}
 
 // Decrypt stored Deriv tokens into memory before first render so existing
