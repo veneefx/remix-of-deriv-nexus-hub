@@ -150,6 +150,12 @@ serve(async (req) => {
     }
 
     if (action === 'exchange_oauth_code') {
+      // Per-user + per-IP lockout: 10 attempts / 5 min, 15-min lockout.
+      const limited =
+        (await checkLimit('oauth_exchange', `u:${userId}`, 10, 300, 900)) ||
+        (await checkLimit('oauth_exchange', `ip:${ip}`, 30, 300, 900));
+      if (limited) return limited;
+
       const code = String(params?.code ?? '');
       const codeVerifier = String(params?.codeVerifier ?? '');
       const redirectUri = String(params?.redirectUri ?? '');
