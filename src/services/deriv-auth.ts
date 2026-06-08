@@ -114,27 +114,39 @@ export const parseCallbackParams = (): DerivAccount[] => {
   return accounts;
 };
 
+import {
+  getMemoryAccounts,
+  getMemoryActive,
+  writeAccounts,
+  writeActiveAccount,
+  clearVault,
+} from "@/lib/token-vault";
+
 export const storeAccounts = (accounts: DerivAccount[]) => {
-  localStorage.setItem("deriv_accounts", JSON.stringify(accounts));
+  void writeAccounts(accounts);
 };
 
 export const getStoredAccounts = (): DerivAccount[] => {
+  // Vault hydrates before render; if empty, fall back to raw localStorage for safety.
+  const mem = getMemoryAccounts();
+  if (mem.length) return mem;
   const data = localStorage.getItem("deriv_accounts");
-  return data ? JSON.parse(data) : [];
+  return data ? (JSON.parse(data) as DerivAccount[]) : [];
 };
 
 export const getActiveAccount = (): DerivAccount | null => {
+  const mem = getMemoryActive();
+  if (mem) return mem;
   const active = localStorage.getItem("deriv_active_account");
-  return active ? JSON.parse(active) : null;
+  return active ? (JSON.parse(active) as DerivAccount) : null;
 };
 
 export const setActiveAccount = (account: DerivAccount) => {
-  localStorage.setItem("deriv_active_account", JSON.stringify(account));
+  void writeActiveAccount(account);
 };
 
 export const clearAuth = () => {
-  localStorage.removeItem("deriv_accounts");
-  localStorage.removeItem("deriv_active_account");
+  clearVault();
 };
 
 export const normalizeDerivToken = (value: string) => value.trim();

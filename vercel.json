@@ -1,5 +1,19 @@
 {
   "rewrites": [
     { "source": "/((?!ads\\.txt|robots\\.txt|sitemap\\.xml|favicon\\.png|manifest\\.webmanifest|sw\\.js|placeholder\\.svg|assets/.*).*)", "destination": "/" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), interest-cohort=()" },
+        { "key": "Strict-Transport-Security", "value": "max-age=31536000; includeSubDomains; preload" },
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.googletagmanager.com https://*.google-analytics.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.googleadservices.com https://www.google.com https://www.gstatic.com https://s3.tradingview.com https://*.tradingview.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.tradingview.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.derivws.com wss://*.derivws.com https://*.deriv.com wss://*.deriv.com https://api.deriv.com https://auth.deriv.com https://oauth.deriv.com https://*.google-analytics.com https://*.googletagmanager.com https://pagead2.googlesyndication.com https://*.googlesyndication.com https://*.doubleclick.net https://storage.googleapis.com; frame-src https://app.deriv.com https://*.tradingview.com https://www.google.com https://googleads.g.doubleclick.net https://*.googlesyndication.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://oauth.deriv.com https://auth.deriv.com; frame-ancestors 'self'; upgrade-insecure-requests" }
+      ]
+    }
   ]
 }

@@ -163,6 +163,36 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limits: {
+        Row: {
+          attempts: number
+          bucket: string
+          id: string
+          key: string
+          locked_until: string | null
+          updated_at: string
+          window_start: string
+        }
+        Insert: {
+          attempts?: number
+          bucket: string
+          id?: string
+          key: string
+          locked_until?: string | null
+          updated_at?: string
+          window_start?: string
+        }
+        Update: {
+          attempts?: number
+          bucket?: string
+          id?: string
+          key?: string
+          locked_until?: string | null
+          updated_at?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       trade_logs: {
         Row: {
           contract_id: string
@@ -291,6 +321,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_rate_limit: {
+        Args: {
+          _bucket: string
+          _key: string
+          _lockout_seconds: number
+          _max_attempts: number
+          _window_seconds: number
+        }
+        Returns: {
+          allowed: boolean
+          retry_after_seconds: number
+        }[]
+      }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
