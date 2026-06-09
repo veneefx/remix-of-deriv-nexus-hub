@@ -179,30 +179,3 @@
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-muted-foreground/30;
 }
-
-/* Professional panel sizing — caps desktop stretch, breathes on mobile. */
-.dnx-panel {
-  width: 100%;
-  max-width: 1440px;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: 1rem;
-  padding-right: 1rem;
-}
-@media (min-width: 1024px) {
-  .dnx-panel { padding-left: 1.5rem; padding-right: 1.5rem; }
-}
-
-/* Lock UI to portrait on phones — ignore device rotation. */
-@media screen and (max-width: 900px) and (orientation: landscape) {
-  html.dnx-lock-portrait body {
-    transform: rotate(-90deg);
-    transform-origin: left top;
-    width: 100vh;
-    height: 100vw;
-    overflow-x: hidden;
-    position: absolute;
-    top: 100%;
-    left: 0;
-  }
-}

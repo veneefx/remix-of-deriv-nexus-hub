@@ -19,42 +19,6 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Service-role client for rate-limit bookkeeping (server-only).
-  const admin = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
-
-  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-
-  const checkLimit = async (
-    bucket: string,
-    key: string,
-    max: number,
-    windowSec: number,
-    lockoutSec: number,
-  ): Promise<Response | null> => {
-    const { data, error } = await admin.rpc('check_rate_limit', {
-      _bucket: bucket,
-      _key: key,
-      _max_attempts: max,
-      _window_seconds: windowSec,
-      _lockout_seconds: lockoutSec,
-    });
-    if (error) {
-      console.error('rate-limit rpc failed:', error.message);
-      return null; // fail-open to avoid locking real users out on a DB hiccup
-    }
-    const row = Array.isArray(data) ? data[0] : data;
-    if (row && row.allowed === false) {
-      return new Response(
-        JSON.stringify({ error: 'Too many requests', retry_after_seconds: row.retry_after_seconds }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(row.retry_after_seconds || 60) } },
-      );
-    }
-    return null;
-  };
-
   try {
     // ── Require a valid Supabase JWT for every action ──
     const authHeader = req.headers.get('Authorization');
@@ -67,7 +31,6 @@ serve(async (req) => {
     );
     const { data: userData, error: userErr } = await supabase.auth.getUser(token);
     if (userErr || !userData?.user?.id) return unauthorized();
-    const userId = userData.user.id;
 
     const appId = Deno.env.get('DERIV_APP_ID');
     if (!appId) {
@@ -150,12 +113,6 @@ serve(async (req) => {
     }
 
     if (action === 'exchange_oauth_code') {
-      // Per-user + per-IP lockout: 10 attempts / 5 min, 15-min lockout.
-      const limited =
-        (await checkLimit('oauth_exchange', `u:${userId}`, 10, 300, 900)) ||
-        (await checkLimit('oauth_exchange', `ip:${ip}`, 30, 300, 900));
-      if (limited) return limited;
-
       const code = String(params?.code ?? '');
       const codeVerifier = String(params?.codeVerifier ?? '');
       const redirectUri = String(params?.redirectUri ?? '');
