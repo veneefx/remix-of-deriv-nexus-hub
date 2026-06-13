@@ -25,13 +25,13 @@ interface Profile {
 
 type Tab = "users" | "payments" | "trades" | "verifications" | "learning";
 
-const AdminDashboard = ({ isOpen, onClose, initialTab = "users" }: { isOpen: boolean; onClose: () => void; initialTab?: Tab }) => {
+const AdminDashboard = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [trades, setTrades] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
+  const [activeTab, setActiveTab] = useState<Tab>("users");
 
   const fetchProfiles = async () => {
     const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: false });
@@ -53,10 +53,9 @@ const AdminDashboard = ({ isOpen, onClose, initialTab = "users" }: { isOpen: boo
 
   useEffect(() => {
     if (!isOpen) return;
-    setActiveTab(initialTab);
     setLoading(true);
     Promise.all([fetchProfiles(), fetchPayments(), fetchTrades()]).finally(() => setLoading(false));
-  }, [isOpen, initialTab]);
+  }, [isOpen]);
 
   const togglePremium = async (userId: string, currentStatus: boolean) => {
     const { error } = await supabase.from("profiles").update({ is_premium: !currentStatus }).eq("user_id", userId);

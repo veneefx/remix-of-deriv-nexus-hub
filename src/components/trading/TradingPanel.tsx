@@ -63,12 +63,6 @@ interface StrategyProfile {
   minimum_tick_history: number;
 }
 
-interface SafetyConfig {
-  maxStake: string;
-  autoStopOnError: boolean;
-  consecutiveErrorLimit: number;
-}
-
 interface DigitPressure {
   [digit: number]: number;
 }
@@ -258,11 +252,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const [showSessionModal, setShowSessionModal] = useState(false);
   const [showTpModal, setShowTpModal] = useState(false);
   const [tpAmount, setTpAmount] = useState(0);
-  const [safetyConfig, setSafetyConfig] = useState<SafetyConfig>({
-    maxStake: "25",
-    autoStopOnError: true,
-    consecutiveErrorLimit: 3,
-  });
 
   const [activeTab, setActiveTab] = useState<"trading" | "analysis">("trading");
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
@@ -282,7 +271,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const tickIndexRef = useRef(0);
   // Pending trades map: contractId -> { stake, resolved }
   const pendingTrades = useRef<Map<string, { stake: number; resolved: boolean }>>(new Map());
-  const consecutiveExecutionErrors = useRef(0);
   // Trade queue for continuous mode
   const tradeQueueRef = useRef<number>(0);
   const MAX_TRADES_PER_SEC = executionSpeed === "Turbo" ? 5 : executionSpeed === "Fast" ? 2 : 1;
@@ -384,9 +372,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           if (c.startMartingaleAfter) setStartMartingaleAfter(c.startMartingaleAfter);
           if (c.selectedStrategy) setStrategyProfile(c.selectedStrategy);
           if (c.executionSpeed) setExecutionSpeed(c.executionSpeed);
-          if (c.maxStake) setSafetyConfig((prev) => ({ ...prev, maxStake: String(c.maxStake) }));
-          if (typeof c.autoStopOnError === "boolean") setSafetyConfig((prev) => ({ ...prev, autoStopOnError: c.autoStopOnError }));
-          if (c.consecutiveErrorLimit) setSafetyConfig((prev) => ({ ...prev, consecutiveErrorLimit: Number(c.consecutiveErrorLimit) || prev.consecutiveErrorLimit }));
           userTouchedRisk.current = true;
         }
         // Then sync from DB (authoritative)
@@ -405,16 +390,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           if (data.start_martingale_after != null) setStartMartingaleAfter(data.start_martingale_after);
           if (data.selected_strategy) setStrategyProfile(data.selected_strategy as any);
           if (data.execution_speed) setExecutionSpeed(data.execution_speed as any);
-          const extra = (data.extra as Record<string, unknown> | null) || {};
-          if (extra.maxStake != null) setSafetyConfig((prev) => ({ ...prev, maxStake: String(extra.maxStake) }));
-          if (typeof extra.autoStopOnError === "boolean") {
-            const autoStopOnError = extra.autoStopOnError;
-            setSafetyConfig((prev) => ({ ...prev, autoStopOnError }));
-          }
-          if (typeof extra.consecutiveErrorLimit === "number") {
-            const consecutiveErrorLimit = Number(extra.consecutiveErrorLimit);
-            setSafetyConfig((prev) => ({ ...prev, consecutiveErrorLimit: Math.max(1, consecutiveErrorLimit || prev.consecutiveErrorLimit) }));
-          }
           userTouchedRisk.current = true;
           aiLogger.log("System", "info", "User settings loaded from cloud");
         }
@@ -445,20 +420,12 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           selected_strategy: strategyProfile,
           execution_speed: executionSpeed,
           selected_market: selectedMarket,
-          extra: {
-            maxStake: parseFloat(safetyConfig.maxStake) || null,
-            autoStopOnError: safetyConfig.autoStopOnError,
-            consecutiveErrorLimit: safetyConfig.consecutiveErrorLimit,
-          },
         };
         // Cache to localStorage immediately
         localStorage.setItem(`dnx_user_settings_${user.id}`, JSON.stringify({
           takeProfit, stopLoss, baseStake: stake, martingaleEnabled: martingale,
           martingaleMultiplier, maxMartingaleSteps, startMartingaleAfter,
           selectedStrategy: strategyProfile, executionSpeed,
-          maxStake: safetyConfig.maxStake,
-          autoStopOnError: safetyConfig.autoStopOnError,
-          consecutiveErrorLimit: safetyConfig.consecutiveErrorLimit,
         }));
         // Upsert to DB
         await supabase.from("user_trading_settings").upsert({
@@ -470,7 +437,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       }
     }, 1500);
     return () => { if (settingsSaveTimer.current) clearTimeout(settingsSaveTimer.current); };
-  }, [takeProfit, stopLoss, stake, martingale, martingaleMultiplier, maxMartingaleSteps, startMartingaleAfter, strategyProfile, executionSpeed, selectedMarket, safetyConfig]);
+  }, [takeProfit, stopLoss, stake, martingale, martingaleMultiplier, maxMartingaleSteps, startMartingaleAfter, strategyProfile, executionSpeed, selectedMarket]);
 
   // Local signal scoring (runs client-side for speed, mirrors backend logic)
   const calculateLocalSignal = useCallback((digits: number[], pressure: DigitPressure, buffer: { quote: number }[]) => {
@@ -692,25 +659,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const marketLabel = VOLATILITY_MARKETS.find((m) => m.symbol === selectedMarket)?.label || selectedMarket;
   const needsBarrier = contractType === "DIGITOVER" || contractType === "DIGITUNDER";
   const winRate = session.totalTrades > 0 ? ((session.wins / session.totalTrades) * 100).toFixed(1) : "0.0";
-  const maxStakeLimit = Math.max(parseFloat(stake), parseFloat(safetyConfig.maxStake) || parseFloat(stake) || 0);
-
-  const stopBotWithReason = useCallback((title: string, description: string) => {
-    setSoftwareStatus("INACTIVE");
-    botRunning.current = false;
-    setLastExecutionStatus(description);
-    tradeLock.release();
-    toast({ title, description, variant: title.includes("Error") ? "destructive" : undefined });
-    notifications.notify(title, description, title.includes("Error") ? "error" : "warn");
-  }, []);
-
-  const enforceStakeSafety = useCallback((nextStake: number, context: string) => {
-    if (!Number.isFinite(nextStake)) return false;
-    if (nextStake <= maxStakeLimit) return false;
-    const message = `${context} reached $${nextStake.toFixed(2)}, above max stake $${maxStakeLimit.toFixed(2)}.`;
-    stopBotWithReason("⛔ Max Stake Hit", message);
-    aiLogger.log("System", "warn", `Risk stop — ${message}`);
-    return true;
-  }, [maxStakeLimit, stopBotWithReason]);
 
   const handleTradeResult = useCallback((profit: number, won: boolean, contractId: string, tradeStake: number, entryDigit?: number, exitDigit?: number) => {
     pendingTrades.current.delete(contractId);
@@ -813,7 +761,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
     if (won) {
       consecutiveLosses.current = 0;
-      consecutiveExecutionErrors.current = 0;
       currentStake.current = parseFloat(stake);
       setCurrentStakeStep(0);
     } else {
@@ -825,9 +772,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
           : ((lossStep - 1) % Math.max(1, maxMartingaleSteps)) + 1;
         currentStake.current = parseFloat(stake) * Math.pow(parseFloat(martingaleMultiplier), cappedStep);
         setCurrentStakeStep(cappedStep);
-        if (enforceStakeSafety(currentStake.current, "Martingale escalation")) {
-          return;
-        }
       }
     }
 
@@ -846,20 +790,20 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     if (totalP >= tp) {
       setTpAmount(totalP);
       setShowTpModal(true);
-      setSoftwareStatus("INACTIVE");
-      botRunning.current = false;
+      stopBot();
       toast({ title: "🎉 Take Profit Hit!", description: `Profit: $${totalP.toFixed(2)}` });
       notifications.notify("🎉 Take Profit Hit", `Session profit: $${totalP.toFixed(2)}`, "tp");
     } else if (totalP <= -sl) {
-      stopBotWithReason("⛔ Stop Loss Hit", `Loss limit reached: $${Math.abs(totalP).toFixed(2)}`);
+      stopBot();
       toast({ title: "⛔ Stop Loss Hit", description: `Loss limit reached: $${Math.abs(totalP).toFixed(2)}` });
+      notifications.notify("⛔ Stop Loss Hit", `Loss limit reached: $${Math.abs(totalP).toFixed(2)}`, "sl");
     }
 
     // After stake changes, refresh proposal ONCE with new stake
     requestProposal();
     lastProposalReqTs.current = Date.now();
     setRecoveryDebug(derivBrain.getRecoveryDebug());
-  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, martingalePersistence, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, smartRisker, selectedMarket, requestProposal, strategyProfile, enforceStakeSafety, stopBotWithReason]);
+  }, [ws, stake, martingale, martingaleMultiplier, maxMartingaleSteps, martingalePersistence, takeProfit, stopLoss, contractType, marketLabel, duration, durationUnit, barrier, startMartingaleAfter, smartRisker, selectedMarket, requestProposal, strategyProfile]);
 
   // ── PERSISTENT LISTENERS: registered ONCE, dispatch by contract_id ──
   useEffect(() => {
@@ -870,19 +814,14 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
         openContracts.current = Math.max(0, openContracts.current - 1);
         console.warn("[TradeEngine] Buy error:", data.error.message);
         setLastExecutionStatus(`Buy error: ${data.error.message}`);
-        consecutiveExecutionErrors.current += 1;
         if (strategyProfile === "brain") derivBrain.cancelInFlight();
         tradeLock.release();
         aiLogger.log("System", "error", `Buy error: ${data.error.message}`);
         notifications.notify("Trade error", data.error.message, "error");
-        if (safetyConfig.autoStopOnError && consecutiveExecutionErrors.current >= safetyConfig.consecutiveErrorLimit) {
-          stopBotWithReason("⛔ Auto-stop on Error", `Stopped after ${consecutiveExecutionErrors.current} consecutive execution errors.`);
-        }
         requestProposal();
         return;
       }
       if (data.buy?.contract_id) {
-        consecutiveExecutionErrors.current = 0;
         const contractId = String(data.buy.contract_id);
         const latest = pendingTrades.current.get("_latest_stake");
         const tradeStake = latest ? latest.stake : currentStake.current;
@@ -917,7 +856,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     });
 
     return () => { unsubBuy(); unsubPoc(); };
-  }, [ws, handleTradeResult, requestProposal, strategyProfile, contractType, selectedMarket, duration, durationUnit, barrier, safetyConfig, stopBotWithReason]);
+  }, [ws, handleTradeResult, requestProposal, strategyProfile, contractType, selectedMarket, duration, durationUnit, barrier]);
 
   // ── TRADE EXECUTION: consumes proposal, fires buy, requests new proposal ──
   const executeTradeContinuous = useCallback((entryDigit?: number) => {
@@ -938,13 +877,13 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
       return false;
     }
 
+    // ── GLOBAL THROTTLE: only one trade in flight regardless of tick speed ──
     const engineName: AIEngine =
       strategyProfile === "brain" ? "Brain" :
       strategyProfile === "elit" ? "ELIT" :
       strategyProfile === "aggressive" ? "Aggressive" :
       strategyProfile === "conservative" ? "Conservative" : "Balanced";
-    const shouldUseSingleFlight = executionSpeed !== "Turbo" || strategyProfile === "brain";
-    if (shouldUseSingleFlight && !tradeLock.tryAcquire(engineName)) {
+    if (!tradeLock.tryAcquire(engineName)) {
       if (strategyProfile === "brain") derivBrain.cancelInFlight();
       setLastExecutionStatus("Trade lock active • waiting for result");
       return false;
@@ -952,11 +891,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
 
     const currentProposalId = proposalIdRef.current;
     const tradeStake = currentStake.current;
-    if (enforceStakeSafety(tradeStake, "Trade stake")) {
-      if (shouldUseSingleFlight) tradeLock.release(engineName);
-      if (strategyProfile === "brain") derivBrain.cancelInFlight();
-      return false;
-    }
 
     proposalReady.current = false;
     proposalIdRef.current = null;
@@ -971,7 +905,7 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
     requestProposal();
     lastProposalReqTs.current = now;
     return true;
-  }, [ws, isLoggedIn, requestProposal, strategyProfile, executionSpeed, enforceStakeSafety]);
+  }, [ws, isLoggedIn, requestProposal, strategyProfile]);
 
   const executeTrade = useCallback(() => {
     executeTradeContinuous();
@@ -996,16 +930,10 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   };
 
   const confirmStart = () => {
-    const startingStake = parseFloat(stake) || 0;
-    if (enforceStakeSafety(startingStake, "Starting stake")) {
-      setShowConfirmModal(false);
-      return;
-    }
     setShowConfirmModal(false);
     setSoftwareStatus("ACTIVE");
     botRunning.current = true;
     consecutiveLosses.current = 0;
-    consecutiveExecutionErrors.current = 0;
     currentStake.current = parseFloat(stake);
     partialProfitTaken.current = 0;
     openContracts.current = 0;
@@ -1019,25 +947,8 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
   const stopBot = () => {
     setSoftwareStatus("INACTIVE");
     botRunning.current = false;
-    consecutiveExecutionErrors.current = 0;
-    tradeLock.release();
     toast({ title: "⏹ Bot Stopped", description: `P/L: $${session.totalProfit.toFixed(2)}` });
   };
-
-  useEffect(() => {
-    if (!ws) return;
-    const unsub = ws.on("error", (data) => {
-      const message = typeof data?.error === "string"
-        ? data.error
-        : data?.error?.message || "Trading connection error";
-      setLastExecutionStatus(`WS error: ${message}`);
-      consecutiveExecutionErrors.current += 1;
-      if (safetyConfig.autoStopOnError && consecutiveExecutionErrors.current >= safetyConfig.consecutiveErrorLimit && botRunning.current) {
-        stopBotWithReason("⛔ Auto-stop on Error", `Stopped after ${consecutiveExecutionErrors.current} consecutive WebSocket errors.`);
-      }
-    });
-    return () => { unsub(); };
-  }, [ws, safetyConfig, stopBotWithReason]);
 
   // ── DECOUPLED DECISION LOOP — runs on interval, reads signal from refs ──
   useEffect(() => {
@@ -1521,8 +1432,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                         ["Proposal", proposalIdRef.current ? proposalIdRef.current.slice(0, 10) : "—"],
                         ["Last Tick", currentTick !== null ? String(currentTick) : "—"],
                         ["Recovery", recoveryDebug.coolingDown ? "Cooling" : recoveryDebug.armed ? "Armed" : "Idle"],
-                        ["Max Stake", `$${maxStakeLimit.toFixed(2)}`],
-                        ["Errors", `${consecutiveExecutionErrors.current}/${safetyConfig.consecutiveErrorLimit}`],
                       ].map(([label, value]) => (
                         <div key={String(label)} className="rounded-lg bg-secondary/50 border border-border p-2">
                           <p className="text-[8px] uppercase text-muted-foreground font-bold">{label}</p>
@@ -2069,9 +1978,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                 <FormField label="Stop Loss" hint="Maximum loss limit.">
                   <input type="number" value={stopLoss} onChange={(e) => { setStopLoss(e.target.value); userTouchedRisk.current = true; }} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                 </FormField>
-                <FormField label="Max Stake" hint="Hard ceiling for any live or martingale stake.">
-                  <input type="number" value={safetyConfig.maxStake} onChange={(e) => { setSafetyConfig((prev) => ({ ...prev, maxStake: e.target.value })); userTouchedRisk.current = true; }} min="0.35" step="0.01" className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
-                </FormField>
                 <FormField label="Trading Method" hint="Stakelist or martingale.">
                   <select value={martingale ? "Martingale" : "Flat"} onChange={(e) => setMartingale(e.target.value === "Martingale")} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground">
                     <option>Flat</option><option>Martingale</option>
@@ -2101,14 +2007,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                     <select value={smartRisker ? "Yes" : "No"} onChange={(e) => setSmartRisker(e.target.value === "Yes")} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground">
                       <option>No</option><option>Yes</option>
                     </select>
-                  </FormField>
-                  <FormField label="Auto-stop on Error" hint="Stop the bot when repeated execution errors occur.">
-                    <select value={safetyConfig.autoStopOnError ? "Yes" : "No"} onChange={(e) => { setSafetyConfig((prev) => ({ ...prev, autoStopOnError: e.target.value === "Yes" })); userTouchedRisk.current = true; }} className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground">
-                      <option>Yes</option><option>No</option>
-                    </select>
-                  </FormField>
-                  <FormField label="Error Limit" hint="How many consecutive execution errors trigger auto-stop.">
-                    <input type="number" value={safetyConfig.consecutiveErrorLimit} onChange={(e) => { setSafetyConfig((prev) => ({ ...prev, consecutiveErrorLimit: Math.max(1, parseInt(e.target.value) || 1) })); userTouchedRisk.current = true; }} min="1" step="1" className="w-full px-3 py-2 bg-secondary border border-border rounded text-sm text-foreground" />
                   </FormField>
                 </div>
                 <div className="border-t border-border pt-4">
@@ -2177,7 +2075,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                   <tbody className="divide-y divide-border">
                     {[
                       ["Starting Stake:", `${parseFloat(stake).toFixed(2)}`],
-                      ["Max Stake:", `${maxStakeLimit.toFixed(2)}`],
                       ["Strategy:", strategyProfile === "elit" ? "⚡ ELIT" : strategyProfile],
                       ["Martingale:", martingaleMultiplier],
                       ["Take Profit:", takeProfit],
@@ -2185,7 +2082,6 @@ const TradingPanel = ({ ws, account }: TradingPanelProps) => {
                       ["Market:", marketLabel],
                       ["Speed:", executionSpeed === "Turbo" ? "Turbo (5/sec)" : executionSpeed === "Fast" ? "Fast (1/sec)" : "Normal (4s)"],
                       ["Smart Risker:", smartRisker ? "On" : "Off"],
-                      ["Auto-stop on Error:", safetyConfig.autoStopOnError ? `${safetyConfig.consecutiveErrorLimit} errors` : "Off"],
                     ].map(([k, v]) => (
                       <tr key={k}>
                         <td className="py-2 text-muted-foreground font-medium">{k}</td>

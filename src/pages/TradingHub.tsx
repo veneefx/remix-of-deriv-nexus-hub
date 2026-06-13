@@ -23,7 +23,6 @@ import ClientTokenManager from "@/components/trading/ClientTokenManager";
 import TradingHubLoader from "@/components/trading/TradingHubLoader";
 import FloatingAILogPanel from "@/components/trading/FloatingAILogPanel";
 import NotificationsPrompt from "@/components/trading/NotificationsPrompt";
-import TokenDebugPanel from "@/components/trading/TokenDebugPanel";
 import DerivWebSocket from "@/services/deriv-websocket";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -43,7 +42,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Plus } from "lucide-react";
 import { formatBalance, DERIV_DEPOSIT_URL } from "@/lib/format";
 import { notifications } from "@/services/notifications";
-import type { TokenValidationDebug } from "@/services/deriv-auth";
 
 const DERIV_APP_ID = "129344";
 
@@ -99,7 +97,6 @@ const TradingHub = () => {
   const [connectModalOpen, setConnectModalOpen] = useState(false);
   const [manualToken, setManualToken] = useState("");
   const [manualTokenSubmitting, setManualTokenSubmitting] = useState(false);
-  const [tokenValidationDebug, setTokenValidationDebug] = useState<TokenValidationDebug | null>(null);
   const [darkMode, setDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("theme");
@@ -114,7 +111,6 @@ const TradingHub = () => {
   const { isPremium, isAdmin } = usePremium();
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [showAdminDashboard, setShowAdminDashboard] = useState(false);
-  const [adminDashboardTab, setAdminDashboardTab] = useState<"users" | "payments" | "trades" | "verifications" | "learning">("users");
   const [premiumFeature, setPremiumFeature] = useState("");
   const hasDerivSession = !!account;
   const smartTraderMarket = selectedMarket.startsWith("1HZ") ? selectedMarket : "1HZ100V";
@@ -403,10 +399,9 @@ const TradingHub = () => {
       return;
     }
 
-    setTokenValidationDebug(null);
     setManualTokenSubmitting(true);
     try {
-      const tokenAccount = await loginWithDerivToken(cleanToken, setTokenValidationDebug);
+      const tokenAccount = await loginWithDerivToken(cleanToken);
       const nextAccounts = [tokenAccount, ...accounts.filter((item) => item.loginid !== tokenAccount.loginid)];
       storeAccounts(nextAccounts);
       setActiveAccount(tokenAccount);
@@ -822,7 +817,6 @@ const TradingHub = () => {
       />
       <AdminDashboard 
         isOpen={showAdminDashboard} 
-        initialTab={adminDashboardTab}
         onClose={() => setShowAdminDashboard(false)} 
       />
 
@@ -872,7 +866,6 @@ const TradingHub = () => {
                 >
                   {manualTokenSubmitting ? "Validating token..." : "Validate & Connect"}
                 </button>
-                <TokenDebugPanel debug={tokenValidationDebug} />
               </div>
             </div>
           </div>
@@ -909,7 +902,7 @@ const TradingHub = () => {
                   <Link2 className="w-5 h-5 text-primary" />
                   <div><p className="text-sm font-semibold text-foreground">Connect</p><p className="text-[11px] text-muted-foreground">Account or token</p></div>
                 </button>
-                <button onClick={() => { setAdminDashboardTab("payments"); setShowAdminDashboard(true); }} disabled={!isAdmin} className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-4 text-left hover:bg-secondary/60 transition-colors disabled:opacity-50">
+                <button onClick={() => setShowAdminDashboard(true)} disabled={!isAdmin} className="flex items-center gap-3 rounded-2xl border border-border bg-card px-4 py-4 text-left hover:bg-secondary/60 transition-colors disabled:opacity-50">
                   <CreditCard className="w-5 h-5 text-primary" />
                   <div><p className="text-sm font-semibold text-foreground">Payments</p><p className="text-[11px] text-muted-foreground">Approvals and admin</p></div>
                 </button>
