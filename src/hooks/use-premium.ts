@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+const ADMIN_EMAIL = 'victormurimiofficial@gmail.com';
+
 export const usePremium = () => {
   const [isPremium, setIsPremium] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -20,8 +22,15 @@ export const usePremium = () => {
 
         setEmail(user.email || null);
 
-        // Authorization is determined exclusively by the server-side
-        // profiles.is_admin / is_premium flags (protected by RLS).
+        // Check if admin
+        if (user.email === ADMIN_EMAIL) {
+          setIsAdmin(true);
+          setIsPremium(true);
+          setLoading(false);
+          return;
+        }
+
+        // Check premium status in profiles table
         const { data: profile } = await supabase
           .from('profiles')
           .select('is_premium, is_admin')
