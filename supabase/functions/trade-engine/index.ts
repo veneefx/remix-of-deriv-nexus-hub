@@ -100,9 +100,34 @@ serve(async (req) => {
     const { data: claimsData, error: claimsErr } = await supabaseAuth.auth.getClaims(token);
     if (claimsErr || !claimsData?.claims?.sub) return unauthorized();
     const callerId = claimsData.claims.sub as string;
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
 
     const body = await req.json();
     const { action, params } = body;
+
+    // Per-user rate limits — log-trade is high frequency, others bursty.
+    const limits: Record<string, { max: number; win: number; lock: number }> = {
+      'log-trade': { max: 240, win: 60, lock: 60 },            // 4/s avg
+      'evaluate-signal': { max: 600, win: 60, lock: 60 },      // 10/s avg
+      'get-strategy': { max: 120, win: 60, lock: 60 },
+    };
+    if (limits[action]) {
+      const admin = getSupabaseClient();
+      const { data: rl } = await admin.rpc('check_rate_limit', {
+        _bucket: `trade_engine:${action}`,
+        _key: `u:${callerId}`,
+        _max_attempts: limits[action].max,
+        _window_seconds: limits[action].win,
+        _lockout_seconds: limits[action].lock,
+      });
+      const row = Array.isArray(rl) ? rl[0] : rl;
+      if (row && row.allowed === false) {
+        return new Response(
+          JSON.stringify({ error: 'Too many requests', retry_after_seconds: row.retry_after_seconds }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Retry-After': String(row.retry_after_seconds || 60) } },
+        );
+      }
+    }
 
     // ── EVALUATE SIGNAL: pure function, no state ──
     if (action === 'evaluate-signal') {
@@ -239,7 +264,8 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: unknown) {
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
+    console.error('trade-engine unhandled error:', error);
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
