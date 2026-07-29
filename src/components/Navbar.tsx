@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Menu, X, TrendingUp, LogOut } from "lucide-react";
 import logo from "@/assets/dnexus-logo.png";
 import { supabase } from "@/integrations/supabase/client";
+import { useAppSession } from "@/hooks/use-app-session";
 
 const navItems = [
   { label: "Home", path: "/" },
@@ -32,9 +33,10 @@ const navItems = [
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const { isSignedIn } = useAppSession();
+  const isAuthenticated = isSignedIn;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -44,27 +46,14 @@ const Navbar = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsAuthenticated(!!user);
-    };
-    checkAuth();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setIsAuthenticated(!!session?.user);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    setIsAuthenticated(false);
   };
 
   return (
     <nav className={`fixed top-0 left-0 right-0 z-[60] transition-all duration-300 ${scrolled ? "py-4" : "py-6"}`}>
       <div className="max-w-[1400px] mx-auto px-6 sm:px-8">
-        <div className={`flex h-[72px] items-center justify-between px-8 bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl transition-all duration-300 ${scrolled ? "shadow-black/40" : ""}`}>
+        <div className={`flex h-[64px] items-center justify-between px-5 sm:px-6 bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl transition-all duration-300 ${scrolled ? "shadow-black/40" : ""}`}>
           <Link to="/" className="flex items-center gap-3 group">
             <img src={logo} alt="DNexus" className="h-9 transition-transform duration-300 group-hover:scale-110" />
             <span className="font-bold text-xl tracking-tight text-white uppercase">
@@ -125,42 +114,33 @@ const Navbar = () => {
             ))}
           </div>
 
-          <div className="hidden lg:flex items-center gap-4">
-            {isAuthenticated ? (
-              <div className="flex items-center gap-3">
-                <Link 
-                  to="/trading" 
-                  className="flex items-center gap-2 h-12 px-8 bg-[#e41f28] text-white font-bold text-sm rounded-xl hover:bg-[#ff3333] transition-all transform hover:scale-105 shadow-lg shadow-[#e41f28]/20 uppercase tracking-widest"
-                >
-                  Trading Hub
-                  <TrendingUp className="w-4 h-4" />
-                </Link>
-                <button
-                  onClick={handleSignOut}
-                  className="flex items-center justify-center w-12 h-12 border border-white/10 text-white rounded-xl hover:bg-white/10 transition-all"
-                  title="Sign Out"
-                >
-                  <LogOut className="w-5 h-5" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <Link 
-                  to="/auth" 
-                  className="px-6 py-2 text-sm font-bold text-white hover:text-[#e41f28] transition-all uppercase tracking-widest"
-                >
-                  Login
-                </Link>
-                <Link 
-                  to="/trading" 
-                  className="flex items-center gap-2 h-12 px-8 bg-[#e41f28] text-white font-bold text-sm rounded-xl hover:bg-[#ff3333] transition-all transform hover:scale-105 shadow-lg shadow-[#e41f28]/20 uppercase tracking-widest"
-                >
-                  Trading Hub
-                  <TrendingUp className="w-4 h-4" />
-                </Link>
-              </div>
+          <div className="hidden lg:flex items-center gap-2.5">
+            {!isAuthenticated && (
+              <Link
+                to="/auth"
+                className="px-4 py-2 text-[13px] font-bold text-gray-300 hover:text-white transition-all uppercase tracking-widest"
+              >
+                Login
+              </Link>
+            )}
+            <Link
+              to="/trading"
+              className="flex items-center gap-2 h-10 px-5 bg-[#e41f28] text-white font-bold text-[13px] rounded-xl hover:bg-[#ff3339] transition-all shadow-lg shadow-[#e41f28]/20 uppercase tracking-widest"
+            >
+              {isAuthenticated ? "Trading Hub" : "Get Started"}
+              <TrendingUp className="w-4 h-4" />
+            </Link>
+            {isAuthenticated && (
+              <button
+                onClick={handleSignOut}
+                className="flex items-center justify-center w-10 h-10 border border-white/10 text-gray-300 rounded-xl hover:bg-white/10 hover:text-white transition-all"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             )}
           </div>
+
 
           <button 
             className="lg:hidden w-12 h-12 flex items-center justify-center text-white bg-white/5 rounded-xl border border-white/10" 
@@ -223,7 +203,7 @@ const Navbar = () => {
               <div className="pt-12 flex flex-col gap-4">
                 <Link 
                   to="/trading" 
-                  className="w-full py-5 bg-[#e41f28] text-white font-bold text-center rounded-2xl text-xl shadow-xl shadow-[#e41f28]/20 uppercase tracking-widest" 
+                  className="w-full py-4 bg-[#e41f28] text-white font-bold text-center rounded-2xl text-base shadow-xl shadow-[#e41f28]/20 uppercase tracking-widest" 
                   onClick={() => setMobileOpen(false)}
                 >
                   Trading Hub
@@ -231,14 +211,14 @@ const Navbar = () => {
                 {isAuthenticated ? (
                   <button
                     onClick={() => { handleSignOut(); setMobileOpen(false); }}
-                    className="w-full py-5 border-2 border-white/10 text-white font-bold rounded-2xl text-xl uppercase tracking-widest"
+                    className="w-full py-4 border border-white/15 text-white font-bold rounded-2xl text-base uppercase tracking-widest"
                   >
                     Sign Out
                   </button>
                 ) : (
                   <Link 
                     to="/auth" 
-                    className="w-full py-5 border-2 border-white/10 text-white font-bold text-center rounded-2xl text-xl uppercase tracking-widest" 
+                    className="w-full py-4 border border-white/15 text-white font-bold text-center rounded-2xl text-base uppercase tracking-widest" 
                     onClick={() => setMobileOpen(false)}
                   >
                     Login
