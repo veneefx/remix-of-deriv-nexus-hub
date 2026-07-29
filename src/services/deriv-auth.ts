@@ -1,3 +1,4 @@
+import { DERIV_WS_URL } from "@/lib/deriv-app";
 // Deriv OAuth Service
 
 const DERIV_OAUTH_URL = "https://oauth.deriv.com/oauth2/authorize";
@@ -165,7 +166,7 @@ export const loginWithDerivToken = async (
     throw new Error("Enter a valid Deriv API token.");
   }
 
-  const wsUrl = "wss://ws.derivws.com/websockets/v3?app_id=129344";
+  const wsUrl = DERIV_WS_URL;
   const requestPayload = { authorize: cleanToken };
   const emitDebug = (partial: Partial<TokenValidationDebug>) => {
     onDebug?.({
