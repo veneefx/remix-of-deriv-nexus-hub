@@ -53,7 +53,7 @@ const Navbar = () => {
   return (
     <nav className={`fixed top-0 left-0 right-0 z-[60] transition-all duration-300 ${scrolled ? "py-4" : "py-6"}`}>
       <div className="max-w-[1400px] mx-auto px-6 sm:px-8">
-        <div className={`flex h-[72px] items-center justify-between px-8 bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl transition-all duration-300 ${scrolled ? "shadow-black/40" : ""}`}>
+        <div className={`flex h-[64px] items-center justify-between px-5 sm:px-6 bg-black/40 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl transition-all duration-300 ${scrolled ? "shadow-black/40" : ""}`}>
           <Link to="/" className="flex items-center gap-3 group">
             <img src={logo} alt="DNexus" className="h-9 transition-transform duration-300 group-hover:scale-110" />
             <span className="font-bold text-xl tracking-tight text-white uppercase">
@@ -203,7 +203,7 @@ const Navbar = () => {
               <div className="pt-12 flex flex-col gap-4">
                 <Link 
                   to="/trading" 
-                  className="w-full py-5 bg-[#e41f28] text-white font-bold text-center rounded-2xl text-xl shadow-xl shadow-[#e41f28]/20 uppercase tracking-widest" 
+                  className="w-full py-4 bg-[#e41f28] text-white font-bold text-center rounded-2xl text-base shadow-xl shadow-[#e41f28]/20 uppercase tracking-widest" 
                   onClick={() => setMobileOpen(false)}
                 >
                   Trading Hub
@@ -211,14 +211,14 @@ const Navbar = () => {
                 {isAuthenticated ? (
                   <button
                     onClick={() => { handleSignOut(); setMobileOpen(false); }}
-                    className="w-full py-5 border-2 border-white/10 text-white font-bold rounded-2xl text-xl uppercase tracking-widest"
+                    className="w-full py-4 border border-white/15 text-white font-bold rounded-2xl text-base uppercase tracking-widest"
                   >
                     Sign Out
                   </button>
                 ) : (
                   <Link 
                     to="/auth" 
-                    className="w-full py-5 border-2 border-white/10 text-white font-bold text-center rounded-2xl text-xl uppercase tracking-widest" 
+                    className="w-full py-4 border border-white/15 text-white font-bold text-center rounded-2xl text-base uppercase tracking-widest" 
                     onClick={() => setMobileOpen(false)}
                   >
                     Login
