@@ -125,42 +125,33 @@ const Navbar = () => {
             ))}
           </div>
 
-          <div className="hidden lg:flex items-center gap-4">
-            {isAuthenticated ? (
-              <div className="flex items-center gap-3">
-                <Link 
-                  to="/trading" 
-                  className="flex items-center gap-2 h-12 px-8 bg-[#e41f28] text-white font-bold text-sm rounded-xl hover:bg-[#ff3333] transition-all transform hover:scale-105 shadow-lg shadow-[#e41f28]/20 uppercase tracking-widest"
-                >
-                  Trading Hub
-                  <TrendingUp className="w-4 h-4" />
-                </Link>
-                <button
-                  onClick={handleSignOut}
-                  className="flex items-center justify-center w-12 h-12 border border-white/10 text-white rounded-xl hover:bg-white/10 transition-all"
-                  title="Sign Out"
-                >
-                  <LogOut className="w-5 h-5" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3">
-                <Link 
-                  to="/auth" 
-                  className="px-6 py-2 text-sm font-bold text-white hover:text-[#e41f28] transition-all uppercase tracking-widest"
-                >
-                  Login
-                </Link>
-                <Link 
-                  to="/trading" 
-                  className="flex items-center gap-2 h-12 px-8 bg-[#e41f28] text-white font-bold text-sm rounded-xl hover:bg-[#ff3333] transition-all transform hover:scale-105 shadow-lg shadow-[#e41f28]/20 uppercase tracking-widest"
-                >
-                  Trading Hub
-                  <TrendingUp className="w-4 h-4" />
-                </Link>
-              </div>
+          <div className="hidden lg:flex items-center gap-2.5">
+            {!isAuthenticated && (
+              <Link
+                to="/auth"
+                className="px-4 py-2 text-[13px] font-bold text-gray-300 hover:text-white transition-all uppercase tracking-widest"
+              >
+                Login
+              </Link>
+            )}
+            <Link
+              to="/trading"
+              className="flex items-center gap-2 h-10 px-5 bg-[#e41f28] text-white font-bold text-[13px] rounded-xl hover:bg-[#ff3339] transition-all shadow-lg shadow-[#e41f28]/20 uppercase tracking-widest"
+            >
+              {isAuthenticated ? "Trading Hub" : "Get Started"}
+              <TrendingUp className="w-4 h-4" />
+            </Link>
+            {isAuthenticated && (
+              <button
+                onClick={handleSignOut}
+                className="flex items-center justify-center w-10 h-10 border border-white/10 text-gray-300 rounded-xl hover:bg-white/10 hover:text-white transition-all"
+                title="Sign Out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
             )}
           </div>
+
 
           <button 
             className="lg:hidden w-12 h-12 flex items-center justify-center text-white bg-white/5 rounded-xl border border-white/10" 
