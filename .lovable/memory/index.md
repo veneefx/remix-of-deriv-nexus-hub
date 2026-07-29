@@ -3,7 +3,7 @@
 # Project Memory
 
 ## Core
-- Platform is DNexus (App ID 129344). Mandatory Deriv API independence disclaimer in footer.
+- Platform is DNexus (Deriv App ID `33XI8M32mLLGgkDWPE4wt`, centralized in src/lib/deriv-app.ts). Mandatory Deriv API independence disclaimer in footer.
 - Tech Stack: Supabase for auth/db. Vercel deployment with SPA fallback to index.html.
 - WebSocket proxy: Edge Function routes connections, applying 3% commission markup on trades.
 - Digit extraction: globally MUST use `Number(quote).toFixed(2).slice(-1)` so 0.80 → 0 (not 8).
@@ -41,4 +41,5 @@
 - [Forex AI](mem://features/trading-hub/forex-ai) — 28+ currency pairs, SMA momentum, strength score
 - [Probability Engine](mem://features/trading-hub/probability-engine) — 300-tick buffer, top 3 probable digits
 - [Market Tracker](mem://features/landing-page/market-tracker) — Landing page forex monitor, Mon-Fri schedules
+- [Deriv App ID](mem://tech/deriv-app-id) — Current app ID, centralization rule, backend secret
 - [Backend Persistence](mem://tech/backend-persistence) — Supabase tables, security definer for admin updates
