@@ -14,7 +14,7 @@ const Footer = () => (
             <p className="text-gray-400">Sign up for a free demo account and start practicing today!</p>
           </div>
           <a 
-            href="https://deriv.com/?t=xA1buvJrGeASmsCwn5r1F2Nd7ZgqdRLk&utm_source=affiliate_187242&utm_medium=affiliate&utm_campaign=MyAffiliates&utm_content=&referrer=" 
+            href={DERIV_AFFILIATE_LINK} 
             target="_blank" 
             rel="noopener" 
             className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-[#e41f28] text-white font-semibold rounded-lg hover:bg-[#ff3333] transition-colors whitespace-nowrap"
