@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, Menu, X, TrendingUp, LogOut } from "lucide-react";
 import logo from "@/assets/dnexus-logo.png";
 import { supabase } from "@/integrations/supabase/client";
+import { useAppSession } from "@/hooks/use-app-session";
 
 const navItems = [
   { label: "Home", path: "/" },
@@ -32,9 +33,10 @@ const navItems = [
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const { isSignedIn } = useAppSession();
+  const isAuthenticated = isSignedIn;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -44,21 +46,8 @@ const Navbar = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsAuthenticated(!!user);
-    };
-    checkAuth();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
-      setIsAuthenticated(!!session?.user);
-    });
-    return () => subscription.unsubscribe();
-  }, []);
-
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    setIsAuthenticated(false);
   };
 
   return (
