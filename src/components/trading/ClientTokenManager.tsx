@@ -15,7 +15,7 @@ interface ClientToken {
   active: boolean;
 }
 
-const DERIV_APP_ID = "129344";
+import { DERIV_APP_ID } from "@/lib/deriv-app";
 
 const ClientTokenManager = () => {
   const [clients, setClients] = useState<ClientToken[]>(() => {

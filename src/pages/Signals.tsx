@@ -169,7 +169,7 @@ const Signals = () => {
   const [prices, setPrices] = useState<number[]>([]);
   const [connected, setConnected] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [appId, setAppId] = useState<string>("129344");
+  const [appId, setAppId] = useState<string>(DERIV_APP_ID);
   const wsRef = useRef<DerivWebSocket | null>(null);
 
   // Deriv app id is a non-secret platform constant; no backend roundtrip needed.

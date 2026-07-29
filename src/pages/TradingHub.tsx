@@ -45,7 +45,7 @@ import { formatBalance, DERIV_DEPOSIT_URL } from "@/lib/format";
 import { notifications } from "@/services/notifications";
 import type { TokenValidationDebug } from "@/services/deriv-auth";
 
-const DERIV_APP_ID = "129344";
+import { DERIV_APP_ID } from "@/lib/deriv-app";
 
 const sidebarItems = [
   { icon: Home, label: "Home", path: "/" },

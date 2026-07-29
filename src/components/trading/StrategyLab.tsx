@@ -8,7 +8,7 @@ import {
 import { DEFAULT_BRAIN_THRESHOLDS, loadBrainThresholds, saveBrainThresholds } from "@/services/brain-settings";
 
 const DERIV_WS_URL = "wss://ws.derivws.com/websockets/v3";
-const APP_ID = "129344";
+import { DERIV_APP_ID as APP_ID } from "@/lib/deriv-app";
 
 const LAB_MARKETS = [
   { symbol: "R_10", label: "Volatility 10" },
