@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { Mail, Phone, Instagram, Twitter } from "lucide-react";
 import logo from "@/assets/dnexus-logo.png";
-import { DERIV_AFFILIATE_LINK } from "@/lib/deriv-referral";
 
 const Footer = () => (
   <footer className="bg-[#141414] border-t border-gray-800">
@@ -14,7 +13,7 @@ const Footer = () => (
             <p className="text-gray-400">Sign up for a free demo account and start practicing today!</p>
           </div>
           <a 
-            href={DERIV_AFFILIATE_LINK} 
+            href="https://deriv.com/?t=xA1buvJrGeASmsCwn5r1F2Nd7ZgqdRLk&utm_source=affiliate_187242&utm_medium=affiliate&utm_campaign=MyAffiliates&utm_content=&referrer=" 
             target="_blank" 
             rel="noopener" 
             className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-[#e41f28] text-white font-semibold rounded-lg hover:bg-[#ff3333] transition-colors whitespace-nowrap"

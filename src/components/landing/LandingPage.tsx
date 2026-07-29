@@ -9,7 +9,7 @@ import datLeftAsset from "@/assets/landing-dat-left.png.asset.json";
 import heroPersonAsset from "@/assets/landing-hero-person.webp.asset.json";
 import scannerLeftAsset from "@/assets/landing-scanner-left.png.asset.json";
 
-import { DERIV_AFFILIATE_LINK } from "@/lib/deriv-referral";
+const DERIV_AFFILIATE_LINK = "https://deriv.com/?t=xA1buvJrGeASmsCwn5r1F2Nd7ZgqdRLk&utm_source=affiliate_187242&utm_medium=affiliate&utm_campaign=MyAffiliates&utm_content=&referrer=";
 
 const fadeUp = {
   initial: { opacity: 0, y: 30 },
