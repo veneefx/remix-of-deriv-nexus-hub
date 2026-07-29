@@ -1,3 +1,4 @@
+import { DERIV_APP_ID } from "@/lib/deriv-app";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import { HelpCircle, Power, Wifi, WifiOff, RefreshCw } from "lucide-react";
