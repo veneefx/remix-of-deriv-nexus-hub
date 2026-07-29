@@ -8,7 +8,7 @@
 import DerivWebSocket from "@/services/deriv-websocket";
 import { aiLogger } from "@/services/ai-logger";
 
-const DERIV_APP_ID = "129344";
+import { DERIV_APP_ID } from "@/lib/deriv-app";
 
 export interface ClientToken {
   id: string;

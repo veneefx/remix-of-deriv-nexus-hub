@@ -9,7 +9,7 @@ import DerivWebSocket from "@/services/deriv-websocket";
 import { toast } from "@/hooks/use-toast";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
-const DERIV_APP_ID = "129344";
+import { DERIV_APP_ID } from "@/lib/deriv-app";
 
 interface DATTabProps {
   ws: DerivWebSocket | null;

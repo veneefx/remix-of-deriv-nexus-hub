@@ -42,7 +42,7 @@ interface TickStore {
   bias: "bullish" | "bearish" | "neutral";
 }
 
-const DERIV_APP_ID = "129344";
+import { DERIV_APP_ID } from "@/lib/deriv-app";
 const PIE_COLORS = [
   "hsl(var(--primary))", "hsl(142, 71%, 45%)", "hsl(48, 96%, 53%)",
   "hsl(200, 98%, 48%)", "hsl(280, 68%, 55%)", "hsl(330, 80%, 55%)",

@@ -49,7 +49,7 @@ interface MarketRow {
   connected: boolean;
 }
 
-const DERIV_APP_ID = "129344";
+import { DERIV_APP_ID } from "@/lib/deriv-app";
 
 const MarketTracker = () => {
   const [data, setData] = useState<Record<string, MarketRow>>({});

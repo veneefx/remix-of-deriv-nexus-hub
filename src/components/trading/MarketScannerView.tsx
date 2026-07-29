@@ -9,7 +9,7 @@ import { PieChart, Pie, Cell, Tooltip as ReTooltip, ResponsiveContainer, Legend 
 import { MARKET_CATEGORIES, VOLATILITY_MARKETS, type MarketItem } from "@/lib/trading-constants";
 
 const DERIV_WS_URL = "wss://ws.derivws.com/websockets/v3";
-const APP_ID = "129344";
+import { DERIV_APP_ID as APP_ID } from "@/lib/deriv-app";
 
 // Build flat scan list from all categories
 const ALL_SCAN_MARKETS: MarketItem[] = VOLATILITY_MARKETS;
